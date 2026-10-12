@@ -1,0 +1,690 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 77;
+	objects = {
+
+/* Begin PBXBuildFile section */
+		A10000000000000000000001 /* NumaSharedCore in Frameworks */ = {isa = PBXBuildFile; productRef = A10000000000000000000005 /* NumaSharedCore */; };
+		A10000000000000000000002 /* NumaSharedSync in Frameworks */ = {isa = PBXBuildFile; productRef = A10000000000000000000006 /* NumaSharedSync */; };
+		A10000000000000000000007 /* ConvexMobile in Frameworks */ = {isa = PBXBuildFile; productRef = A10000000000000000000009 /* ConvexMobile */; };
+		B20000000000000000000001 /* NumaSharedCore in Frameworks */ = {isa = PBXBuildFile; productRef = A10000000000000000000005 /* NumaSharedCore */; };
+		B20000000000000000000002 /* NumaSharedSync in Frameworks */ = {isa = PBXBuildFile; productRef = A10000000000000000000006 /* NumaSharedSync */; };
+		C30000000000000000000001 /* NumaSharedCore in Embed Frameworks */ = {isa = PBXBuildFile; productRef = A10000000000000000000005 /* NumaSharedCore */; settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }; };
+		C30000000000000000000002 /* NumaSharedSync in Embed Frameworks */ = {isa = PBXBuildFile; productRef = A10000000000000000000006 /* NumaSharedSync */; settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }; };
+/* End PBXBuildFile section */
+
+/* Begin PBXCopyFilesBuildPhase section */
+		C30000000000000000000003 /* Embed Frameworks */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = "";
+			dstSubfolderSpec = 10;
+			files = (
+				C30000000000000000000001 /* NumaSharedCore in Embed Frameworks */,
+				C30000000000000000000002 /* NumaSharedSync in Embed Frameworks */,
+			);
+			name = "Embed Frameworks";
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXCopyFilesBuildPhase section */
+
+/* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
+		D5393C230B4D9CD2C072B526 /* Exceptions for "NumaShared" folder in "NumaShared" target */ = {
+			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
+			membershipExceptions = (
+				Info.plist,
+			);
+			target = B8D204128DFCC9010B5890BC /* NumaShared */;
+		};
+/* End PBXFileSystemSynchronizedBuildFileExceptionSet section */
+
+/* Begin PBXFileSystemSynchronizedRootGroup section */
+		3038724765DC6B7ED59616F6 /* NumaShared */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			exceptions = (
+				D5393C230B4D9CD2C072B526 /* Exceptions for "NumaShared" folder in "NumaShared" target */,
+			);
+			path = NumaShared;
+			sourceTree = "<group>";
+		};
+		384677FC63FB19C1CA85EAE3 /* NumaSharedUITests */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			path = NumaSharedUITests;
+			sourceTree = "<group>";
+		};
+		B20000000000000000000003 /* NumaSharedTests */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			path = NumaSharedTests;
+			sourceTree = "<group>";
+		};
+/* End PBXFileSystemSynchronizedRootGroup section */
+
+/* Begin PBXFrameworksBuildPhase section */
+		0612DD8D62CF4E36E677A2C0 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				A10000000000000000000001 /* NumaSharedCore in Frameworks */,
+				A10000000000000000000002 /* NumaSharedSync in Frameworks */,
+				A10000000000000000000007 /* ConvexMobile in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		2E262D0B1A59F715C95BCCF6 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		B20000000000000000000004 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				B20000000000000000000001 /* NumaSharedCore in Frameworks */,
+				B20000000000000000000002 /* NumaSharedSync in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXFrameworksBuildPhase section */
+
+/* Begin PBXGroup section */
+		7804E6F503B18D39D0E1660A = {
+			isa = PBXGroup;
+			children = (
+				3038724765DC6B7ED59616F6 /* NumaShared */,
+				B20000000000000000000003 /* NumaSharedTests */,
+				384677FC63FB19C1CA85EAE3 /* NumaSharedUITests */,
+				F33613636C4555BC4015129E /* Products */,
+			);
+			sourceTree = "<group>";
+		};
+		F33613636C4555BC4015129E /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				102EDD311C1DC3A577B49F06 /* NumaShared.app */,
+				B20000000000000000000007 /* NumaSharedTests.xctest */,
+				DA99AB4DC022F5BC4582F0B0 /* NumaSharedUITests.xctest */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXNativeTarget section */
+		B8D204128DFCC9010B5890BC /* NumaShared */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = DB23263DE0AAAFEA6BE249EB /* Build configuration list for PBXNativeTarget "NumaShared" */;
+			buildPhases = (
+				EFE10DF3B85B0DA1A913D17E /* Sources */,
+				0612DD8D62CF4E36E677A2C0 /* Frameworks */,
+				C30000000000000000000003 /* Embed Frameworks */,
+				A831DDE0D6594FF19565FE20 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			fileSystemSynchronizedGroups = (
+				3038724765DC6B7ED59616F6 /* NumaShared */,
+			);
+			name = NumaShared;
+			packageProductDependencies = (
+				A10000000000000000000005 /* NumaSharedCore */,
+				A10000000000000000000006 /* NumaSharedSync */,
+				A10000000000000000000009 /* ConvexMobile */,
+			);
+			productName = NumaShared;
+			productReference = 102EDD311C1DC3A577B49F06 /* NumaShared.app */;
+			productType = "com.apple.product-type.application";
+		};
+		2A44E81605C2EE719115150A /* NumaSharedUITests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 5FEF584303530BED927C1E06 /* Build configuration list for PBXNativeTarget "NumaSharedUITests" */;
+			buildPhases = (
+				1C97FCB4BB38F79EF0C433EA /* Sources */,
+				2E262D0B1A59F715C95BCCF6 /* Frameworks */,
+				70BD9AAB22FF40C87E1DB91B /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				6A321A914B219A3EB0E1770E /* PBXTargetDependency */,
+			);
+			fileSystemSynchronizedGroups = (
+				384677FC63FB19C1CA85EAE3 /* NumaSharedUITests */,
+			);
+			name = NumaSharedUITests;
+			packageProductDependencies = (
+			);
+			productName = NumaSharedUITests;
+			productReference = DA99AB4DC022F5BC4582F0B0 /* NumaSharedUITests.xctest */;
+			productType = "com.apple.product-type.bundle.ui-testing";
+		};
+		B20000000000000000000008 /* NumaSharedTests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = B2000000000000000000000D /* Build configuration list for PBXNativeTarget "NumaSharedTests" */;
+			buildPhases = (
+				B20000000000000000000006 /* Sources */,
+				B20000000000000000000004 /* Frameworks */,
+				B20000000000000000000005 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				B2000000000000000000000A /* PBXTargetDependency */,
+			);
+			fileSystemSynchronizedGroups = (
+				B20000000000000000000003 /* NumaSharedTests */,
+			);
+			name = NumaSharedTests;
+			packageProductDependencies = (
+				A10000000000000000000005 /* NumaSharedCore */,
+				A10000000000000000000006 /* NumaSharedSync */,
+			);
+			productName = NumaSharedTests;
+			productReference = B20000000000000000000007 /* NumaSharedTests.xctest */;
+			productType = "com.apple.product-type.bundle.unit-test";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXContainerItemProxy section */
+		25B793EDD58CA66073E5B4BD /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = C6496E94272CBA7BD3E580C5 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = B8D204128DFCC9010B5890BC;
+			remoteInfo = NumaShared;
+		};
+		B20000000000000000000009 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = C6496E94272CBA7BD3E580C5 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = B8D204128DFCC9010B5890BC;
+			remoteInfo = NumaShared;
+		};
+/* End PBXContainerItemProxy section */
+
+/* Begin PBXTargetDependency section */
+		6A321A914B219A3EB0E1770E /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = B8D204128DFCC9010B5890BC /* NumaShared */;
+			targetProxy = 25B793EDD58CA66073E5B4BD /* PBXContainerItemProxy */;
+		};
+		B2000000000000000000000A /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = B8D204128DFCC9010B5890BC /* NumaShared */;
+			targetProxy = B20000000000000000000009 /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
+
+/* Begin PBXProject section */
+		C6496E94272CBA7BD3E580C5 /* Project object */ = {
+			isa = PBXProject;
+			attributes = {
+				BuildIndependentTargetsInParallel = 1;
+				LastSwiftUpdateCheck = 2600;
+				LastUpgradeCheck = 2600;
+				TargetAttributes = {
+					B8D204128DFCC9010B5890BC = {
+						CreatedOnToolsVersion = 26.0;
+						SystemCapabilities = {
+							com.apple.SignInWithApple = {
+								enabled = 1;
+							};
+						};
+					};
+					B20000000000000000000008 = {
+						CreatedOnToolsVersion = 26.0;
+						TestTargetID = B8D204128DFCC9010B5890BC;
+					};
+					2A44E81605C2EE719115150A = {
+						CreatedOnToolsVersion = 26.0;
+						TestTargetID = B8D204128DFCC9010B5890BC;
+					};
+				};
+			};
+			buildConfigurationList = 045362FA87943A3BB7CAAC71 /* Build configuration list for PBXProject "NumaShared" */;
+			developmentRegion = en;
+			hasScannedForEncodings = 0;
+			knownRegions = (
+				en,
+				Base,
+			);
+			mainGroup = 7804E6F503B18D39D0E1660A;
+			minimizedProjectReferenceProxies = 1;
+			preferredProjectObjectVersion = 77;
+			productRefGroup = F33613636C4555BC4015129E /* Products */;
+			packageReferences = (
+				A10000000000000000000003 /* XCLocalSwiftPackageReference "NumaSharedCore" */,
+				A10000000000000000000004 /* XCLocalSwiftPackageReference "NumaSharedSync" */,
+				A10000000000000000000008 /* XCRemoteSwiftPackageReference "convex-swift" */,
+			);
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+				B8D204128DFCC9010B5890BC /* NumaShared */,
+				B20000000000000000000008 /* NumaSharedTests */,
+				2A44E81605C2EE719115150A /* NumaSharedUITests */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXResourcesBuildPhase section */
+		A831DDE0D6594FF19565FE20 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		70BD9AAB22FF40C87E1DB91B /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		B20000000000000000000005 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXResourcesBuildPhase section */
+
+/* Begin PBXSourcesBuildPhase section */
+		EFE10DF3B85B0DA1A913D17E /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		1C97FCB4BB38F79EF0C433EA /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		B20000000000000000000006 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin PBXFileReference section */
+		102EDD311C1DC3A577B49F06 /* NumaShared.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = NumaShared.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		B20000000000000000000007 /* NumaSharedTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = NumaSharedTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		DA99AB4DC022F5BC4582F0B0 /* NumaSharedUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = NumaSharedUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+/* End PBXFileReference section */
+
+/* Begin XCBuildConfiguration section */
+		078D71085E5E75F78527F020 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS = YES;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++20";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_TESTABILITY = YES;
+				ENABLE_USER_SCRIPT_SANDBOXING = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu17;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"DEBUG=1",
+					"$(inherited)",
+				);
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 26.0;
+				LOCALIZATION_PREFERS_STRING_CATALOGS = YES;
+				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
+				MTL_FAST_MATH = YES;
+				ONLY_ACTIVE_ARCH = YES;
+				SDKROOT = iphoneos;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "DEBUG $(inherited)";
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+			};
+			name = Debug;
+		};
+		2204D1E42D02DD79426E698C /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS = YES;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++20";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				ENABLE_NS_ASSERTIONS = NO;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_USER_SCRIPT_SANDBOXING = YES;
+				"EXCLUDED_ARCHS[sdk=iphonesimulator*]" = x86_64;
+				GCC_C_LANGUAGE_STANDARD = gnu17;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 26.0;
+				LOCALIZATION_PREFERS_STRING_CATALOGS = YES;
+				MTL_ENABLE_DEBUG_INFO = NO;
+				MTL_FAST_MATH = YES;
+				SDKROOT = iphoneos;
+				SWIFT_COMPILATION_MODE = wholemodule;
+			};
+			name = Release;
+		};
+		F0CE37030E0BC78BA27F7D81 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_STYLE = Automatic;
+				CODE_SIGN_ENTITLEMENTS = NumaShared/NumaShared.entitlements;
+				CURRENT_PROJECT_VERSION = 12;
+				DEVELOPMENT_ASSET_PATHS = "\"NumaShared/Preview Content\"";
+				DEVELOPMENT_TEAM = 794UJ787LZ;
+				ENABLE_PREVIEWS = YES;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = NumaShared/Info.plist;
+				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
+				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
+				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
+				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
+				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = "UIInterfaceOrientationPortrait";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				NUMA_SHARED_CONVEX_URL = "";
+				NUMA_SHARED_SITE_URL = "";
+				PRODUCT_BUNDLE_IDENTIFIER = tech.arsik.numashared;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_STRICT_CONCURRENCY = complete;
+				SWIFT_VERSION = 6.0;
+				TARGETED_DEVICE_FAMILY = 1;
+			};
+			name = Debug;
+		};
+		2136A8AA15AC6AC4A3DA2A51 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_STYLE = Automatic;
+				CODE_SIGN_ENTITLEMENTS = NumaShared/NumaSharedRelease.entitlements;
+				CURRENT_PROJECT_VERSION = 12;
+				DEVELOPMENT_ASSET_PATHS = "\"NumaShared/Preview Content\"";
+				DEVELOPMENT_TEAM = 794UJ787LZ;
+				ENABLE_PREVIEWS = YES;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = NumaShared/Info.plist;
+				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
+				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
+				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
+				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
+				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = "UIInterfaceOrientationPortrait";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				NUMA_SHARED_CONVEX_URL = "";
+				NUMA_SHARED_SITE_URL = "";
+				PRODUCT_BUNDLE_IDENTIFIER = tech.arsik.numashared;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_STRICT_CONCURRENCY = complete;
+				SWIFT_VERSION = 6.0;
+				TARGETED_DEVICE_FAMILY = 1;
+			};
+			name = Release;
+		};
+		DB926A032C560759E721D1D3 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 12;
+				DEVELOPMENT_TEAM = 794UJ787LZ;
+				GENERATE_INFOPLIST_FILE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 26.0;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = tech.arsik.numashared.uitests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				SWIFT_STRICT_CONCURRENCY = complete;
+				SWIFT_VERSION = 6.0;
+				TARGETED_DEVICE_FAMILY = 1;
+				TEST_TARGET_NAME = NumaShared;
+			};
+			name = Debug;
+		};
+		507AC7A0933C459066E68607 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 12;
+				DEVELOPMENT_TEAM = 794UJ787LZ;
+				GENERATE_INFOPLIST_FILE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 26.0;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = tech.arsik.numashared.uitests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				SWIFT_STRICT_CONCURRENCY = complete;
+				SWIFT_VERSION = 6.0;
+				TARGETED_DEVICE_FAMILY = 1;
+				TEST_TARGET_NAME = NumaShared;
+			};
+			name = Release;
+		};
+		B2000000000000000000000B /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 12;
+				DEVELOPMENT_TEAM = 794UJ787LZ;
+				GENERATE_INFOPLIST_FILE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 26.0;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@loader_path/Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = tech.arsik.numashared.tests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				SWIFT_STRICT_CONCURRENCY = complete;
+				SWIFT_VERSION = 6.0;
+				TARGETED_DEVICE_FAMILY = 1;
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/NumaShared.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/NumaShared";
+			};
+			name = Debug;
+		};
+		B2000000000000000000000C /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 12;
+				DEVELOPMENT_TEAM = 794UJ787LZ;
+				GENERATE_INFOPLIST_FILE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 26.0;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@loader_path/Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = tech.arsik.numashared.tests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				SWIFT_STRICT_CONCURRENCY = complete;
+				SWIFT_VERSION = 6.0;
+				TARGETED_DEVICE_FAMILY = 1;
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/NumaShared.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/NumaShared";
+			};
+			name = Release;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		045362FA87943A3BB7CAAC71 /* Build configuration list for PBXProject "NumaShared" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				078D71085E5E75F78527F020 /* Debug */,
+				2204D1E42D02DD79426E698C /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		DB23263DE0AAAFEA6BE249EB /* Build configuration list for PBXNativeTarget "NumaShared" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				F0CE37030E0BC78BA27F7D81 /* Debug */,
+				2136A8AA15AC6AC4A3DA2A51 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		5FEF584303530BED927C1E06 /* Build configuration list for PBXNativeTarget "NumaSharedUITests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				DB926A032C560759E721D1D3 /* Debug */,
+				507AC7A0933C459066E68607 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		B2000000000000000000000D /* Build configuration list for PBXNativeTarget "NumaSharedTests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				B2000000000000000000000B /* Debug */,
+				B2000000000000000000000C /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+/* End XCConfigurationList section */
+
+/* Begin XCLocalSwiftPackageReference section */
+		A10000000000000000000003 /* XCLocalSwiftPackageReference "NumaSharedCore" */ = {
+			isa = XCLocalSwiftPackageReference;
+			relativePath = ../../NumaSharedCore;
+		};
+		A10000000000000000000004 /* XCLocalSwiftPackageReference "NumaSharedSync" */ = {
+			isa = XCLocalSwiftPackageReference;
+			relativePath = ../../NumaSharedSync;
+		};
+/* End XCLocalSwiftPackageReference section */
+
+/* Begin XCRemoteSwiftPackageReference section */
+		A10000000000000000000008 /* XCRemoteSwiftPackageReference "convex-swift" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/get-convex/convex-swift.git";
+			requirement = {
+				kind = exactVersion;
+				version = 0.8.1;
+			};
+		};
+/* End XCRemoteSwiftPackageReference section */
+
+/* Begin XCSwiftPackageProductDependency section */
+		A10000000000000000000005 /* NumaSharedCore */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = A10000000000000000000003 /* XCLocalSwiftPackageReference "NumaSharedCore" */;
+			productName = NumaSharedCore;
+		};
+		A10000000000000000000006 /* NumaSharedSync */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = A10000000000000000000004 /* XCLocalSwiftPackageReference "NumaSharedSync" */;
+			productName = NumaSharedSync;
+		};
+		A10000000000000000000009 /* ConvexMobile */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = A10000000000000000000008 /* XCRemoteSwiftPackageReference "convex-swift" */;
+			productName = ConvexMobile;
+		};
+/* End XCSwiftPackageProductDependency section */
+	};
+	rootObject = C6496E94272CBA7BD3E580C5 /* Project object */;
+}

@@ -1,0 +1,327 @@
+[
+  {
+    "eventId": "00000000-0000-7000-8000-0000000002bd",
+    "potId": "00000000-0000-7000-8000-000000000001",
+    "actorMemberId": "00000000-0000-7000-8000-000000000002",
+    "occurredAtMillis": 1783815101000,
+    "originatingTimeZone": "Europe/Madrid",
+    "schemaVersion": 1,
+    "payload": {
+      "kind": "expenseAdded",
+      "recordId": "00000000-0000-7000-8000-000000000015",
+      "content": {
+        "expenseKind": "shared",
+        "amount": { "minorUnits": 8640, "currency": { "code": "EUR", "exponent": 2 } },
+        "payerUnitId": "00000000-0000-7000-8000-00000000000a",
+        "allocations": [
+          {
+            "unitId": "00000000-0000-7000-8000-00000000000b",
+            "amount": { "minorUnits": 4320, "currency": { "code": "EUR", "exponent": 2 } }
+          },
+          {
+            "unitId": "00000000-0000-7000-8000-00000000000c",
+            "amount": { "minorUnits": 4320, "currency": { "code": "EUR", "exponent": 2 } }
+          }
+        ]
+      }
+    },
+    "textFields": ["title", "category"],
+    "authoredText": [
+      { "field": "title", "value": "Groceries" },
+      { "field": "category", "value": "Food" }
+    ]
+  },
+  {
+    "eventId": "00000000-0000-7000-8000-0000000002be",
+    "potId": "00000000-0000-7000-8000-000000000001",
+    "actorMemberId": "00000000-0000-7000-8000-000000000002",
+    "occurredAtMillis": 1783815102000,
+    "originatingTimeZone": "Europe/Madrid",
+    "schemaVersion": 1,
+    "payload": {
+      "kind": "expenseRevised",
+      "recordId": "00000000-0000-7000-8000-000000000015",
+      "basis": {
+        "kind": "resolution",
+        "firstEventId": "00000000-0000-7000-8000-00000000028a",
+        "secondEventId": "00000000-0000-7000-8000-00000000028b"
+      },
+      "content": {
+        "kind": "expense",
+        "expenseKind": "personal",
+        "amount": { "minorUnits": 2500, "currency": { "code": "EUR", "exponent": 2 } },
+        "payerUnitId": "00000000-0000-7000-8000-00000000000a",
+        "allocations": [
+          {
+            "unitId": "00000000-0000-7000-8000-00000000000c",
+            "amount": { "minorUnits": 2500, "currency": { "code": "EUR", "exponent": 2 } }
+          }
+        ]
+      }
+    },
+    "textFields": ["title"],
+    "authoredText": [{ "field": "title", "value": "Pharmacy" }]
+  },
+  {
+    "eventId": "00000000-0000-7000-8000-0000000002bf",
+    "potId": "00000000-0000-7000-8000-000000000001",
+    "actorMemberId": "00000000-0000-7000-8000-000000000002",
+    "occurredAtMillis": 1783815103000,
+    "originatingTimeZone": "Europe/Madrid",
+    "schemaVersion": 1,
+    "payload": {
+      "kind": "expenseRevised",
+      "recordId": "00000000-0000-7000-8000-000000000049",
+      "basis": {
+        "kind": "parent",
+        "parentEventId": "00000000-0000-7000-8000-00000000028c"
+      },
+      "content": {
+        "kind": "openingBalance",
+        "entries": [
+          {
+            "unitId": "00000000-0000-7000-8000-00000000000a",
+            "amount": { "minorUnits": 12000, "currency": { "code": "EUR", "exponent": 2 } }
+          },
+          {
+            "unitId": "00000000-0000-7000-8000-00000000000b",
+            "amount": { "minorUnits": -12000, "currency": { "code": "EUR", "exponent": 2 } }
+          }
+        ]
+      }
+    },
+    "textFields": ["title", "note"],
+    "authoredText": [
+      { "field": "title", "value": "Imported opening balance" },
+      { "field": "note", "value": "Corrected from statement" }
+    ]
+  },
+  {
+    "eventId": "00000000-0000-7000-8000-0000000002c0",
+    "potId": "00000000-0000-7000-8000-000000000001",
+    "actorMemberId": "00000000-0000-7000-8000-000000000002",
+    "occurredAtMillis": 1783815104000,
+    "originatingTimeZone": "Europe/Madrid",
+    "schemaVersion": 1,
+    "payload": {
+      "kind": "recordVoided",
+      "recordId": "00000000-0000-7000-8000-000000000015"
+    },
+    "textFields": ["reason"],
+    "authoredText": [{ "field": "reason", "value": "Duplicate" }]
+  },
+  {
+    "eventId": "00000000-0000-7000-8000-0000000002c1",
+    "potId": "00000000-0000-7000-8000-000000000001",
+    "actorMemberId": "00000000-0000-7000-8000-000000000002",
+    "occurredAtMillis": 1783815105000,
+    "originatingTimeZone": "Europe/Madrid",
+    "schemaVersion": 1,
+    "payload": {
+      "kind": "recordRestored",
+      "recordId": "00000000-0000-7000-8000-000000000015"
+    },
+    "textFields": [],
+    "authoredText": []
+  },
+  {
+    "eventId": "00000000-0000-7000-8000-0000000002c2",
+    "potId": "00000000-0000-7000-8000-000000000001",
+    "actorMemberId": "00000000-0000-7000-8000-000000000002",
+    "occurredAtMillis": 1783815106000,
+    "originatingTimeZone": "Europe/Madrid",
+    "schemaVersion": 1,
+    "payload": {
+      "kind": "settlementRecorded",
+      "recordId": "00000000-0000-7000-8000-000000000018",
+      "content": {
+        "amount": { "minorUnits": 7500, "currency": { "code": "EUR", "exponent": 2 } },
+        "fromUnitId": "00000000-0000-7000-8000-00000000000b",
+        "toUnitId": "00000000-0000-7000-8000-00000000000a"
+      }
+    },
+    "textFields": ["title"],
+    "authoredText": [{ "field": "title", "value": "Sam paid the household" }]
+  },
+  {
+    "eventId": "00000000-0000-7000-8000-0000000002c3",
+    "potId": "00000000-0000-7000-8000-000000000001",
+    "actorMemberId": "00000000-0000-7000-8000-000000000002",
+    "occurredAtMillis": 1783815107000,
+    "originatingTimeZone": "Europe/Madrid",
+    "schemaVersion": 1,
+    "payload": {
+      "kind": "settlementFlagged",
+      "recordId": "00000000-0000-7000-8000-000000000018"
+    },
+    "textFields": ["reason"],
+    "authoredText": [{ "field": "reason", "value": "Wrong bank transfer" }]
+  },
+  {
+    "eventId": "00000000-0000-7000-8000-0000000002c4",
+    "potId": "00000000-0000-7000-8000-000000000001",
+    "actorMemberId": "00000000-0000-7000-8000-000000000002",
+    "occurredAtMillis": 1783815108000,
+    "originatingTimeZone": "Europe/Madrid",
+    "schemaVersion": 1,
+    "payload": {
+      "kind": "openingBalanceSet",
+      "recordId": "00000000-0000-7000-8000-000000000049",
+      "content": {
+        "entries": [
+          {
+            "unitId": "00000000-0000-7000-8000-00000000000a",
+            "amount": { "minorUnits": 10000, "currency": { "code": "EUR", "exponent": 2 } }
+          },
+          {
+            "unitId": "00000000-0000-7000-8000-00000000000b",
+            "amount": { "minorUnits": -10000, "currency": { "code": "EUR", "exponent": 2 } }
+          }
+        ]
+      }
+    },
+    "textFields": ["title", "note"],
+    "authoredText": [
+      { "field": "title", "value": "Opening balance" },
+      { "field": "note", "value": "Imported from Splitwise" }
+    ]
+  },
+  {
+    "eventId": "00000000-0000-7000-8000-0000000002c5",
+    "potId": "00000000-0000-7000-8000-000000000001",
+    "actorMemberId": "00000000-0000-7000-8000-000000000002",
+    "occurredAtMillis": 1783815109000,
+    "originatingTimeZone": "Europe/Madrid",
+    "schemaVersion": 1,
+    "payload": {
+      "kind": "memberAdded",
+      "memberId": "00000000-0000-7000-8000-000000000046",
+      "unitId": "00000000-0000-7000-8000-00000000000b",
+      "role": "member"
+    },
+    "textFields": [],
+    "authoredText": []
+  },
+  {
+    "eventId": "00000000-0000-7000-8000-0000000002c6",
+    "potId": "00000000-0000-7000-8000-000000000001",
+    "actorMemberId": "00000000-0000-7000-8000-000000000002",
+    "occurredAtMillis": 1783815110000,
+    "originatingTimeZone": "Europe/Madrid",
+    "schemaVersion": 1,
+    "payload": {
+      "kind": "memberClaimed",
+      "memberId": "00000000-0000-7000-8000-000000000046"
+    },
+    "textFields": [],
+    "authoredText": []
+  },
+  {
+    "eventId": "00000000-0000-7000-8000-0000000002c7",
+    "potId": "00000000-0000-7000-8000-000000000001",
+    "actorMemberId": "00000000-0000-7000-8000-000000000002",
+    "occurredAtMillis": 1783815111000,
+    "originatingTimeZone": "Europe/Madrid",
+    "schemaVersion": 1,
+    "payload": {
+      "kind": "memberClaimReassigned",
+      "memberId": "00000000-0000-7000-8000-000000000046"
+    },
+    "textFields": [],
+    "authoredText": []
+  },
+  {
+    "eventId": "00000000-0000-7000-8000-0000000002c8",
+    "potId": "00000000-0000-7000-8000-000000000001",
+    "actorMemberId": "00000000-0000-7000-8000-000000000002",
+    "occurredAtMillis": 1783815112000,
+    "originatingTimeZone": "Europe/Madrid",
+    "schemaVersion": 1,
+    "payload": {
+      "kind": "memberArchived",
+      "memberId": "00000000-0000-7000-8000-000000000046"
+    },
+    "textFields": ["reason"],
+    "authoredText": [{ "field": "reason", "value": "Moved out" }]
+  },
+  {
+    "eventId": "00000000-0000-7000-8000-0000000002c9",
+    "potId": "00000000-0000-7000-8000-000000000001",
+    "actorMemberId": "00000000-0000-7000-8000-000000000002",
+    "occurredAtMillis": 1783815113000,
+    "originatingTimeZone": "Europe/Madrid",
+    "schemaVersion": 1,
+    "payload": {
+      "kind": "ownershipTransferred",
+      "fromMemberId": "00000000-0000-7000-8000-000000000002",
+      "toMemberId": "00000000-0000-7000-8000-000000000046"
+    },
+    "textFields": [],
+    "authoredText": []
+  },
+  {
+    "eventId": "00000000-0000-7000-8000-0000000002ca",
+    "potId": "00000000-0000-7000-8000-000000000001",
+    "actorMemberId": "00000000-0000-7000-8000-000000000002",
+    "occurredAtMillis": 1783815114000,
+    "originatingTimeZone": "Europe/Madrid",
+    "schemaVersion": 1,
+    "payload": {
+      "kind": "groupChanged",
+      "groups": [
+        {
+          "groupId": "00000000-0000-7000-8000-000000000047",
+          "unitId": "00000000-0000-7000-8000-000000000048",
+          "orderedMemberIds": [
+            "00000000-0000-7000-8000-000000000002",
+            "00000000-0000-7000-8000-000000000046"
+          ],
+          "defaultShareWeight": 2
+        }
+      ]
+    },
+    "textFields": [],
+    "authoredText": []
+  },
+  {
+    "eventId": "00000000-0000-7000-8000-0000000002cb",
+    "potId": "00000000-0000-7000-8000-000000000001",
+    "actorMemberId": "00000000-0000-7000-8000-000000000002",
+    "occurredAtMillis": 1783815115000,
+    "originatingTimeZone": "Europe/Madrid",
+    "schemaVersion": 1,
+    "payload": {
+      "kind": "presetChanged",
+      "name": "Everyone",
+      "orderedUnitIds": [
+        "00000000-0000-7000-8000-00000000000a",
+        "00000000-0000-7000-8000-00000000000b",
+        "00000000-0000-7000-8000-00000000000c"
+      ]
+    },
+    "textFields": [],
+    "authoredText": []
+  },
+  {
+    "eventId": "00000000-0000-7000-8000-0000000002cc",
+    "potId": "00000000-0000-7000-8000-000000000001",
+    "actorMemberId": "00000000-0000-7000-8000-000000000002",
+    "occurredAtMillis": 1783815116000,
+    "originatingTimeZone": "Europe/Madrid",
+    "schemaVersion": 1,
+    "payload": { "kind": "potRenamed", "name": "Casa Mar" },
+    "textFields": [],
+    "authoredText": []
+  },
+  {
+    "eventId": "00000000-0000-7000-8000-0000000002cd",
+    "potId": "00000000-0000-7000-8000-000000000001",
+    "actorMemberId": "00000000-0000-7000-8000-000000000002",
+    "occurredAtMillis": 1783815117000,
+    "originatingTimeZone": "Europe/Madrid",
+    "schemaVersion": 1,
+    "payload": { "kind": "potArchived" },
+    "textFields": ["reason"],
+    "authoredText": [{ "field": "reason", "value": "Household closed" }]
+  }
+]

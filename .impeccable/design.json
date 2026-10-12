@@ -1,0 +1,67 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-09-12T19:53:57.461346+00:00",
+  "title": "Design System: Numa Shared",
+  "extensions": {
+    "typographyMeta": {
+      "display": {
+        "displayName": "Bricolage Grotesque 700",
+        "purpose": "Expressive headings and balance; native Dynamic Type."
+      }
+    },
+    "motion": [
+      {
+        "name": "orb-press",
+        "value": "120ms",
+        "purpose": "Interruptible native press compression; quiet state for Reduce Motion."
+      },
+      {
+        "name": "orb-release",
+        "value": "220ms",
+        "purpose": "Release/open response, no idle loop."
+      }
+    ]
+  },
+  "components": [
+    {
+      "name": "Native Add Expense Row",
+      "kind": "custom",
+      "description": "SwiftUI accessible full-row button with a code-native tactile sphere; not a web component."
+    }
+  ],
+  "narrative": {
+    "northStar": "The shared table",
+    "overview": "Owner-approved September 12, 2026 from the complete interface-v2 canvas. Fun, colorful and social; expression on Home, clarity in financial reviews. Native implementation and verification remain separate.",
+    "keyCharacteristics": [
+      "Butter Home",
+      "Group identity color",
+      "Physical orange orb",
+      "Expressive headings with system controls"
+    ],
+    "rules": [
+      {
+        "name": "Color is identity",
+        "body": "Always name financial direction; color never encodes who owes whom.",
+        "section": "colors"
+      },
+      {
+        "name": "Accessible native response",
+        "body": "Full tap alternatives, reflowing Dynamic Type, reduced motion and opaque fallbacks.",
+        "section": "elevation"
+      },
+      {
+        "name": "Exact reference conformance",
+        "body": "All60approvedstates must map to native evidence. Match fixtures and393x852 normal viewport; inspect pixel overlays. Shared styling alone is not acceptance.",
+        "section": "layout"
+      }
+    ],
+    "dos": [
+      "Follow DESIGN.md and the approved 60-frame source.",
+      "Reserve a safe-area lane for Undo."
+    ],
+    "donts": [
+      "Do not reuse the rejected violet raster.",
+      "Do not rasterize the interface or add decorative idle animation."
+    ]
+  }
+}

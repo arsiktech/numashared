@@ -1,0 +1,39 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  backend:
+    # GitHub-hosted runner, free for public repositories. Never use a self-hosted
+    # runner here: pull requests from forks would run code on it.
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm run backend:typecheck
+      - run: npm run backend:test
+      - run: npm run branding:test
+      - run: npm run build:home:check
+      - run: npm run hygiene:test
+
+  swift-packages:
+    runs-on: macos-26
+    steps:
+      - uses: actions/checkout@v4
+      - run: swift --version
+      - run: swift test --package-path NumaSharedCore
+      - run: swift test --package-path NumaSharedSync

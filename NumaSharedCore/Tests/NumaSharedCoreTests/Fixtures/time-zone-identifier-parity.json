@@ -1,0 +1,12 @@
+[
+  { "name": "utc", "value": "UTC", "isValid": true },
+  { "name": "gmt", "value": "GMT", "isValid": true },
+  { "name": "canonical-region", "value": "Europe/Madrid", "isValid": true },
+  { "name": "foundation-legacy", "value": "Asia/Calcutta", "isValid": true },
+  { "name": "lowercase-region", "value": "europe/madrid", "isValid": false },
+  { "name": "lowercase-utc", "value": "utc", "isValid": false },
+  { "name": "intl-link-alias", "value": "US/Pacific", "isValid": false },
+  { "name": "etc-utc-alias", "value": "Etc/UTC", "isValid": false },
+  { "name": "foundation-unknown-canonical", "value": "Asia/Kolkata", "isValid": false },
+  { "name": "not-a-time-zone", "value": "Today", "isValid": false }
+]

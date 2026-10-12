@@ -1,0 +1,1 @@
+Numa Shared is a household expense ledger: add expenses, split them exactly, see balances, and record settlements. It never moves money.

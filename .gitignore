@@ -1,0 +1,27 @@
+.DS_Store
+xcuserdata/
+DerivedData/
+*.xcuserstate
+build/
+.build/
+
+# Secrets — never commit keys or env
+*.p8
+*.pem
+SECRETS.env
+.env
+.env.*
+!.env.example
+convex/.env.local
+.convex/
+node_modules/
+outputs/
+
+# Local export of the editable interface design proposal.
+/output/pdf/numa-shared-interface-v2.pdf
+
+# Python visual-comparison helper bytecode.
+__pycache__/
+
+# Simplification campaign scratch worktrees
+.worktrees/

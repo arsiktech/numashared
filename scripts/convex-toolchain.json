@@ -1,0 +1,14 @@
+{
+  "backendVersion": "precompiled-2026-07-06-44f7aa7",
+  "convexCliVersion": "1.42.1",
+  "convexRuntimePackageTreeSha256ByName": {
+    "convex": "ec15c0b8c5f46260ed6f1c1f13faa36aed48435a0f47b779b3b7ece913ad0780",
+    "esbuild": "4a98bf939a858c33fadfea8e0bd34ac7681346ec113b113bb8ec96a021606168",
+    "@esbuild/darwin-arm64": "7473bb524b41e1d4a33593bfb22947689aad351f0a1d0cbed41d113340b4d9af",
+    "prettier": "f63df4fb8a35eae2d9fc7bc378f9921c688ad57dfc5514e30d70dfe667f03d2f",
+    "ws": "98c285ffa2ba3214e22d1bddb3785888706596f3a695b60b84a89a527efb21eb"
+  },
+  "backendSha256ByPlatform": {
+    "darwin-arm64": "3d28873cf24019877146367c539104d54a05a9b8ec1b501e503077474c84415d"
+  }
+}

@@ -1,0 +1,21 @@
+{
+  "name": "numa-shared",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "branding:test": "node --test scripts/tests/branding-contract-test.mjs",
+    "hygiene:test": "node --test scripts/tests/public-hygiene-test.mjs",
+    "build:home": "node scripts/build-home.mjs",
+    "build:home:check": "node scripts/build-home.mjs --check",
+    "backend:typecheck": "tsc --project convex/tsconfig.json --noEmit",
+    "backend:test": "vitest run --config vitest.config.ts",
+    "backend:test:watch": "vitest --config vitest.config.ts"
+  },
+  "devDependencies": {
+    "@edge-runtime/vm": "5.0.0",
+    "convex": "1.42.1",
+    "convex-test": "0.0.54",
+    "typescript": "5.9.3",
+    "vitest": "4.1.11"
+  }
+}

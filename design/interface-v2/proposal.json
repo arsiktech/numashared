@@ -1,0 +1,37 @@
+{
+  "version": 2,
+  "status": "owner-approved",
+  "approved": true,
+  "supersedes": "Rejected three-screen violet playful concept",
+  "direction": "The shared table",
+  "platform": "iOS 26+",
+  "language": "en",
+  "artifactType": "code-native editable screen-design canvas; not a Figma document",
+  "screenCount": 60,
+  "frame": {
+    "width": 393,
+    "height": 852
+  },
+  "tokens": {
+    "surface": "#F8F6F0",
+    "ink": "#252B27",
+    "secondaryText": "#62655D",
+    "home": "#F4DE8A",
+    "groupOne": "#D8EF7F",
+    "groupTwo": "#CAB8ED",
+    "orb": "#E9522D",
+    "displayFont": "Bricolage Grotesque 700",
+    "textFont": "iOS system",
+    "contentInset": 25,
+    "minimumTapTarget": 44
+  },
+  "financialData": "synthetic independent fixtures; no private sheet rows",
+  "implementationChanged": false,
+  "rasterGeneration": false,
+  "modelClaim": null,
+  "approval": {
+    "date": "2026-09-12",
+    "statement": "I love it!",
+    "scope": "Visual direction; not native implementation or delivery"
+  }
+}

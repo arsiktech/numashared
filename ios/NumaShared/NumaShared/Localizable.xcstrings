@@ -1,0 +1,705 @@
+{
+  "sourceLanguage" : "en",
+  "strings" : {
+    "%@ would be shared with %@" : {
+
+    },
+    "%lld balance groups" : {
+
+    },
+    "Add a person to create two balance groups." : {
+
+    },
+    "Add at least one person and enter every name." : {
+
+    },
+    "Add person" : {
+
+    },
+    "Confirmed for this pot — never changed automatically" : {
+
+    },
+    "Confirm %@" : {
+
+    },
+    "Suggested from this iPhone — tap to confirm" : {
+
+    },
+    "Continue" : {
+
+    },
+    "Create a pot" : {
+
+    },
+    "Create your pot" : {
+
+    },
+    "Currency" : {
+
+    },
+    "Drag the sphere onto Sam or Maya" : {
+
+    },
+    "Drag people together if they should share one balance." : {
+
+    },
+    "Enter a name for each person." : {
+
+    },
+    "Enter a pot name and your name." : {
+
+    },
+    "EUR €" : {
+
+    },
+    "Into %@" : {
+
+    },
+    "Invites can wait. You can share them from People after setup." : {
+
+    },
+    "Group options for %@" : {
+
+    },
+    "Keep balances separate" : {
+
+    },
+    "Keep at least two balance groups separate." : {
+
+    },
+    "Keep everyone separate" : {
+
+    },
+    "Name" : {
+
+    },
+    "One shared balance" : {
+
+    },
+    "Numa Shared alerts you only when someone else changes your position or a contested record needs your choice. Pushes never include amounts." : {
+
+    },
+    "Notification settings couldn’t be saved. Try again." : {
+
+    },
+    "Notifications" : {
+
+    },
+    "Notifications are allowed on this iPhone." : {
+
+    },
+    "Notifications are off in iPhone Settings." : {
+
+    },
+    "Notifications couldn’t be enabled. Try again." : {
+
+    },
+    "See every balance at a glance. Add an expense by moving one object to the people who shared it." : {
+
+    },
+    "Shared expenses, made clear." : {
+
+    },
+    "Settle %@" : {
+
+    },
+    "Start locally. Sign in only when you invite someone or enable sync." : {
+
+    },
+    "Names are enough — they can join later and claim their history." : {
+
+    },
+    "Owner" : {
+
+    },
+    "Pending — invite anytime" : {
+
+    },
+    "Allow notifications" : {
+
+    },
+    "Mute this pot" : {
+
+    },
+    "Pot name" : {
+
+    },
+    "Saving" : {
+
+    },
+    "Setup couldn’t be saved. Try again." : {
+
+    },
+    "Setup error: %@" : {
+
+    },
+    "Who lives here?" : {
+
+    },
+    "YOU" : {
+
+    },
+    "Your name in this pot" : {
+
+    },
+    "Amount (EUR minor units): %lld" : {
+
+    },
+    "Category" : {
+
+    },
+    "%1$@ %2$@ saved" : {
+
+    },
+    "%1$@ gets back %2$@" : {
+
+    },
+    "%1$@ owes %2$@" : {
+
+    },
+    "%1$@ paid %2$@" : {
+
+    },
+    "%1$@ paid · %2$@ · split %3$lld unit" : {
+
+    },
+    "%1$@ paid · %2$@ · split %3$lld units" : {
+
+    },
+    "%1$@ will still owe %2$@ after this." : {
+
+    },
+    "%1$@ will switch from owing %2$@ to getting back %3$@." : {
+
+    },
+    "%@ flagged" : {
+
+    },
+    "%@ is even" : {
+
+    },
+    "%@ restored" : {
+
+    },
+    "%@ voided" : {
+
+    },
+    "%@ will be even." : {
+
+    },
+    "%lld records waiting" : {
+
+    },
+    "1 record waiting" : {
+
+    },
+    "Access changed" : {
+
+    },
+    "Apple sign in didn’t finish. Try again." : {
+
+    },
+    "Canceling leaves every record on this iPhone." : {
+
+    },
+    "Connecting" : {
+
+    },
+    "Everyone in this pot sees this same synced history." : {
+
+    },
+    "Failed" : {
+
+    },
+    "Failed attempt · %1$@ · by %2$@" : {
+
+    },
+    "Copy details" : {
+
+    },
+    "Paid by" : {
+
+    },
+    "Recorded by" : {
+
+    },
+    "Couldn’t sync" : {
+
+    },
+    "Couldn’t be added" : {
+
+    },
+    "Couldn’t be added — copy the details and contact support." : {
+
+    },
+    "Couldn’t be added — this pot reached its safe record capacity. Copy the details and contact support." : {
+
+    },
+    "Couldn’t be added — you’re no longer a member" : {
+
+    },
+    "Double-tap to keep this pot synced with Sign in with Apple." : {
+
+    },
+    "Double-tap to sign in. Your records remain on this iPhone." : {
+
+    },
+    "Double-tap to retry syncing. Your records remain on this iPhone." : {
+
+    },
+    "Enable sync" : {
+
+    },
+    "Keep %@ synced" : {
+
+    },
+    "Not now" : {
+
+    },
+    "Offline" : {
+
+    },
+    "Only on this iPhone until you enable sync." : {
+
+    },
+    "Sign in couldn’t start. Try again." : {
+
+    },
+    "Sign in required" : {
+
+    },
+    "Sync error: %@" : {
+
+    },
+    "Sync isn’t available right now. Your records are still on this iPhone." : {
+
+    },
+    "Sync session ended. Sign in again to resume." : {
+
+    },
+    "Sync status for %@." : {
+
+    },
+    "Sync paused" : {
+
+    },
+    "Sync setup issue" : {
+
+    },
+    "Synced" : {
+
+    },
+    "Syncing" : {
+
+    },
+    "This keeps your pots synced and tells friends it’s you." : {
+
+    },
+    "This history stays available on this iPhone." : {
+
+    },
+    "This pot belongs to a different account. Sign back in with the original account." : {
+
+    },
+    "This pot reached its safe record capacity. Copy the failed record details and contact support." : {
+
+    },
+    "This record couldn’t be added. It remains on this iPhone; copy its details and contact support." : {
+
+    },
+    "Update Numa Shared to continue syncing this pot." : {
+
+    },
+    "Waiting to sync" : {
+
+    },
+    "Waiting records stay on this iPhone until sync finishes." : {
+
+    },
+    "You’re no longer a member of this pot." : {
+
+    },
+    "Your records are safe here. Retry when you’re online." : {
+
+    },
+    "double entry" : {
+
+    },
+    "Enter what actually changed hands." : {
+
+    },
+    "Edit" : {
+
+    },
+    "Edit attempt · %1$@ · by %2$@" : {
+
+    },
+    "Expense" : {
+
+    },
+    "Flagged" : {
+
+    },
+    "Flag" : {
+
+    },
+    "Flag attempt" : {
+
+    },
+    "Flag attempt · %1$@ · by %2$@" : {
+
+    },
+    "Flag attempt: %@" : {
+
+    },
+    "Paid for the pot" : {
+
+    },
+    "Opening" : {
+
+    },
+    "Opening balance · %@" : {
+
+    },
+    "Personal" : {
+
+    },
+    "Personal · %1$@ paid · %2$@" : {
+
+    },
+    "Please update" : {
+
+    },
+    "Retry" : {
+
+    },
+    "Restore" : {
+
+    },
+    "Restore attempt" : {
+
+    },
+    "Restore attempt · %1$@ · by %2$@" : {
+
+    },
+    "Share details" : {
+
+    },
+    "Some failed records are only on this iPhone." : {
+
+    },
+    "Target record" : {
+
+    },
+    "To" : {
+
+    },
+    "Unavailable" : {
+
+    },
+    "When" : {
+
+    },
+    "Settlement %@ recorded" : {
+
+    },
+    "Settlement · %1$@ · by %2$@" : {
+
+    },
+    "Settled" : {
+
+    },
+    "Settled so far" : {
+
+    },
+    "Failure: %@" : {
+
+    },
+    "Kind: %@" : {
+
+    },
+    "Local event: %@" : {
+
+    },
+    "Numa Shared failed record" : {
+
+    },
+    "Occurred: %@" : {
+
+    },
+    "Target record: %@" : {
+
+    },
+    "Title: %@" : {
+
+    },
+    "Share of expenses" : {
+
+    },
+    "Shared pot change attempt" : {
+
+    },
+    "Today" : {
+
+    },
+    "Update required" : {
+
+    },
+    "Uncategorized" : {
+
+    },
+    "Unknown member" : {
+
+    },
+    "Void" : {
+
+    },
+    "Void attempt · %1$@ · by %2$@" : {
+
+    },
+    "Void attempt: %@" : {
+
+    },
+    "%@ — immutable" : {
+
+    },
+    "Failed record" : {
+
+    },
+    "Expense edit" : {
+
+    },
+    "Opening balance" : {
+
+    },
+    "Opening balance edit" : {
+
+    },
+    "Personal expense" : {
+
+    },
+    "Settlement" : {
+
+    },
+    "Settlement flag" : {
+
+    },
+    "Void attempt" : {
+
+    },
+    "%@ is ready on this iPhone." : {
+
+    },
+    "%@ will appear after a pot owner approves your request." : {
+
+    },
+    "A pot owner must approve this request before any history appears." : {
+
+    },
+    "Ask for a new link or enter another code." : {
+
+    },
+    "Check code" : {
+
+    },
+    "Checking invite" : {
+
+    },
+    "Checking the invitation without opening its history." : {
+
+    },
+    "Close join pot" : {
+
+    },
+    "Confirm the pot before joining." : {
+
+    },
+    "Confirming your place in this pot." : {
+
+    },
+    "Done" : {
+
+    },
+    "Enter another code" : {
+
+    },
+    "Enter the six-letter or number code." : {
+
+    },
+    "Invite code" : {
+
+    },
+    "Invite error: %@" : {
+
+    },
+    "Invite to %@" : {
+
+    },
+    "Invites aren’t available right now. Ask for the code and try again later." : {
+
+    },
+    "Invites aren’t available right now. Try again later." : {
+
+    },
+    "Join a pot" : {
+
+    },
+    "Join this pot" : {
+
+    },
+    "Joining %@" : {
+
+    },
+    "No pot history is opened until the invite is accepted." : {
+
+    },
+    "Open an invite link or enter its short code." : {
+
+    },
+    "Open pot" : {
+
+    },
+    "Pot invitation" : {
+
+    },
+    "Pot joined" : {
+
+    },
+    "Sign out couldn’t finish. Try again." : {
+
+    },
+    "That change couldn’t be verified. Reload this pot." : {
+
+    },
+    "Retrying" : {
+
+    },
+    "This pot couldn’t be removed. Try again." : {
+
+    },
+    "Sign in with Apple to join this pot." : {
+
+    },
+    "Six-letter or number code" : {
+
+    },
+    "The code is six letters or numbers. Spaces and hyphens are okay." : {
+
+    },
+    "The shared history is now available." : {
+
+    },
+    "This invitation can’t be used." : {
+
+    },
+    "This invitation claims the place prepared for you." : {
+
+    },
+    "This invitation expired" : {
+
+    },
+    "This invitation isn’t valid" : {
+
+    },
+    "This invitation was already used" : {
+
+    },
+    "This invitation was withdrawn" : {
+
+    },
+    "This invite couldn’t be checked. Try again." : {
+
+    },
+    "This invite couldn’t be joined. Try again." : {
+
+    },
+    "This iPhone couldn’t register for notifications. It will retry after sync." : {
+
+    },
+    "This link requires a pot owner’s approval." : {
+
+    },
+    "This pot" : {
+
+    },
+    "Too many checks right now" : {
+
+    },
+    "Use another code" : {
+
+    },
+    "Updating notifications" : {
+
+    },
+    "Waiting for approval" : {
+
+    },
+    "You appear to be offline. The code is unchanged." : {
+
+    },
+    "Your existing records remain on this iPhone." : {
+
+    },
+    "your household" : {
+
+    },
+    "Applied for now" : {
+
+    },
+    "Balance impact" : {
+
+    },
+    "Balances stay the same." : {
+
+    },
+    "Choice recorded for %@" : {
+
+    },
+    "Current" : {
+
+    },
+    "More edits are waiting. Choose between these two first." : {
+
+    },
+    "Needs choice" : {
+
+    },
+    "Other version" : {
+
+    },
+    "Paid by %@" : {
+
+    },
+    "REVISION HISTORY" : {
+
+    },
+    "Remove person" : {
+
+    },
+    "Share a balance with %@" : {
+
+    },
+    "The later edit is applied for now. Compare both versions and choose what this record should say." : {
+
+    },
+    "These edits cannot be compared safely on this iPhone. Sync again before choosing." : {
+
+    },
+    "Two edits need your choice" : {
+
+    },
+    "Use %1$@ by %2$@" : {
+
+    },
+    "Use this version" : {
+
+    },
+    "Your pot couldn’t be opened" : {
+
+    },
+    "Your records haven’t been changed. Retry to load the verified copy on this iPhone." : {
+
+    }
+  },
+  "version" : "1.0"
+}

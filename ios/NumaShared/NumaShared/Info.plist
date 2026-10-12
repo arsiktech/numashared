@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>UIAppFonts</key>
+	<array>
+		<string>BricolageGrotesque-Bold.ttf</string>
+	</array>
+	<key>CFBundleDisplayName</key>
+	<string>Numa Shared</string>
+	<key>CFBundleIconName</key>
+	<string>AppIcon</string>
+	<key>ITSAppUsesNonExemptEncryption</key>
+	<false/>
+	<key>NumaSharedConvexURL</key>
+	<string>$(NUMA_SHARED_CONVEX_URL)</string>
+	<key>NumaSharedSiteURL</key>
+	<string>$(NUMA_SHARED_SITE_URL)</string>
+	<key>NumaSharedAppStoreURL</key>
+	<string>$(NUMA_SHARED_APP_STORE_URL)</string>
+	<key>NumaSharedSupportEmail</key>
+	<string>$(NUMA_SHARED_SUPPORT_EMAIL)</string>
+</dict>
+</plist>
