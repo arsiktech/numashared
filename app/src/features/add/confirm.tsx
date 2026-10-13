@@ -50,7 +50,9 @@ export function ConfirmBody({ title, sub, reasons, explain, action, onConfirm, n
       <View style={{ paddingHorizontal: 22, paddingTop: 10 }}>
         <T accessibilityRole="header" style={{ fontFamily: fonts.bold, fontSize: 20, letterSpacing: -0.2 }}>{title}</T>
         <T style={{ fontSize: 14, color: c.ink2, marginTop: 4 }}>{sub}</T>
-        <T style={{ fontFamily: fonts.semibold, fontSize: 13, color: c.ink2, paddingTop: 20, paddingBottom: 8 }}>Why?{needsReason ? '' : ' optional'}</T>
+        <T style={{ fontFamily: fonts.semibold, fontSize: 13, color: c.ink2, paddingTop: 20, paddingBottom: 8 }}>
+          Why?{needsReason ? null : <T style={{ fontSize: 13, color: c.ink2, opacity: 0.8 }}>{'  '}optional</T>}
+        </T>
         <View accessibilityRole="radiogroup" accessibilityLabel="Why" style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
           {reasons.map((r) => (
             <Chip key={r} label={r} on={reason === r} onPress={() => { haptic.tick(); setError(null); setReason(reason === r ? null : r); }} />
