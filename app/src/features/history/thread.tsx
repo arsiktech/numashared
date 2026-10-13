@@ -19,7 +19,7 @@ import {
   dayLabel, FILTERS, isMine, METHOD_LABEL, openingLine, sameDay, seenBy, splitLabel, threadItems,
   type Filter, type ThreadItem,
 } from './model';
-import { setHistoryQuery, useHistoryQuery } from './search';
+import { requestHistorySearch, setHistoryQuery, useHistoryQuery, useHistorySearchOpen } from './search';
 
 export function HistoryThread({ selectedId, onSelect, desk }: { selectedId?: ID | null; onSelect: (id: ID) => void; desk?: boolean }) {
   const { h, ledger, hide } = useHousehold();
@@ -108,9 +108,10 @@ function PhoneHeader({ h, filter, setFilter, query }: { h: Household; filter: Fi
   const { c } = useTheme();
   const insets = useSafeAreaInsets();
   const router = useRouter();
-  const [searching, setSearching] = useState(!!query);
+  const searchOpen = useHistorySearchOpen();
+  const [searching, setSearching] = useState(!!query || searchOpen);
   const back = () => (router.canGoBack() ? router.back() : router.replace('/home'));
-  const closeSearch = () => { setHistoryQuery(''); setSearching(false); };
+  const closeSearch = () => { setHistoryQuery(''); requestHistorySearch(false); setSearching(false); };
 
   if (isAndroid) {
     return (
@@ -164,15 +165,16 @@ function PhoneHeader({ h, filter, setFilter, query }: { h: Household; filter: Fi
 }
 
 function DeskHeader({ filter, setFilter, query }: { filter: Filter; setFilter: (f: Filter) => void; query: string }) {
+  const searchOpen = useHistorySearchOpen();
   return (
     <View style={{ padding: 20, paddingBottom: 8 }}>
       <View style={{ width: '100%', maxWidth: 720, alignSelf: 'center', flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 16, flexWrap: 'wrap' }}>
         <T accessibilityRole="header" style={{ fontFamily: fonts.cond, fontSize: 34, lineHeight: 38 }}>History</T>
         <Filters filter={filter} setFilter={setFilter} />
       </View>
-      {query ? (
+      {query || searchOpen ? (
         <View style={{ width: '100%', maxWidth: 720, alignSelf: 'center', marginTop: 8, flexDirection: 'row' }}>
-          <SearchField query={query} />
+          <SearchField query={query} autoFocus={searchOpen} onDone={() => { setHistoryQuery(''); requestHistorySearch(false); }} />
         </View>
       ) : null}
     </View>

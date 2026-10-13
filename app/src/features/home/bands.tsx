@@ -65,7 +65,9 @@ export function Bands({ h, balances, hide, compact }: { h: Household; balances: 
         </T>
       </View>
 
-      {others.length === 1 ? (
+      {others.length === 0 ? (
+        <AloneBand />
+      ) : others.length === 1 ? (
         <TwoGroupBand h={h} g={others[0]} balances={balances} nameSize={nameSize} square={square} />
       ) : others.map((g, i) => (
         <CompactBand key={g.id} h={h} g={g} first={i === 0} balances={balances} transfers={transfers} mine={mine} last={i === others.length - 1} />
@@ -162,4 +164,17 @@ function CompactBand({ h, g, first, last, balances, transfers, mine }: {
 /** Shrink the ticket number so long amounts fit instead of being cut off. */
 function ticketSize(text: string, max: number, room: number) {
   return Math.max(22, Math.min(max, Math.floor(room / (text.length * 0.6))));
+}
+
+/** A household with only your group: nothing to split yet, so point at adding people. */
+function AloneBand() {
+  const { c } = useTheme();
+  const router = useRouter();
+  return (
+    <View style={{ backgroundColor: c.chip, paddingTop: 58, paddingHorizontal: 22, paddingBottom: 52, minHeight: 230 }}>
+      <T style={{ fontFamily: fonts.cond, fontSize: 48, lineHeight: 50, color: c.ink }}>Who else lives here?</T>
+      <T style={{ fontSize: 15, color: c.ink2, marginTop: 6, maxWidth: 320 }}>Add the people you share costs with. Each one gets a color.</T>
+      <Pill style={{ marginTop: 18 }} label="Add people" onPress={() => router.push('/settings/people')} />
+    </View>
+  );
 }

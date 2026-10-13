@@ -152,15 +152,27 @@ function updateHousehold(id: ID, fn: (h: Household) => Household) {
 
 export function renameHousehold(id: ID, name: string) { updateHousehold(id, (h) => ({ ...h, name })); }
 
+/** The currency is fixed once the first financial record exists. */
+export function setCurrency(id: ID, currency: string) {
+  updateHousehold(id, (h) => (h.events.length ? h : { ...h, currency }));
+}
+
 export function hasFinancialHistory(h: Household) { return h.events.length > 0; }
 
 /** Regroup people. Allowed only before the first financial record (core contract). */
 export function setGroups(id: ID, groups: { memberIds: ID[] }[]) {
   updateHousehold(id, (h) => {
     if (hasFinancialHistory(h)) throw new Error('Groups are fixed once money is recorded.');
-    const next: Group[] = groups.filter((g) => g.memberIds.length).slice(0, MAX_GROUPS).map((g, i) => ({
-      id: h.groups[i]?.id ?? newId('g'), color: GROUP_COLORS[i], memberIds: g.memberIds,
-    }));
+    // Keep each group's id and chosen color when it still holds the same first member.
+    const kept = groups.filter((g) => g.memberIds.length).slice(0, MAX_GROUPS);
+    const used = new Set<Group['color']>();
+    const prior = kept.map((g) => h.groups.find((old) => old.memberIds.includes(g.memberIds[0])));
+    const next: Group[] = kept.map((g, i) => {
+      const before = prior[i] && prior.indexOf(prior[i]) === i ? prior[i] : undefined;
+      const color = before && !used.has(before.color) ? before.color : GROUP_COLORS.find((x) => !used.has(x) && !prior.some((p, j) => j > i && p?.color === x))!;
+      used.add(color);
+      return { id: before?.id ?? newId('g'), color, memberIds: g.memberIds };
+    });
     const people = h.people.map((p) => ({ ...p, groupId: next.find((g) => g.memberIds.includes(p.id))!.id }));
     return { ...h, groups: next, people };
   });

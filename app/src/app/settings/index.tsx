@@ -4,14 +4,14 @@ import { useState } from 'react';
 import { TextInput, View } from 'react-native';
 import { Redirect, useLocalSearchParams, useRouter } from 'expo-router';
 import Constants from 'expo-constants';
-import { getState, hasFinancialHistory, leaveHousehold, renameHousehold, setPrefs, useStore, type Appearance } from '@/store/store';
+import { getState, hasFinancialHistory, leaveHousehold, renameHousehold, setCurrency, setPrefs, useStore, type Appearance } from '@/store/store';
 import { openSheet } from '@/store/ui';
 import { Bell, Check, Download, Eye, House, Lock, Moon, Pencil, People, Share as ShareIcon, VoidX } from '@/ui/icons';
 import { Press, T, Toggle } from '@/ui/primitives';
 import { useTheme } from '@/ui/theme';
 import { fonts, isAndroid, isWeb } from '@/ui/tokens';
 import { useHousehold } from '@/features/hooks';
-import { currencyLabel } from '@/features/onboarding/model';
+import { CURRENCIES, currencyLabel } from '@/features/onboarding/model';
 import { SGroup, SNote, SRow, SettingsShell, useDesk, type DeskSection } from '@/features/settings/parts';
 import { Kbd } from '@/features/web/kbd';
 
@@ -49,6 +49,7 @@ function HouseholdGroup() {
   const { c } = useTheme();
   const router = useRouter();
   const desk = useDesk();
+  const [pickCurrency, setPickCurrency] = useState(false);
   if (!h) return null;
   const locked = hasFinancialHistory(h);
   const groups = h.groups.length;
@@ -60,7 +61,14 @@ function HouseholdGroup() {
         value={isAndroid && !desk ? currencyLabel(h.currency) : `${currencyLabel(h.currency)}`}
         sub={locked ? (isAndroid && !desk ? 'fixed' : 'Fixed after the first expense') : 'Fixed once the first expense is added'}
         right={!isAndroid || desk ? (locked ? <Lock size={16} color={c.ink2} /> : null) : undefined}
-        a11y={`Currency, ${currencyLabel(h.currency)}${locked ? ', fixed because money is recorded' : ''}`} />
+        onPress={locked ? undefined : () => setPickCurrency(!pickCurrency)}
+        a11y={`Currency, ${currencyLabel(h.currency)}${locked ? ', fixed because money is recorded' : '. Change'}`} />
+      {pickCurrency && !locked ? CURRENCIES.map((cur) => (
+        <SRow key={cur.code} label={cur.name} value={cur.code} chevron={false}
+          right={cur.code === h.currency ? <Check size={18} color={c.ink} /> : null}
+          onPress={() => { setCurrency(h.id, cur.code); setPickCurrency(false); }}
+          a11y={`${cur.name}${cur.code === h.currency ? ', selected' : ''}`} />
+      )) : null}
       <SRow label="People and groups" sub={people} icon={<People size={22} color={c.ink2} />} onPress={() => router.push('/settings/people')} />
       <SRow label="Invite people" icon={<ShareIcon size={22} color={c.ink2} />} onPress={() => router.push('/setup/invite')} last />
     </SGroup>

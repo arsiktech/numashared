@@ -1,6 +1,7 @@
 // The web top bar for tablet and desk layouts: brand, household switcher, history search, New expense
 // and the account avatar. It also owns the global keyboard shortcuts: N adds an expense, / searches
 // history, R records a repayment. Shortcuts are ignored while typing or while a sheet is open.
+import { requestHistorySearch } from '@/features/history/search';
 import { useEffect, useRef } from 'react';
 import { View } from 'react-native';
 import { useRouter } from 'expo-router';
@@ -33,7 +34,7 @@ export function WebTopBar() {
       if (busy.current > 0) return;
       const k = e.key.toLowerCase();
       if (k === 'n') { e.preventDefault(); openSheet({ type: 'add' }); }
-      else if (k === '/') { e.preventDefault(); routerRef.current.push('/history?search=1'); }
+      else if (k === '/') { e.preventDefault(); requestHistorySearch(); routerRef.current.navigate('/home'); }
       else if (k === 'r') { e.preventDefault(); openSheet({ type: 'repay' }); }
     };
     window.addEventListener('keydown', onKey);
@@ -56,7 +57,7 @@ export function WebTopBar() {
         <ChevDown size={16} color={c.ink} />
       </Press>
       <View style={{ flex: 1 }} />
-      <Press noScale onPress={() => router.push('/history?search=1')} accessibilityLabel="Search history" accessibilityHint="Shortcut: slash"
+      <Press noScale onPress={() => { requestHistorySearch(); router.navigate('/home'); }} accessibilityLabel="Search history" accessibilityHint="Shortcut: slash"
         style={{ flexShrink: 1, width: 280, height: 40, borderRadius: 20, backgroundColor: c.card, borderWidth: 1, borderColor: c.hair,
           flexDirection: 'row', alignItems: 'center', gap: 10, paddingLeft: 14, paddingRight: 9 }}>
         <Search size={18} color={c.ink2} />
