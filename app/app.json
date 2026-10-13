@@ -46,6 +46,19 @@
     "experiments": {
       "typedRoutes": true,
       "reactCompiler": true
+    },
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "9bd0be32-be67-4d8c-99b2-b63afbf22e36"
+      }
+    },
+    "owner": "arsiktech",
+    "runtimeVersion": {
+      "policy": "sdkVersion"
+    },
+    "updates": {
+      "url": "https://u.expo.dev/9bd0be32-be67-4d8c-99b2-b63afbf22e36"
     }
   }
 }
