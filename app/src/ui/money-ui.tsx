@@ -88,11 +88,16 @@ export function SplitBar({ segments, amount, currency, onShares, onToggle, onExa
   const { c } = useTheme();
   const [width, setWidth] = useState(0);
   const active = segments.filter((sg) => !sg.out);
-  const outW = 0.45; // relative width for a left-out segment
-  const total = segments.reduce((a, sg) => a + (sg.out ? outW : Math.max(sg.share, 1)), 0) || 1;
+  // Every segment keeps a readable minimum width; active ones share the rest by amount.
+  // (A fixed relative weight for left-out segments would be compared with cents and vanish.)
   const gap = 3;
   const usable = Math.max(0, width - gap * (segments.length - 1));
-  const widths = segments.map((sg) => (usable * (sg.out ? outW : Math.max(sg.share, 1))) / total);
+  const minFor = (sg: SplitSegment) => Math.min(sg.out ? 52 : 74, usable / Math.max(segments.length, 1));
+  const mins = segments.map(minFor);
+  const spare = Math.max(0, usable - mins.reduce((a, m) => a + m, 0));
+  const total = active.reduce((a, sg) => a + Math.max(sg.share, 0), 0);
+  const widths = segments.map((sg, i) => mins[i] + (sg.out ? 0 : total > 0 ? (spare * Math.max(sg.share, 0)) / total : spare / Math.max(active.length, 1)));
+  const pxPerCentFor = (a: number, b: number) => (total > 0 ? spare / total : 0) || ((widths[a] + widths[b]) / Math.max(1, segments[a].share + segments[b].share));
 
   // Knob positions between consecutive active segments.
   const knobs: { left: number; a: SplitSegment; b: SplitSegment }[] = [];
@@ -120,7 +125,7 @@ export function SplitBar({ segments, amount, currency, onShares, onToggle, onExa
       ))}
       {showKnobs && onShares && width > 0
         ? knobs.map((k) => (
-          <Knob key={`${k.a.groupId}-${k.b.groupId}`} left={k.left} height={height} pxPerCent={(widths[segments.indexOf(k.a)] + widths[segments.indexOf(k.b)]) / Math.max(1, k.a.share + k.b.share)}
+          <Knob key={`${k.a.groupId}-${k.b.groupId}`} left={k.left} height={height} pxPerCent={pxPerCentFor(segments.indexOf(k.a), segments.indexOf(k.b))}
             pair={[k.a.share, k.b.share]} onMove={(aShare) => {
               const sum = k.a.share + k.b.share;
               const nextA = Math.max(0, Math.min(sum, aShare));

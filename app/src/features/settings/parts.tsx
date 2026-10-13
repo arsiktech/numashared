@@ -146,3 +146,21 @@ export function SettingsShell({ title, back, active, children, footer, onSection
     </View>
   );
 }
+
+/** Quiet information panel; on the desk frame it sits on a card so it stays visible. */
+export function SInfo({ icon, children }: { icon?: ReactNode; children: string }) {
+  const { c } = useTheme();
+  const desk = useDesk();
+  return (
+    <View style={{ flexDirection: 'row', gap: 10, alignItems: 'flex-start', borderRadius: 16, padding: 14, backgroundColor: desk && !c.dark ? c.card : c.chip }}>
+      {icon}
+      <T style={{ flex: 1, fontSize: 14.5, lineHeight: 20 }}>{children}</T>
+    </View>
+  );
+}
+
+/** Background for secondary pills: chip on paper, card on the desk frame. */
+export const usePillBg = () => {
+  const { c } = useTheme();
+  return useDesk() && !c.dark ? c.card : c.chip;
+};

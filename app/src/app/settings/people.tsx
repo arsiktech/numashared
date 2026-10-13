@@ -7,13 +7,13 @@ import { GROUP_COLORS, MAX_GROUPS, type GroupColor, type ID } from '@/core/types
 import { addPerson, hasFinancialHistory, setGroupColor, setGroups } from '@/store/store';
 import { showToast } from '@/store/ui';
 import { Lock } from '@/ui/icons';
-import { Banner, BannerText, haptic, Pill, Press, T } from '@/ui/primitives';
+import { haptic, Pill, Press, T } from '@/ui/primitives';
 import { useTheme } from '@/ui/theme';
 import { alpha, fonts } from '@/ui/tokens';
 import { nameOf, useHousehold } from '@/features/hooks';
 import { Field } from '@/features/onboarding/chrome';
 import { movePerson } from '@/features/onboarding/model';
-import { SettingsShell } from '@/features/settings/parts';
+import { SInfo, SettingsShell, usePillBg } from '@/features/settings/parts';
 
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 const dayMonth = (ts: number) => { const d = new Date(ts); return `${d.getDate()} ${MONTHS[d.getMonth()]}`; };
@@ -27,6 +27,7 @@ export default function PeopleScreen() {
   const [sel, setSel] = useState<ID | null>(null);
   const [adding, setAdding] = useState(false);
   const [newName, setNewName] = useState('');
+  const pillBg = usePillBg();
   if (!h) return <Redirect href="/welcome" />;
   const fixed = hasFinancialHistory(h);
   const full = h.groups.length >= MAX_GROUPS;
@@ -113,28 +114,28 @@ export default function PeopleScreen() {
             onSubmitEditing={add} returnKeyType="done" maxLength={24} autoCapitalize="words" />
           <View style={{ flexDirection: 'row', gap: 8 }}>
             <Pill label="Add" onPress={add} style={{ flex: 1, alignSelf: 'auto' }} />
-            <Pill light label="Cancel" onPress={() => { setAdding(false); setNewName(''); }} style={{ flex: 1, alignSelf: 'auto' }} />
+            <Pill light label="Cancel" onPress={() => { setAdding(false); setNewName(''); }} style={{ flex: 1, alignSelf: 'auto', backgroundColor: pillBg }} />
           </View>
         </View>
       ) : (
         <View style={{ flexDirection: 'row', gap: 8, marginTop: 20 }}>
-          <Pill light label={moving ? 'Done moving' : 'Move someone'} style={{ flex: 1, alignSelf: 'auto', opacity: fixed ? 0.5 : 1 }}
+          <Pill light label={moving ? 'Done moving' : 'Move someone'} style={{ flex: 1, alignSelf: 'auto', opacity: fixed ? 0.5 : 1, backgroundColor: pillBg }}
             accessibilityLabel={fixed ? 'Move someone. Not available once money is recorded' : moving ? 'Done moving' : 'Move someone'}
             onPress={() => { if (fixed) { showToast('Groups are fixed once money is recorded'); return; } setMoving(!moving); setSel(null); }} />
-          <Pill light label="Add someone" style={{ flex: 1, alignSelf: 'auto', opacity: full ? 0.5 : 1 }}
+          <Pill light label="Add someone" style={{ flex: 1, alignSelf: 'auto', opacity: full ? 0.5 : 1, backgroundColor: pillBg }}
             accessibilityLabel={full ? `Add someone. Up to ${MAX_GROUPS} groups` : 'Add someone'}
             onPress={() => { if (full) { showToast(`Up to ${MAX_GROUPS} groups for now`); return; } setAdding(true); setMoving(false); }} />
         </View>
       )}
 
       <View style={{ marginTop: 16 }}>
-        <Banner icon={fixed ? <Lock size={18} color={c.ink2} /> : undefined}>
-          <BannerText rest={fixed
+        <SInfo icon={fixed ? <Lock size={18} color={c.ink2} /> : undefined}>
+          {fixed
             ? 'Groups are fixed now that money is recorded, so every past balance stays explainable. Someone new gets a group of their own.'
             : moving
               ? 'Tap a person, then tap the group they should join. You can move people until the first expense is added.'
-              : 'You can move people until the first expense is added. Someone new gets a group of their own.'} />
-        </Banner>
+              : 'You can move people until the first expense is added. Someone new gets a group of their own.'}
+        </SInfo>
       </View>
     </SettingsShell>
   );

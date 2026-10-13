@@ -67,7 +67,13 @@ export function Sheet({ origin, onClosed, children, background, height = 'full',
 
   useEffect(() => {
     if (!isWeb) return;
-    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') close(); };
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== 'Escape') return;
+      const el = document.activeElement as HTMLElement | null;
+      // Esc inside a text field leaves the field first; a second Esc closes the sheet.
+      if (el && (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA')) { el.blur(); return; }
+      close();
+    };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
   }, [close]);
@@ -103,7 +109,7 @@ export function Sheet({ origin, onClosed, children, background, height = 'full',
   const top = height === 'full' ? Math.max(insets.top - 22, 10) + (isWeb ? 12 : 0) : undefined;
 
   const panelStyle: StyleProp<ViewStyle> = popover && origin
-    ? { position: 'absolute', width: 420, maxWidth: W - 24, left: Math.min(Math.max(12, origin.x - 60), W - 432), top: Math.min(origin.y + origin.r + 8, H - 640), borderRadius: 28, overflow: 'hidden',
+    ? { position: 'absolute', width: 420, maxWidth: W - 24, left: Math.min(Math.max(16, origin.x - 300), W - 436), top: Math.max(16, Math.min(origin.y + origin.r + 12, H - 660)), borderRadius: 28, overflow: 'hidden',
       backgroundColor: background ?? c.bg, shadowColor: '#141814', shadowOpacity: 0.28, shadowRadius: 40, shadowOffset: { width: 0, height: 30 } }
     : { position: 'absolute', left: 0, right: 0, bottom: 0, top, borderTopLeftRadius: 30, borderTopRightRadius: 30, overflow: 'hidden', backgroundColor: background ?? c.bg,
       // No alignSelf here: browsers apply align-self to absolute boxes and would shrink the sheet to
@@ -115,7 +121,7 @@ export function Sheet({ origin, onClosed, children, background, height = 'full',
       <Animated.View style={[{ flex: height === 'full' ? 1 : undefined }, content]}>
         <Ctx.Provider value={{ close }}>
           <View {...pan.panHandlers}>
-            <View style={{ height: 14, alignItems: 'center', justifyContent: 'center' }}>
+            <View style={{ height: popover ? 6 : 14, alignItems: 'center', justifyContent: 'center', opacity: popover ? 0 : 1 }}>
               <View style={{ width: 38, height: 5, borderRadius: 3, backgroundColor: alpha(background && background !== c.bg ? '#000000' : c.ink, 0.22) }} />
             </View>
           </View>

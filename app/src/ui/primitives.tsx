@@ -91,7 +91,7 @@ export function CTA({ label, onPress, variant = 'primary', disabled, icon, acces
         </View>
       ) : null}
       {icon}
-      <T style={{ fontFamily: variant === 'add' ? fonts.bold : fonts.semibold, fontSize: variant === 'add' ? 19 : 17, color: fg }}>{label}</T>
+      <T style={{ fontFamily: variant === 'add' ? fonts.bold : fonts.semibold, fontSize: variant === 'add' ? 19 : 17, color: fg, textAlign: 'center', flexShrink: 1 }}>{label}</T>
       {right}
     </Press>
   );
@@ -276,7 +276,7 @@ export function ListItem({ label, sub, value, onPress, right, danger, last, lead
 
 export const s = StyleSheet.create({
   pill: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, paddingHorizontal: 18, borderRadius: radius.pill, alignSelf: 'flex-start' },
-  cta: { height: 56, borderRadius: radius.cta, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 10, overflow: 'hidden' },
+  cta: { minHeight: 56, paddingVertical: 8, paddingHorizontal: 20, borderRadius: radius.cta, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 10, overflow: 'hidden' },
   ctaAddShadow: { shadowColor: '#C8401F', shadowOpacity: 0.26, shadowRadius: 9, shadowOffset: { width: 0, height: 8 }, elevation: 4 },
   iconBtn: { width: 44, height: 44, borderRadius: 22, alignItems: 'center', justifyContent: 'center' },
   textBtn: { minHeight: 44, minWidth: 44, paddingHorizontal: 6, flexDirection: 'row', alignItems: 'center', gap: 4 },

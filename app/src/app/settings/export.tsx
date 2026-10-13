@@ -11,7 +11,7 @@ import { useTheme } from '@/ui/theme';
 import { fonts, isWeb } from '@/ui/tokens';
 import { useHousehold } from '@/features/hooks';
 import { Caption, Label, Segmented, Select } from '@/features/onboarding/chrome';
-import { SettingsShell } from '@/features/settings/parts';
+import { SettingsShell, usePillBg } from '@/features/settings/parts';
 import { buildCsv, csvFileName, recordsInRange, type Range } from '@/features/settings/csv';
 
 const INCLUDED = ['Every expense and repayment', 'Every edit, with old and new values', 'Voids and their reasons', 'Who added what'];
@@ -23,6 +23,7 @@ export default function ExportScreen() {
   const households = useStore((s) => s.households);
   const [pick, setPick] = useState<string | null>(null);
   const [range, setRange] = useState<Range>('all');
+  const track = usePillBg();
   const h = households.find((x) => x.id === (pick ?? active?.id)) ?? active;
   const { csv, count } = useMemo(() => {
     if (!h) return { csv: '', count: 0 };
@@ -68,7 +69,7 @@ export default function ExportScreen() {
         <Select label="Household" value={h.id} onChange={setPick} disabled={households.length < 2} right={households.length < 2 ? <View /> : undefined}
           options={households.map((x) => ({ value: x.id, label: x.name }))} />
         <Label>Range</Label>
-        <Segmented label="Range" value={range} onChange={setRange}
+        <Segmented label="Range" value={range} onChange={setRange} track={track === c.card ? c.chip2 : undefined}
           options={[{ value: 'month', label: 'This month' }, { value: 'all', label: 'All time' }]} />
         <T accessibilityRole="header" style={{ fontFamily: fonts.semibold, fontSize: 13, color: c.ink2, paddingTop: 18, paddingBottom: 8, paddingHorizontal: 4 }}>Included</T>
         <View style={{ backgroundColor: c.card, borderRadius: 18, overflow: 'hidden' }}>

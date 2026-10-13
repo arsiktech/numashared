@@ -101,13 +101,13 @@ export function Field({ style, inputStyle, ...p }: TextInputProps & { style?: St
 }
 
 /** iOS-style segmented control on a chip track. Each option is a radio. */
-export function Segmented<V extends string>({ options, value, onChange, label }: {
-  options: { value: V; label: string }[]; value: V; onChange: (v: V) => void; label: string;
+export function Segmented<V extends string>({ options, value, onChange, label, track }: {
+  options: { value: V; label: string }[]; value: V; onChange: (v: V) => void; label: string; track?: string;
 }) {
   const { c } = useTheme();
   return (
     <View accessibilityRole="radiogroup" accessibilityLabel={label}
-      style={{ flexDirection: 'row', backgroundColor: c.chip, borderRadius: 14, padding: 3, gap: 3 }}>
+      style={{ flexDirection: 'row', backgroundColor: track ?? c.chip, borderRadius: 14, padding: 3, gap: 3 }}>
       {options.map((o) => {
         const on = o.value === value;
         return (

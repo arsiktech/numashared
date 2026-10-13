@@ -84,7 +84,7 @@ export function Bands({ h, balances, hide, compact }: { h: Household; balances: 
         ) : (
           <>
             <T style={{ fontFamily: fonts.semibold, fontSize: 15, color: c.dark ? c.ink2 : '#595D56' }}>{bal < 0 ? 'owe' : 'get back'}</T>
-            <T numberOfLines={1} adjustsFontSizeToFit style={{ fontFamily: fonts.display, fontSize: compact ? 32 : 40, letterSpacing: -1.2, color: c.dark ? c.ink : '#1E2420', fontVariant: ['tabular-nums'], flexShrink: 1 }}>
+            <T numberOfLines={1} style={{ fontFamily: fonts.display, fontSize: ticketSize(money(h, Math.abs(bal), hide), compact ? 32 : 40, (compact ? 360 : width) - 132 - 110), letterSpacing: -1.2, color: c.dark ? c.ink : '#1E2420', fontVariant: ['tabular-nums'], flexShrink: 1 }}>
               {money(h, Math.abs(bal), hide)}
             </T>
             {bal < 0 ? <ArrowDown size={22} color={c.dark ? c.ink : '#1E2420'} /> : <ArrowUp size={22} color={c.dark ? c.ink : '#1E2420'} />}
@@ -157,4 +157,9 @@ function CompactBand({ h, g, first, last, balances, transfers, mine }: {
       </View>
     </View>
   );
+}
+
+/** Shrink the ticket number so long amounts fit instead of being cut off. */
+function ticketSize(text: string, max: number, room: number) {
+  return Math.max(22, Math.min(max, Math.floor(room / (text.length * 0.6))));
 }
