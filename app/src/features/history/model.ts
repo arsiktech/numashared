@@ -56,19 +56,20 @@ export function seenBy(h: Household, r: LedgerRecord): string | null {
 const quote = (s: string) => `“${s}”`;
 
 /** "€90.00 → €96.00", or the fields that changed when the amount did not. */
-export function changeSummary(changes: FieldChange[]) {
+export function changeSummary(changes: FieldChange[], hide = false) {
   const amount = changes.find((c) => c.field === 'amount');
-  if (amount) return `${amount.from} → ${amount.to}`;
+  if (amount && !hide) return `${amount.from} → ${amount.to}`;
   const names: Record<FieldChange['field'], string> = {
     amount: 'amount', payer: 'who paid', category: 'category', title: 'name', note: 'note', date: 'date', split: 'split',
   };
   return changes.length ? `changed the ${joinNames(changes.map((c) => names[c.field]))}` : 'no changes';
 }
 
-function changeLine(h: Household, r: LedgerRecord, t: LedgerRecord['timeline'][number]): string | null {
-  const title = r.kind === 'settlement' ? `the repayment of ${formatMoney(r.settlement!.amount, h.currency)}` : quote(recordTitle(r));
+function changeLine(h: Household, r: LedgerRecord, t: LedgerRecord['timeline'][number], hide: boolean): string | null {
+  const title = r.kind === 'settlement' ? (hide ? 'a repayment' : `the repayment of ${formatMoney(r.settlement!.amount, h.currency)}`)
+    : r.kind === 'opening' ? 'the opening balance' : quote(recordTitle(r));
   switch (t.type) {
-    case 'edited': return `${personName(h, t.by)} edited ${title}: ${changeSummary(t.changes)}`;
+    case 'edited': return `${personName(h, t.by)} edited ${title}: ${changeSummary(t.changes, hide)}`;
     case 'voided': return `${personName(h, t.by)} voided ${title}: ${t.reason}`;
     case 'restored': return `${personName(h, t.by)} restored ${title}`;
     case 'flagged': return `${personName(h, t.by)} flagged ${title}${t.reason ? `: ${t.reason}` : ''}`;
@@ -77,8 +78,8 @@ function changeLine(h: Household, r: LedgerRecord, t: LedgerRecord['timeline'][n
 }
 
 /** "Opening balance: You + Sam owed Alex + Jo €120.00". */
-export function openingLine(h: Household, r: LedgerRecord) {
-  const parts = r.opening!.entries.map((e) => `${nameOf(h, e.fromGroupId)} owed ${nameOf(h, e.toGroupId)} ${formatMoney(e.amount, h.currency)}`);
+export function openingLine(h: Household, r: LedgerRecord, hide = false) {
+  const parts = r.opening!.entries.map((e) => `${nameOf(h, e.fromGroupId)} owed ${nameOf(h, e.toGroupId)}${hide ? '' : ` ${formatMoney(e.amount, h.currency)}`}`);
   return `Opening balance: ${parts.join('; ')}`;
 }
 
@@ -107,7 +108,7 @@ export function matches(h: Household, r: LedgerRecord, q: string) {
 }
 
 /** Every item of the conversation, oldest first, after the filter and the search. */
-export function threadItems(h: Household, records: LedgerRecord[], filter: Filter, q: string): ThreadItem[] {
+export function threadItems(h: Household, records: LedgerRecord[], filter: Filter, q: string, hide = false): ThreadItem[] {
   const items: ThreadItem[] = [];
   for (const r of records) {
     if (!matches(h, r, q)) continue;
@@ -116,8 +117,8 @@ export function threadItems(h: Household, records: LedgerRecord[], filter: Filte
     if (r.kind === 'opening' && filter === 'all') items.push({ kind: 'opening', key: r.id, at: r.createdAt, record: r });
     if (filter === 'all' || filter === 'changes') {
       for (const t of r.timeline) {
-        const text = changeLine(h, r, t);
-        if (text) items.push({ kind: 'change', key: `${r.id}:${'eventId' in t ? t.eventId : t.at}`, at: t.at, record: r, text });
+        const text = changeLine(h, r, t, hide);
+        if (text) items.push({ kind: 'change', key: `${r.id}:${t.eventId}`, at: t.at, record: r, text });
       }
     }
   }
