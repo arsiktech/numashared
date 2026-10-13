@@ -481,3 +481,7 @@ function NewCategory({ tone: t, value, onChange, onDone, onBack }: {
     </View>
   );
 }
+// QA-TEMP
+import { failNextSaveForQA as __f } from '@/store/store';
+import { openSheet as __o } from '@/store/ui';
+(globalThis as Record<string, unknown>).__qa = { fail: __f, open: __o };

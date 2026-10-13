@@ -14,7 +14,7 @@ import { useSheet } from '@/ui/sheet';
 import { useTheme } from '@/ui/theme';
 import { fonts, isAndroid, isWeb } from '@/ui/tokens';
 import { clock, money, nameOf, personName, recordTitle, useHousehold } from '../hooks';
-import { joinNames, METHOD_LABEL, splitLabel } from '../history/model';
+import { dayMonth, fullDay, isoDay, joinNames, METHOD_LABEL, splitLabel, weekday } from '../history/model';
 
 type Variant = 'sheet' | 'panel';
 
@@ -312,7 +312,9 @@ function Timeline({ h, r, hide, panel }: { h: Household; r: LedgerRecord; hide: 
 
 function timelineRows(h: Household, r: LedgerRecord, hide: boolean, panel: boolean, ink2: string): Row[] {
   const rows: Row[] = [];
-  const entries = r.timeline;
+  // Authors always know their own change; only other people's "seen" is news.
+  const author = new Map(r.timeline.filter((t) => t.type !== 'seen').map((t) => [t.eventId, 'by' in t ? t.by : '']));
+  const entries = r.timeline.filter((t) => t.type !== 'seen' || author.get(t.eventId) !== t.personId);
   for (let i = 0; i < entries.length; i++) {
     const t = entries[i];
     const time = when(t.at);
@@ -324,11 +326,11 @@ function timelineRows(h: Household, r: LedgerRecord, hide: boolean, panel: boole
         break;
       }
       case 'seen': {
-        // People who saw the same change at about the same time read as one line.
+        // People who saw changes at about the same time read as one line.
         const group: Extract<TimelineEntry, { type: 'seen' }>[] = [t];
         while (entries[i + 1]?.type === 'seen') {
           const n = entries[i + 1] as Extract<TimelineEntry, { type: 'seen' }>;
-          if (n.eventId !== t.eventId || n.at - t.at > 120000) break;
+          if (n.at - t.at > 120000) break;
           group.push(n); i++;
         }
         const names = h.people.filter((p) => group.some((g) => g.personId === p.id)).map((p) => personName(h, p.id));
@@ -425,17 +427,11 @@ const startOfDay = (ts: number) => { const d = new Date(ts); return new Date(d.g
 function when(ts: number, now = Date.now()) {
   const days = Math.round((startOfDay(now) - startOfDay(ts)) / 86400000);
   const d = new Date(ts);
-  if (days < 7) return `${d.toLocaleDateString('en-GB', { weekday: 'short' })} ${clock(ts)}`;
-  return `${d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })}, ${clock(ts)}`;
+  if (days < 7) return `${weekday(d)} ${clock(ts)}`;
+  return `${dayMonth(d)}, ${clock(ts)}`;
 }
 
 /** "Sat 11 Oct" from an ISO day. */
-function longDate(iso: string) {
-  const [y, m, d] = iso.split('-').map(Number);
-  return new Date(y, m - 1, d).toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' }).replace(',', '');
-}
+const longDate = (iso: string) => fullDay(isoDay(iso));
 
-function shortIso(iso: string) {
-  const [y, m, d] = iso.split('-').map(Number);
-  return new Date(y, m - 1, d).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' });
-}
+const shortIso = (iso: string) => dayMonth(isoDay(iso));

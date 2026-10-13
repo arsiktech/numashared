@@ -50,7 +50,7 @@ export function HistoryThread({ selectedId, onSelect, desk }: { selectedId?: ID 
         <View accessibilityRole={isWeb ? ('list' as never) : undefined} style={{ gap: 4, width: '100%', maxWidth: desk ? 720 : undefined, alignSelf: 'center' }}>
           {items.length ? items.map((it, i) => (
             <View key={it.key} style={{ gap: 4 }}>
-              {i === 0 || !sameDay(items[i - 1].at, it.at) ? <DaySeparator at={it.at} /> : null}
+              {i === 0 || !sameDay(items[i - 1].at, it.at) ? <DaySeparator at={it.at} desk={!!desk} /> : null}
               <Item h={h} it={it} hide={hide} desk={!!desk} selected={selectedId === it.record.id && it.kind !== 'change'} onSelect={onSelect} />
             </View>
           )) : <EmptyThread empty={empty} query={query} filter={filter} />}
@@ -181,10 +181,10 @@ function DeskHeader({ filter, setFilter, query }: { filter: Filter; setFilter: (
 
 // ---------- items ----------
 
-function DaySeparator({ at }: { at: number }) {
+function DaySeparator({ at, desk }: { at: number; desk: boolean }) {
   const { c } = useTheme();
   return (
-    <T accessibilityRole="header" style={{ alignSelf: 'center', fontFamily: fonts.bold, fontSize: 12.5, color: c.ink2, paddingTop: 8, paddingBottom: 2 }}>{dayLabel(at)}</T>
+    <T accessibilityRole="header" style={{ alignSelf: 'center', fontFamily: fonts.bold, fontSize: 12.5, color: c.ink2, paddingTop: 8, paddingBottom: 2 }}>{dayLabel(at, desk)}</T>
   );
 }
 

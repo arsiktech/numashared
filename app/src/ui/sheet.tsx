@@ -106,7 +106,9 @@ export function Sheet({ origin, onClosed, children, background, height = 'full',
     ? { position: 'absolute', width: 420, maxWidth: W - 24, left: Math.min(Math.max(12, origin.x - 60), W - 432), top: Math.min(origin.y + origin.r + 8, H - 640), borderRadius: 28, overflow: 'hidden',
       backgroundColor: background ?? c.bg, shadowColor: '#141814', shadowOpacity: 0.28, shadowRadius: 40, shadowOffset: { width: 0, height: 30 } }
     : { position: 'absolute', left: 0, right: 0, bottom: 0, top, borderTopLeftRadius: 30, borderTopRightRadius: 30, overflow: 'hidden', backgroundColor: background ?? c.bg,
-      maxWidth: isWeb ? 560 : undefined, alignSelf: 'center', marginHorizontal: 'auto' as never };
+      // No alignSelf here: browsers apply align-self to absolute boxes and would shrink the sheet to
+      // its content. Equal insets plus auto margins already center it under the max width.
+      maxWidth: isWeb ? 560 : undefined, marginHorizontal: 'auto' as never };
 
   const panel = (
     <Animated.View style={[panelStyle, panelDrag, fadeIn]} accessibilityViewIsModal accessibilityLabel={label}>

@@ -1,0 +1,141 @@
+// People and groups: each group as a color card with its color picker and members. Add someone (a
+// new group of their own), and move people between groups while no money is recorded yet.
+import { useState } from 'react';
+import { View } from 'react-native';
+import { Redirect } from 'expo-router';
+import { GROUP_COLORS, MAX_GROUPS, type GroupColor, type ID } from '@/core/types';
+import { addPerson, hasFinancialHistory, setGroupColor, setGroups } from '@/store/store';
+import { showToast } from '@/store/ui';
+import { Lock } from '@/ui/icons';
+import { Banner, BannerText, haptic, Pill, Press, T } from '@/ui/primitives';
+import { useTheme } from '@/ui/theme';
+import { alpha, fonts } from '@/ui/tokens';
+import { nameOf, useHousehold } from '@/features/hooks';
+import { Field } from '@/features/onboarding/chrome';
+import { movePerson } from '@/features/onboarding/model';
+import { SettingsShell } from '@/features/settings/parts';
+
+const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+const dayMonth = (ts: number) => { const d = new Date(ts); return `${d.getDate()} ${MONTHS[d.getMonth()]}`; };
+
+const COLOR_NAMES: Record<GroupColor, string> = { citrus: 'Citrus', lilac: 'Lilac', sky: 'Sky', mint: 'Mint', butter: 'Butter', rose: 'Rose' };
+
+export default function PeopleScreen() {
+  const { h } = useHousehold();
+  const { c, tone } = useTheme();
+  const [moving, setMoving] = useState(false);
+  const [sel, setSel] = useState<ID | null>(null);
+  const [adding, setAdding] = useState(false);
+  const [newName, setNewName] = useState('');
+  if (!h) return <Redirect href="/welcome" />;
+  const fixed = hasFinancialHistory(h);
+  const full = h.groups.length >= MAX_GROUPS;
+  const nm = (pid: ID) => h.people.find((p) => p.id === pid)?.name ?? 'Someone';
+
+  const moveTo = (index: number) => {
+    if (!sel) return;
+    const next = movePerson(h.groups.map((g) => g.memberIds), sel, index);
+    try { setGroups(h.id, next.map((m) => ({ memberIds: m }))); } catch (e) { showToast((e as Error).message); return; }
+    haptic.tick();
+    setSel(null);
+  };
+
+  const add = () => {
+    const v = newName.trim();
+    if (!v) return;
+    if (addPerson(h.id, v)) { showToast(`${v} added in a group of their own`); haptic.success(); }
+    setNewName('');
+    setAdding(false);
+  };
+
+  return (
+    <SettingsShell title="People and groups" back="Settings" active="people">
+      <View style={{ gap: 16, marginTop: 8 }}>
+        {h.groups.map((g, gi) => {
+          const t = tone(g);
+          const target = moving && !!sel && !g.memberIds.includes(sel);
+          return (
+            <View key={g.id} accessibilityLabel={nameOf(h, g)} style={{ borderRadius: 22, padding: 16, paddingTop: 12, backgroundColor: t.band }}>
+              {target ? (
+                <Press noScale onPress={() => moveTo(gi)} accessibilityLabel={`Move ${nm(sel!)} to ${nameOf(h, g)}`}
+                  style={{ position: 'absolute', left: 0, top: 0, right: 0, bottom: 0, borderRadius: 22 }} />
+              ) : null}
+              <View pointerEvents="box-none" style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 4, minHeight: 44 }}>
+                <T pointerEvents="none" style={{ fontFamily: fonts.bold, fontSize: 20, lineHeight: 24, color: t.ink, flexShrink: 1 }}>{nameOf(h, g)}</T>
+                <View accessibilityRole="radiogroup" accessibilityLabel={`Color for ${nameOf(h, g)}`} style={{ flexDirection: 'row', marginRight: -3 }}>
+                  {GROUP_COLORS.map((col) => {
+                    const on = g.color === col;
+                    const owner = h.groups.find((x) => x.id !== g.id && x.color === col);
+                    return (
+                      <Press key={col} noScale disabled={!!owner} onPress={() => { setGroupColor(h.id, g.id, col); haptic.tick(); }}
+                        accessibilityRole="radio" accessibilityState={{ checked: on, disabled: !!owner }}
+                        accessibilityLabel={owner ? `${COLOR_NAMES[col]}, used by ${nameOf(h, owner)}` : COLOR_NAMES[col]}
+                        style={{ width: 30, height: 44, alignItems: 'center', justifyContent: 'center', opacity: owner ? 0.38 : 1 }}>
+                        <View style={{ width: on ? 26 : 22, height: on ? 26 : 22, borderRadius: 13, backgroundColor: tone(col).band,
+                          borderWidth: on ? 2 : 1, borderColor: on ? t.ink : alpha(t.ink, 0.18) }}>
+                          {on ? <View style={{ flex: 1, borderRadius: 11, borderWidth: 2, borderColor: '#FFFFFF' }} /> : null}
+                        </View>
+                      </Press>
+                    );
+                  })}
+                </View>
+              </View>
+              {g.memberIds.map((pid) => {
+                const p = h.people.find((x) => x.id === pid)!;
+                const you = pid === h.youId;
+                const on = sel === pid;
+                const status = you ? 'On this device' : p.joined ? `Joined${p.joinedAt ? ` ${dayMonth(p.joinedAt)}` : ''}` : 'Not joined yet';
+                const row = (
+                  <>
+                    <View style={{ width: 40, height: 40, borderRadius: 20, backgroundColor: on ? t.ink : alpha(t.ink, 0.09), alignItems: 'center', justifyContent: 'center' }}>
+                      <T style={{ fontFamily: fonts.bold, fontSize: 15, color: on ? t.band : t.ink }}>{you ? 'Y' : p.name.slice(0, 1).toUpperCase()}</T>
+                    </View>
+                    <View style={{ flex: 1 }}>
+                      <T style={{ fontFamily: fonts.semibold, fontSize: 16, color: t.ink }}>{p.name}{you ? ' (you)' : ''}</T>
+                      <T style={{ fontFamily: fonts.semibold, fontSize: 12.5, color: t.ink, opacity: 0.72, marginTop: 1 }}>{on ? 'Now tap the group they should join' : status}</T>
+                    </View>
+                  </>
+                );
+                const style = { flexDirection: 'row' as const, alignItems: 'center' as const, gap: 12, minHeight: 64, borderTopWidth: 1, borderTopColor: alpha(t.ink, 0.1) };
+                return moving ? (
+                  <Press key={pid} noScale onPress={() => setSel(on ? null : pid)} accessibilityState={{ selected: on }}
+                    accessibilityLabel={on ? `${p.name}, selected` : `Move ${p.name}`} style={style}>{row}</Press>
+                ) : <View key={pid} accessible accessibilityLabel={`${p.name}${you ? ', you' : ''}, ${status}`} style={style}>{row}</View>;
+              })}
+            </View>
+          );
+        })}
+      </View>
+
+      {adding ? (
+        <View style={{ marginTop: 20, gap: 10 }}>
+          <Field value={newName} onChangeText={setNewName} placeholder="Their name" autoFocus accessibilityLabel="New person’s name"
+            onSubmitEditing={add} returnKeyType="done" maxLength={24} autoCapitalize="words" />
+          <View style={{ flexDirection: 'row', gap: 8 }}>
+            <Pill label="Add" onPress={add} style={{ flex: 1, alignSelf: 'auto' }} />
+            <Pill light label="Cancel" onPress={() => { setAdding(false); setNewName(''); }} style={{ flex: 1, alignSelf: 'auto' }} />
+          </View>
+        </View>
+      ) : (
+        <View style={{ flexDirection: 'row', gap: 8, marginTop: 20 }}>
+          <Pill light label={moving ? 'Done moving' : 'Move someone'} style={{ flex: 1, alignSelf: 'auto', opacity: fixed ? 0.5 : 1 }}
+            accessibilityLabel={fixed ? 'Move someone. Not available once money is recorded' : moving ? 'Done moving' : 'Move someone'}
+            onPress={() => { if (fixed) { showToast('Groups are fixed once money is recorded'); return; } setMoving(!moving); setSel(null); }} />
+          <Pill light label="Add someone" style={{ flex: 1, alignSelf: 'auto', opacity: full ? 0.5 : 1 }}
+            accessibilityLabel={full ? `Add someone. Up to ${MAX_GROUPS} groups` : 'Add someone'}
+            onPress={() => { if (full) { showToast(`Up to ${MAX_GROUPS} groups for now`); return; } setAdding(true); setMoving(false); }} />
+        </View>
+      )}
+
+      <View style={{ marginTop: 16 }}>
+        <Banner icon={fixed ? <Lock size={18} color={c.ink2} /> : undefined}>
+          <BannerText rest={fixed
+            ? 'Groups are fixed now that money is recorded, so every past balance stays explainable. Someone new gets a group of their own.'
+            : moving
+              ? 'Tap a person, then tap the group they should join. You can move people until the first expense is added.'
+              : 'You can move people until the first expense is added. Someone new gets a group of their own.'} />
+        </Banner>
+      </View>
+    </SettingsShell>
+  );
+}

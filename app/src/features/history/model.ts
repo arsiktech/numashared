@@ -125,16 +125,29 @@ export function threadItems(h: Household, records: LedgerRecord[], filter: Filte
   return items.sort((a, b) => a.at - b.at);
 }
 
+const WEEKDAYS = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+
+/** Fixed English labels, so every device prints "Sat 11 Oct" the same way. */
+export const weekday = (d: Date, long = false) => (long ? WEEKDAYS[d.getDay()] : WEEKDAYS[d.getDay()].slice(0, 3));
+/** "11 Oct". */
+export const dayMonth = (d: Date) => `${d.getDate()} ${MONTHS[d.getMonth()]}`;
+/** "Sat 11 Oct". */
+export const fullDay = (d: Date) => `${weekday(d)} ${dayMonth(d)}`;
+/** A Date for an ISO day ("2025-10-11"), at local midnight. */
+export const isoDay = (iso: string) => { const [y, m, d] = iso.split('-').map(Number); return new Date(y, m - 1, d); };
+
 const dayStart = (ts: number) => { const d = new Date(ts); return new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime(); };
 
-/** Day separator: "Today", "Yesterday", a weekday this week, else "Fri 10 Oct". */
-export function dayLabel(ts: number, now = Date.now()) {
+/** Day separator: "Today", "Yesterday", a weekday this week, else "Fri 10 Oct". The desk has room for full dates. */
+export function dayLabel(ts: number, desk = false, now = Date.now()) {
   const diff = Math.round((dayStart(now) - dayStart(ts)) / 86400000);
   const d = new Date(ts);
   if (diff === 0) return 'Today';
+  if (desk) return fullDay(d);
   if (diff === 1) return 'Yesterday';
-  if (diff > 1 && diff < 7) return d.toLocaleDateString('en-GB', { weekday: 'long' });
-  return d.toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' }).replace(',', '');
+  if (diff > 1 && diff < 7) return weekday(d, true);
+  return fullDay(d);
 }
 
 export const sameDay = (a: number, b: number) => dayStart(a) === dayStart(b);
