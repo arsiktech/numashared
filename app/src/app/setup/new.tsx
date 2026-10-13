@@ -51,7 +51,7 @@ export default function NewHousehold() {
 
       <Label>Who lives here?</Label>
       <ListCard>
-        <PersonRow initial={(youName.trim() || 'Y').slice(0, 1).toUpperCase()} value={youName} onChange={setYouName}
+        <PersonRow initial="Y" value={youName} onChange={setYouName}
           placeholder="Your name" suffix="(you)" label="Your name" />
         {others.map((o, i) => (
           <PersonRow key={o.key} inputRef={(r) => { inputs.current.set(o.key, r); }}

@@ -1,7 +1,7 @@
 // Sheets. On phones a sheet grows as a circle from the control that opened it (the orb) and folds
 // back into it on close; dragging the grabber down slides it away. On a desk the Add sheet becomes a
 // popover that grows from the same orb. Reduce Motion replaces both with a short fade.
-import { createContext, useCallback, useContext, useEffect, useRef, useState, type ReactNode } from 'react';
+import { createContext, Fragment, useCallback, useContext, useEffect, useRef, useState, type ReactNode } from 'react';
 import { BackHandler, PanResponder, Platform, StyleSheet, View, type StyleProp, type ViewStyle } from 'react-native';
 import Animated, { Easing, runOnJS, useAnimatedStyle, useSharedValue, withTiming, interpolate } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -129,7 +129,9 @@ export function Sheet({ origin, onClosed, children, background, height = 'full',
         <View style={StyleSheet.absoluteFill} onTouchEnd={() => close()} accessibilityLabel="Close" accessibilityRole="button" />
       </Animated.View>
       {bloom && phase !== 'open' ? (
-        <Animated.View style={[{ position: 'absolute', overflow: 'hidden' }, circle]} pointerEvents="box-none">
+        // Keyed so React never reuses the circle's node for the flat panel: Reanimated sets the
+        // circle's geometry imperatively, and a reused node would keep it after the bloom ends.
+        <Animated.View key="bloom" style={[{ position: 'absolute', overflow: 'hidden' }, circle]} pointerEvents="box-none">
           <Animated.View style={[{ position: 'absolute', width: W, height: H }, inner]} pointerEvents="box-none">
             {panel}
             <Animated.View pointerEvents="none" style={[StyleSheet.absoluteFill, wash]}>
@@ -147,7 +149,7 @@ export function Sheet({ origin, onClosed, children, background, height = 'full',
             </Animated.View>
           </Animated.View>
         </Animated.View>
-      ) : panel}
+      ) : <Fragment key="flat">{panel}</Fragment>}
     </View>
   );
 }

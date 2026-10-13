@@ -1,6 +1,6 @@
 // Base components. Every interactive element is a Pressable with an accessible label,
 // a 44 pt minimum target and a 0.96 press scale.
-import { forwardRef, type ReactNode } from 'react';
+import { forwardRef, useId, type ReactNode } from 'react';
 import {
   Pressable, StyleSheet, Text, View, type PressableProps, type StyleProp, type TextProps,
   type TextStyle, type ViewStyle,
@@ -118,19 +118,22 @@ export function TextButton({ label, onPress, bold, color, icon, style }: {
 // ---------- orb ----------
 
 export function OrbView({ size = 92, plus = 32, pressed }: { size?: number; plus?: number; pressed?: boolean }) {
+  // Each orb needs its own gradient id: on the web, SVG ids are global and a hidden screen's orb
+  // would otherwise own the gradient and leave this one unfilled.
+  const gid = `orbg${useId().replace(/[^a-zA-Z0-9]/g, '')}`;
   return (
     <View style={{ width: size, height: size, borderRadius: size / 2, transform: [{ scale: pressed ? 0.94 : 1 }],
       shadowColor: '#A0320F', shadowOpacity: 0.3, shadowRadius: size / 8, shadowOffset: { width: 0, height: size / 9 }, elevation: 8 }}>
       <Svg width={size} height={size} viewBox="0 0 100 100" style={StyleSheet.absoluteFill}>
         <Defs>
-          <RadialGradient id="orbg" cx="34%" cy="30%" r="75%" fx="34%" fy="30%">
+          <RadialGradient id={gid} cx="34%" cy="30%" r="75%" fx="34%" fy="30%">
             <Stop offset="0" stopColor={orb.stops[0]} />
             <Stop offset="0.3" stopColor={orb.stops[1]} />
             <Stop offset="0.58" stopColor={orb.stops[2]} />
             <Stop offset="1" stopColor={orb.stops[3]} />
           </RadialGradient>
         </Defs>
-        <SvgCircle cx="50" cy="50" r="50" fill="url(#orbg)" />
+        <SvgCircle cx="50" cy="50" r="50" fill={`url(#${gid})`} />
         <Ellipse cx="36" cy="22" rx="16" ry="9.5" fill="rgba(255,255,255,0.55)" transform="rotate(-24 36 22)" />
       </Svg>
       <View style={[StyleSheet.absoluteFill, { alignItems: 'center', justifyContent: 'center' }]}>

@@ -36,8 +36,10 @@ export function ScreenHeader({ title, back = 'Back', onBack, titleSize = 40 }: {
         <Back size={22} color={c.ink} />
         <T style={{ fontSize: 17 }}>{back}</T>
       </Press>
-      <T accessibilityRole="header" maxFontSizeMultiplier={1.4}
-        style={{ fontFamily: fonts.cond, fontSize: titleSize, lineHeight: titleSize * 1.05, marginTop: 8 }}>{title}</T>
+      {title ? (
+        <T accessibilityRole="header" maxFontSizeMultiplier={1.4}
+          style={{ fontFamily: fonts.cond, fontSize: titleSize, lineHeight: titleSize * 1.05, marginTop: 8 }}>{title}</T>
+      ) : null}
     </View>
   );
 }
@@ -93,7 +95,7 @@ export function Field({ style, inputStyle, ...p }: TextInputProps & { style?: St
         onFocus={(e) => { setFocus(true); p.onFocus?.(e); }}
         onBlur={(e) => { setFocus(false); p.onBlur?.(e); }}
         style={[{ fontFamily: fonts.regular, fontSize: 17, color: c.ink, paddingVertical: 14 },
-          isWeb ? ({ outlineStyle: 'none' } as TextStyle) : null, inputStyle]} />
+          isWeb ? ({ outlineStyle: 'none' } as unknown as TextStyle) : null, inputStyle]} />
     </View>
   );
 }
