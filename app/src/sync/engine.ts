@@ -8,6 +8,7 @@ import { LedgerError, reduce } from '../core/ledger';
 import { currencyDigits } from '../core/money';
 import { UNDO_WINDOW_MS } from '../core/undo';
 import type { Group, Household, ID, InviteInfo, LedgerEvent, Person, SyncMeta } from '../core/types';
+import { MAX_GROUP_SIZE } from '../core/types';
 import {
   applyRoster, applyStructure, fromWire, MappingError, redact, stamp, toWire, type RosterEntry,
 } from './mapping';
@@ -77,7 +78,7 @@ export class PrepareError extends Error {
  * household unchanged when it already has them. References inside events are rewritten too.
  */
 export function prepareForSync(h: Household, now = Date.now()): Household {
-  if (h.groups.some((g) => g.memberIds.length > 2)) throw new PrepareError('group-too-large');
+  if (h.groups.some((g) => g.memberIds.length > MAX_GROUP_SIZE)) throw new PrepareError('group-too-large');
   if (h.people.length > 64) throw new PrepareError('too-many-people');
   const map = new Map<string, string>();
   const id = (old: string) => {
@@ -146,7 +147,7 @@ function structuralEnvelope(h: Household, setup: Setup, eventId: ID, schema: 1 |
 }
 
 function couples(h: Household): WireSettlementGroup[] {
-  return h.groups.filter((g) => g.memberIds.length === 2).map((g) => ({
+  return h.groups.filter((g) => g.memberIds.length > 1).map((g) => ({
     groupId: g.serverGroupId!, unitId: g.id, orderedMemberIds: [...g.memberIds], defaultShareWeight: 1n,
   }));
 }
@@ -606,13 +607,13 @@ export async function renameOnline(backend: Backend, access: Access, householdId
   await pull(backend, access, householdId);
 }
 
-/** Regroups people before any money is recorded. Groups are one or two people. */
+/** Regroups people before any money is recorded. A group is one to six people. */
 export async function regroupOnline(backend: Backend, access: Access, householdId: ID, arrangement: ID[][], now = Date.now()) {
   const h = access.get(householdId)!;
-  if (arrangement.some((g) => g.length > 2)) throw new PrepareError('group-too-large');
+  if (arrangement.some((g) => g.length > MAX_GROUP_SIZE)) throw new PrepareError('group-too-large');
   const topology = await backend.query<{ revision: bigint }>('members:getBudgetGroupTopology', { potId: h.id });
-  const groups: WireSettlementGroup[] = arrangement.filter((m) => m.length === 2).map((members) => {
-    const same = h.groups.find((g) => g.serverGroupId && g.memberIds.length === 2 && members.every((m) => g.memberIds.includes(m)));
+  const groups: WireSettlementGroup[] = arrangement.filter((m) => m.length > 1).map((members) => {
+    const same = h.groups.find((g) => g.serverGroupId && g.memberIds.length === members.length && members.every((m) => g.memberIds.includes(m)));
     return same
       ? { groupId: same.serverGroupId!, unitId: same.id, orderedMemberIds: [...members], defaultShareWeight: 1n }
       : { groupId: uuidv7(now), unitId: uuidv7(now), orderedMemberIds: [...members], defaultShareWeight: 1n };

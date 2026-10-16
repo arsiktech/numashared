@@ -1,7 +1,7 @@
 // Pure helpers for the setup screens: common currencies, regrouping people by taps, and the
 // deterministic invite pattern.
 import type { ID } from '@/core/types';
-import { MAX_GROUPS } from '@/core/types';
+import { MAX_GROUP_SIZE, MAX_GROUPS } from '@/core/types';
 
 export const CURRENCIES: { code: string; name: string }[] = [
   { code: 'EUR', name: 'Euro' },
@@ -26,8 +26,7 @@ export const currencyLabel = (code: string) => {
 
 export type Arrangement = ID[][];
 
-/** People who pay as one: a group is one or two people (a couple). */
-export const MAX_GROUP_SIZE = 2;
+export { MAX_GROUP_SIZE } from '@/core/types';
 
 /** Move a person into group `target` (an index) or into a new group ('new'). Empty groups drop out. */
 export function movePerson(groups: Arrangement, personId: ID, target: number | 'new'): Arrangement {

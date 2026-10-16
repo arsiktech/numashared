@@ -8,6 +8,8 @@ export type ID = string;
 export type GroupColor = 'citrus' | 'lilac' | 'sky' | 'mint' | 'butter' | 'rose';
 export const GROUP_COLORS: readonly GroupColor[] = ['citrus', 'lilac', 'sky', 'mint', 'butter', 'rose'];
 export const MAX_GROUPS = GROUP_COLORS.length;
+/** People who pay as one (a single person, a couple, a family). The backend allows the same. */
+export const MAX_GROUP_SIZE = 6;
 
 export type Person = {
   id: ID;

@@ -9,7 +9,7 @@ import type {
   Category, ExpenseContent, Household, ID, LedgerEvent, OpeningEntry, PaymentMethod, Person, Group,
   SettlementContent, Split,
 } from '@/core/types';
-import { GROUP_COLORS, MAX_GROUPS } from '@/core/types';
+import { GROUP_COLORS, MAX_GROUP_SIZE, MAX_GROUPS } from '@/core/types';
 import { newId, inviteCode, todayISO } from './ids';
 import { stamp } from '../sync/mapping';
 import { isSending } from '../sync/engine';
@@ -183,13 +183,13 @@ export function setGroups(id: ID, groups: { memberIds: ID[] }[]) {
 }
 
 /**
- * The household with people arranged into `groups` (one or two people each). A one-person group is
- * keyed by that person's settlement unit; a pair keeps its ids while it holds the same two people.
+ * The household with people arranged into `groups` (one to six people each). A one-person group is
+ * keyed by that person's settlement unit; a shared group keeps its ids while it holds the same people.
  */
 export function regroup(h: Household, groups: { memberIds: ID[] }[]): Household {
   if (hasFinancialHistory(h)) throw new Error('Groups are fixed once money is recorded.');
   const kept = groups.filter((g) => g.memberIds.length).slice(0, MAX_GROUPS);
-  if (kept.some((g) => g.memberIds.length > 2)) throw new Error('A group is one or two people.');
+  if (kept.some((g) => g.memberIds.length > MAX_GROUP_SIZE)) throw new Error(`A group is up to ${MAX_GROUP_SIZE} people.`);
   const used = new Set<Group['color']>();
   const prior = kept.map((g) => h.groups.find((old) => old.memberIds.includes(g.memberIds[0])));
   const next: Group[] = kept.map((g, i) => {
@@ -200,7 +200,7 @@ export function regroup(h: Household, groups: { memberIds: ID[] }[]): Household 
       const person = h.people.find((p) => p.id === g.memberIds[0]);
       return { id: person?.unitId ?? before?.id ?? newId('g'), color, memberIds: g.memberIds };
     }
-    const samePair = h.groups.find((old) => old.memberIds.length === 2 && g.memberIds.every((m) => old.memberIds.includes(m)));
+    const samePair = h.groups.find((old) => old.memberIds.length > 1 && old.memberIds.length === g.memberIds.length && g.memberIds.every((m) => old.memberIds.includes(m)));
     return samePair
       ? { id: samePair.id, serverGroupId: samePair.serverGroupId ?? newId('sg'), color, memberIds: g.memberIds }
       : { id: newId('g'), serverGroupId: newId('sg'), color, memberIds: g.memberIds };

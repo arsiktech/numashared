@@ -54,5 +54,5 @@ How it behaves:
 
 Limits for now:
 - Sign in with Apple works only in an iPhone build with the bundle id `tech.arsik.numashared` (the backend accepts one Apple audience). It does not work inside Expo Go, on Android or on the web, where households stay on the device. Android and web sign-in need a second sign-in method or an Apple Services ID on the backend.
-- Groups are one or two people (a couple), as the backend models them.
+- A group is one to six people who pay as one (a single person, a couple, a family).
 - Push notifications use APNs directly (iPhone only).

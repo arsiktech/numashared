@@ -41,7 +41,7 @@ export default function PeopleScreen() {
     if (!sel) return;
     const before = h.groups.map((g) => g.memberIds);
     const next = movePerson(before, sel, index);
-    if (next === before) { showToast('A group is one or two people who pay as one'); return; }
+    if (next === before) { showToast('A group is up to six people who pay as one'); return; }
     if (shared) {
       try { await online.regroup(h, next); } catch (e) { showToast(explainFailure(failureOf(e).code)); return; }
     } else {

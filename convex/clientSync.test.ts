@@ -22,6 +22,8 @@ import { isUuidv7 } from "../app/src/sync/uuid";
 import terminalCodes from "../contracts/event-terminal-codes.json";
 import { TERMINAL_EVENT_CODES } from "../app/src/sync/terminal";
 import { KNOWN_TIME_ZONES } from "../app/src/sync/timezones";
+import { MAX_GROUP_SIZE } from "../app/src/core/types";
+import { maximumBudgetGroupSize } from "./lib/budgetGroupTopology";
 import { ios18TimeZoneIdentifiers } from "./lib/ios18TimeZoneIdentifiers";
 import schema from "./schema";
 import { modules } from "./test.setup";
@@ -131,6 +133,35 @@ describe("app sync engine against the backend", () => {
   test("client contract copies match the backend", () => {
     expect([...TERMINAL_EVENT_CODES].sort()).toEqual([...terminalCodes].sort());
     expect([...KNOWN_TIME_ZONES].sort()).toEqual([...ios18TimeZoneIdentifiers].sort());
+    expect(MAX_GROUP_SIZE).toBe(maximumBudgetGroupSize);
+  });
+
+  test("a household with a group of three shares and syncs", async () => {
+    const t = convexTest(schema, modules);
+    const ana = await signIn(t, "ana");
+    const phoneA = phone();
+    const local = localHousehold();
+    phoneA.put({
+      ...local,
+      people: [...local.people.map((p) => (p.id === "p_leo" ? { ...p, groupId: "g_couple" } : p)),
+        { id: "p_zoe", name: "Zoe", groupId: "g_zoe", joined: false }],
+      groups: [
+        { id: "g_couple", color: "citrus", memberIds: ["p_you", "p_mia", "p_leo"] },
+        { id: "g_zoe", color: "lilac", memberIds: ["p_zoe"] },
+      ],
+      events: local.events.map((e) => (e.kind === "expenseAdded"
+        ? { ...e, content: { ...e.content, split: { mode: "equal" as const, groupIds: ["g_couple", "g_zoe"], weighting: "person" as const } } }
+        : e)),
+    });
+    const id = await startSync(ana, phoneA, "h_local");
+    await pull(ana, phoneA, id);
+    const a = phoneA.get(id)!;
+    const family = a.groups.find((g) => g.memberIds.length === 3)!;
+    expect(family.serverGroupId).toBeDefined();
+    expect(a.events[0].seq).toBeGreaterThan(0);
+    // Per-person weighting: the family carries three quarters of the 90.00.
+    const zoeUnit = a.groups.find((g) => g.memberIds.length === 1)!.id;
+    expect(balances(a)).toEqual({ [family.id]: 2_250, [zoeUnit]: -2_250 });
   });
 
   test("two phones create, invite, join, record and always agree", async () => {

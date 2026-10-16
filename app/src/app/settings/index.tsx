@@ -189,7 +189,7 @@ function AccountGroup() {
   const share = async () => {
     setBusy(true);
     try { await turnOnSync(h.id); showToast(`${h.name} is shared. Invite people from Invite people.`); }
-    catch (e) { showToast((e as Error).message === 'group-too-large' ? 'A group can be one or two people. Change the groups first.' : explainFailure(failureOf(e).code)); }
+    catch (e) { showToast((e as Error).message === 'group-too-large' ? 'A group can be up to six people. Change the groups first.' : explainFailure(failureOf(e).code)); }
     finally { setBusy(false); }
   };
   return (

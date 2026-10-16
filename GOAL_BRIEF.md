@@ -8,7 +8,7 @@ financial, privacy, accessibility or release safeguards.
 ## 1. Outcome and plan
 
 A polished, free, English native iPhone beta for **iOS 26 and later**. People enter
-purchases; one-person or couple budget groups own balances. Show who owes whom,
+purchases; budget groups of one to six people own balances. Show who owes whom,
 how much and why, and record repayments made elsewhere. Never move money.
 
 The owner explicitly wants **fun, colorful and social**, not a serious, muted
