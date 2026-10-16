@@ -16,6 +16,10 @@ export type Person = {
   /** False while the person is invited but has not joined from their own device. */
   joined: boolean;
   joinedAt?: number;
+  /** Personal settlement unit on the server. A person alone in a group pays through it. */
+  unitId?: ID;
+  /** Left the household: history keeps their name, they can no longer be picked. */
+  archived?: boolean;
 };
 
 /** People who pay as one (a couple) or a single person. One balance per group. */
@@ -23,6 +27,8 @@ export type Group = {
   id: ID;
   color: GroupColor;
   memberIds: ID[];
+  /** Server identity of a two-person group (its unit is `id`). Absent for one-person groups. */
+  serverGroupId?: ID;
 };
 
 export type Category =
@@ -60,11 +66,26 @@ export type SettlementContent = {
 export type OpeningEntry = { fromGroupId: ID; toGroupId: ID; amount: Cents };
 export type OpeningContent = { entries: OpeningEntry[]; note?: string; date: string };
 
-type Base = { id: ID; at: number; by: ID };
+type Base = {
+  id: ID;
+  /** When it was recorded (server time once synced). */
+  at: number;
+  by: ID;
+  /** Server sequence once the server has accepted the event; absent while it waits to be sent. */
+  seq?: number;
+  /** The wire occurredAtMillis and time zone, fixed at creation so a resend is byte-identical. */
+  occurredAt?: number;
+  tz?: string;
+};
+
+/** Which revision an edit replaces. `resolution` settles two competing edits. */
+export type RevisionBasis =
+  | { kind: 'parent'; parentEventId: ID }
+  | { kind: 'resolution'; firstEventId: ID; secondEventId: ID };
 
 export type LedgerEvent =
   | (Base & { kind: 'expenseAdded'; recordId: ID; content: ExpenseContent })
-  | (Base & { kind: 'expenseRevised'; recordId: ID; content: ExpenseContent; reason?: string })
+  | (Base & { kind: 'expenseRevised'; recordId: ID; content: ExpenseContent; reason?: string; basis?: RevisionBasis })
   | (Base & { kind: 'openingBalanceSet'; recordId: ID; content: OpeningContent })
   | (Base & { kind: 'settlementRecorded'; recordId: ID; content: SettlementContent })
   | (Base & { kind: 'settlementFlagged'; recordId: ID; reason?: string })
@@ -87,6 +108,40 @@ export type Household = {
   seen: Record<ID, Record<ID, number>>;
   /** Invite code shown on the Invite screen. */
   inviteCode: string;
+  /** Present once the household lives on the server. */
+  sync?: SyncMeta;
+};
+
+export type InviteInfo = { inviteId: ID; code: string; token: string; expiresAt: number; issued?: boolean };
+
+export type SyncMeta = {
+  /** Your member role on the server. */
+  role: 'owner' | 'member';
+  /** Wire schema for new events (2 for budget-group households). */
+  schema: 1 | 2;
+  /** Pull cursors. */
+  lastSeq: number;
+  lastTextRev: number;
+  /** Set when the server refused something that needs a person to sort out. */
+  paused?: { code: string; at: number };
+  /** Per-person invites this device issued (owner only). */
+  invites?: Record<ID, InviteInfo>;
+  /** Local events the server rejected for good, kept so the UI can say what didn't save. */
+  rejected?: { eventId: ID; code: string; label: string; at: number }[];
+  /** Server events this app can't show (made by a newer or older app). */
+  unreadable?: number;
+  /**
+   * Until the household is on the server: the ids and time of its setup events, fixed so a
+   * retried upload is identical to the first try.
+   */
+  setup?: {
+    at: number;
+    tz: string;
+    renameEventId: ID;
+    memberEventIds: Record<ID, ID>;
+    groupEventId: ID;
+    financialEventIds: ID[];
+  };
 };
 
 // ---------- derived ----------

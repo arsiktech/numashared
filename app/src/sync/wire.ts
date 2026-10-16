@@ -56,6 +56,8 @@ export type TextState = { field: TextField; state: 'present'; value: string } | 
 export type ListedEvent = {
   event: Omit<WireEvent, 'authoredText'> & { authoredText: []; legacyAuthoredText?: true };
   serverSequence: bigint;
+  /** Server time of sequencing; older deployments omit it. */
+  recordedAtMillis?: number;
   textStates: TextState[];
 };
 

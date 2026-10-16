@@ -237,6 +237,7 @@ describe("Swift and Convex v1 wire contract", () => {
       expect(listed.events[index]).toEqual({
         event: { ...uploaded, authoredText: [] },
         serverSequence: BigInt(index + 1),
+        recordedAtMillis: expect.any(Number),
         textStates: uploaded.authoredText.map(({ field, value }) => ({
           field,
           state: "present",
