@@ -79,5 +79,5 @@ export function authored(text: Partial<Record<TextField, string | undefined>>) {
 }
 
 // Matches the backend's Foundation whitespace set (JavaScript trim() differs).
-const BLANK = /^[\u0009-\u000D \u0085   -​ -   　]*$/u;
+const BLANK = /^[\u0009-\u000D\u0020\u0085\u00A0\u1680\u2000-\u200B\u2028-\u2029\u202F\u205F\u3000]*$/u;
 export const isPresent = (s: string | undefined): s is string => typeof s === 'string' && !BLANK.test(s) && s !== REDACTED;
