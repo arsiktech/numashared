@@ -40,7 +40,14 @@ jobs:
         with:
           node-version: 22
           cache: npm
+          cache-dependency-path: |
+            package-lock.json
+            app/package-lock.json
       - run: npm ci
+      # convex/clientSync.test.ts runs the app's sync engine against the backend; the app's
+      # TypeScript config comes from its own dependencies.
+      - run: npm ci
+        working-directory: app
       - run: npm run backend:typecheck
       - run: npm run backend:test
       - run: npm run branding:test
