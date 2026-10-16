@@ -11,6 +11,8 @@ import type {
 } from '@/core/types';
 import { GROUP_COLORS, MAX_GROUPS } from '@/core/types';
 import { newId, inviteCode, todayISO } from './ids';
+import { stamp } from '../sync/mapping';
+import { isSending } from '../sync/engine';
 
 export type Appearance = 'system' | 'light' | 'dark';
 
@@ -124,7 +126,8 @@ export function createHousehold(input: NewHouseholdInput): ID {
     const gid = newId('g');
     const pid = newId('p');
     groups.push({ id: gid, color: GROUP_COLORS[groups.length % GROUP_COLORS.length], memberIds: [pid] });
-    people.push({ id: pid, name: name.trim(), groupId: gid, joined, joinedAt: joined ? now : undefined });
+    // A one-person group's id is that person's settlement unit.
+    people.push({ id: pid, name: name.trim(), groupId: gid, joined, joinedAt: joined ? now : undefined, unitId: gid });
     return pid;
   };
   const youId = add(input.youName || 'You', true);
@@ -152,6 +155,21 @@ function updateHousehold(id: ID, fn: (h: Household) => Household) {
 
 export function renameHousehold(id: ID, name: string) { updateHousehold(id, (h) => ({ ...h, name })); }
 
+/** For the sync runtime: replace (or add) a household as the server shaped it. */
+export function putHousehold(h: Household) {
+  const exists = state.households.some((x) => x.id === h.id);
+  set({
+    ...state,
+    households: exists ? state.households.map((x) => (x.id === h.id ? h : x)) : [...state.households, h],
+    activeId: state.activeId ?? h.id,
+  });
+}
+
+export function removeHousehold(id: ID) {
+  const rest = state.households.filter((h) => h.id !== id);
+  set({ ...state, households: rest, activeId: state.activeId === id ? (rest[0]?.id ?? null) : state.activeId });
+}
+
 /** The currency is fixed once the first financial record exists. */
 export function setCurrency(id: ID, currency: string) {
   updateHousehold(id, (h) => (h.events.length ? h : { ...h, currency }));
@@ -161,21 +179,34 @@ export function hasFinancialHistory(h: Household) { return h.events.length > 0; 
 
 /** Regroup people. Allowed only before the first financial record (core contract). */
 export function setGroups(id: ID, groups: { memberIds: ID[] }[]) {
-  updateHousehold(id, (h) => {
-    if (hasFinancialHistory(h)) throw new Error('Groups are fixed once money is recorded.');
-    // Keep each group's id and chosen color when it still holds the same first member.
-    const kept = groups.filter((g) => g.memberIds.length).slice(0, MAX_GROUPS);
-    const used = new Set<Group['color']>();
-    const prior = kept.map((g) => h.groups.find((old) => old.memberIds.includes(g.memberIds[0])));
-    const next: Group[] = kept.map((g, i) => {
-      const before = prior[i] && prior.indexOf(prior[i]) === i ? prior[i] : undefined;
-      const color = before && !used.has(before.color) ? before.color : GROUP_COLORS.find((x) => !used.has(x) && !prior.some((p, j) => j > i && p?.color === x))!;
-      used.add(color);
-      return { id: before?.id ?? newId('g'), color, memberIds: g.memberIds };
-    });
-    const people = h.people.map((p) => ({ ...p, groupId: next.find((g) => g.memberIds.includes(p.id))!.id }));
-    return { ...h, groups: next, people };
+  updateHousehold(id, (h) => regroup(h, groups));
+}
+
+/**
+ * The household with people arranged into `groups` (one or two people each). A one-person group is
+ * keyed by that person's settlement unit; a pair keeps its ids while it holds the same two people.
+ */
+export function regroup(h: Household, groups: { memberIds: ID[] }[]): Household {
+  if (hasFinancialHistory(h)) throw new Error('Groups are fixed once money is recorded.');
+  const kept = groups.filter((g) => g.memberIds.length).slice(0, MAX_GROUPS);
+  if (kept.some((g) => g.memberIds.length > 2)) throw new Error('A group is one or two people.');
+  const used = new Set<Group['color']>();
+  const prior = kept.map((g) => h.groups.find((old) => old.memberIds.includes(g.memberIds[0])));
+  const next: Group[] = kept.map((g, i) => {
+    const before = prior[i] && prior.indexOf(prior[i]) === i ? prior[i] : undefined;
+    const color = before && !used.has(before.color) ? before.color : GROUP_COLORS.find((x) => !used.has(x) && !prior.some((p, j) => j > i && p?.color === x))!;
+    used.add(color);
+    if (g.memberIds.length === 1) {
+      const person = h.people.find((p) => p.id === g.memberIds[0]);
+      return { id: person?.unitId ?? before?.id ?? newId('g'), color, memberIds: g.memberIds };
+    }
+    const samePair = h.groups.find((old) => old.memberIds.length === 2 && g.memberIds.every((m) => old.memberIds.includes(m)));
+    return samePair
+      ? { id: samePair.id, serverGroupId: samePair.serverGroupId ?? newId('sg'), color, memberIds: g.memberIds }
+      : { id: newId('g'), serverGroupId: newId('sg'), color, memberIds: g.memberIds };
   });
+  const people = h.people.map((p) => ({ ...p, groupId: next.find((g) => g.memberIds.includes(p.id))!.id }));
+  return { ...h, groups: next, people };
 }
 
 export function setGroupColor(id: ID, groupId: ID, color: Group['color']) {
@@ -196,7 +227,7 @@ export function addPerson(id: ID, name: string): ID | null {
     return {
       ...h,
       groups: [...h.groups, { id: gid, color, memberIds: [pid] }],
-      people: [...h.people, { id: pid, name: name.trim(), groupId: gid, joined: false }],
+      people: [...h.people, { id: pid, name: name.trim(), groupId: gid, joined: false, unitId: gid }],
     };
   });
   return pid;
@@ -214,7 +245,7 @@ function append(householdId: ID, event: LedgerEvent, label: string) {
   const h = state.households.find((x) => x.id === householdId);
   if (!h) throw new SaveError('Household not found.');
   validateEvent(h, event);
-  const next: Household = { ...h, events: [...h.events, event] };
+  const next: Household = { ...h, events: [...h.events, stamp(event)] };
   set({
     ...state,
     households: state.households.map((x) => (x.id === householdId ? next : x)),
@@ -230,7 +261,10 @@ export function addExpense(h: Household, content: ExpenseContent, label: string)
 }
 
 export function reviseExpense(h: Household, recordId: ID, content: ExpenseContent, reason: string | undefined, label: string) {
-  return append(h.id, { ...base(h), kind: 'expenseRevised', recordId, content, reason }, label);
+  // The edit replaces the revision currently applied: the latest one for this record.
+  const head = [...h.events].reverse().find((e) => e.recordId === recordId && (e.kind === 'expenseAdded' || e.kind === 'expenseRevised'));
+  const basis = head ? { kind: 'parent' as const, parentEventId: head.id } : undefined;
+  return append(h.id, { ...base(h), kind: 'expenseRevised', recordId, content, reason, basis }, label);
 }
 
 export function recordSettlement(h: Household, content: SettlementContent, label: string) {
@@ -261,7 +295,7 @@ export function undo(eventId: ID): boolean {
   if (!r) return false;
   const h = state.households.find((x) => x.id === r.householdId);
   const ev = h?.events.find((e) => e.id === eventId);
-  if (!h || !ev || !canUndoInHousehold(h, eventId, Date.now())) return false;
+  if (!h || !ev || ev.seq !== undefined || isSending(eventId) || !canUndoInHousehold(h, eventId, Date.now())) return false;
   const next = { ...h, events: h.events.filter((e) => e.id !== eventId) };
   set({
     ...state,

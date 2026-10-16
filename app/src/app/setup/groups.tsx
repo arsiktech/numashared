@@ -13,7 +13,11 @@ import { useTheme } from '@/ui/theme';
 import { alpha, fonts } from '@/ui/tokens';
 import { useHousehold } from '@/features/hooks';
 import { Screen, ScreenHeader } from '@/features/onboarding/chrome';
-import { movePerson, type Arrangement } from '@/features/onboarding/model';
+import { MAX_GROUP_SIZE, movePerson, type Arrangement } from '@/features/onboarding/model';
+import { explainFailure } from '@/features/account/session';
+import { currentSession } from '@/sync/auth';
+import { failureOf } from '@/sync/engine';
+import { online, turnOnSync } from '@/sync/runtime';
 
 export default function Groups() {
   const { h } = useHousehold();
@@ -23,6 +27,7 @@ export default function Groups() {
   const [arr, setArr] = useState<Arrangement>(() => (h ? h.groups.map((g) => g.memberIds) : []));
   const [sel, setSel] = useState<ID | null>(null);
   const [pendingNew, setPendingNew] = useState(false);
+  const [saving, setSaving] = useState(false);
   if (!h) return <Redirect href="/welcome" />;
   const fixed = hasFinancialHistory(h);
   const nm = (pid: ID) => (pid === h.youId ? 'You' : h.people.find((p) => p.id === pid)?.name ?? 'Someone');
@@ -32,6 +37,9 @@ export default function Groups() {
     if (target === 'new') {
       const from = arr.find((g) => g.includes(pid));
       if (from && from.length === 1) { showToast(`${nm(pid)} already ${pid === h.youId ? 'have' : 'has'} a group of their own`); return; }
+    } else if (arr[target].length >= MAX_GROUP_SIZE && !arr[target].includes(pid)) {
+      showToast('A group is one or two people who pay as one');
+      return;
     }
     setArr(movePerson(arr, pid, target));
     setSel(null);
@@ -46,9 +54,23 @@ export default function Groups() {
     haptic.tap();
   };
 
-  const done = () => {
+  const done = async () => {
     if (!fixed) {
-      try { setGroups(h.id, arr.map((m) => ({ memberIds: m }))); } catch (e) { showToast((e as Error).message); return; }
+      if (h.sync && !h.sync.setup) {
+        // Already shared: regrouping is a server change, so it needs a connection.
+        const changed = JSON.stringify(arr) !== JSON.stringify(h.groups.map((g) => g.memberIds));
+        if (changed) {
+          setSaving(true);
+          try { await online.regroup(h, arr); } catch (e) { setSaving(false); showToast(explainFailure(failureOf(e).code)); return; }
+          setSaving(false);
+        }
+      } else {
+        try { setGroups(h.id, arr.map((m) => ({ memberIds: m }))); } catch (e) { showToast((e as Error).message); return; }
+        // A new household made while signed in goes to the server once its groups are set.
+        if (first === '1' && currentSession() && !h.sync) {
+          turnOnSync(h.id).catch(() => showToast('Saved on this phone. It will be shared when you’re back online.'));
+        }
+      }
     }
     if (first === '1' && arr.length >= 2) router.replace('/setup/opening?first=1');
     else if (first === '1') router.replace('/home');
@@ -62,7 +84,7 @@ export default function Groups() {
         : 'Tap a person, then tap another group to move them.';
 
   return (
-    <Screen header={<ScreenHeader title="Who shares money?" />} footer={<CTA label={fixed ? 'Done' : 'Looks right'} onPress={done} />}>
+    <Screen header={<ScreenHeader title="Who shares money?" />} footer={<CTA label={saving ? 'Saving…' : fixed ? 'Done' : 'Looks right'} disabled={saving} onPress={done} />}>
       <T style={{ fontSize: 15, lineHeight: 21, color: c.ink2, marginTop: 12 }}>
         People who pay as one, like a couple, share a balance. Each group settles with the others.
       </T>

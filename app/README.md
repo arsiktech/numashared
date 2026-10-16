@@ -33,7 +33,26 @@ npm run typecheck
 
 `APP_VARIANT=preview` builds "Numa Shared Preview" (`tech.arsik.numashared.preview`), so a test build never replaces the app people already use. See `eas.json`.
 
-## Not in this version yet
+## Sync
 
-- Sync and sign-in. Data stays on the device. The next step is a sync adapter for the existing Convex backend (`convex/`), which also needs two backend contract additions: an optional `note` on expenses and repayments (stored like the other erasable text fields), and an optional payment method on repayments.
-- Push notifications (arrive with sync).
+Households sync through the existing Convex backend (`convex/`), the same one the SwiftUI app used. `src/sync/` holds the client:
+
+| File | What |
+|---|---|
+| `mapping.ts` | App events to wire events and back. A group's id is its settlement unit, a person's id is their member id. |
+| `engine.ts` | Promotion of a local household, the send queue (one event at a time, after the undo window), pulling, invites, joining, and the online-only changes (add person, rename, regroup, leave). |
+| `runtime.ts` | The Convex client, a live subscription to your households, push registration. |
+| `auth.ts` | Sign in with Apple, the 30-day session and its rotating refresh token (Keychain). |
+
+`convex/clientSync.test.ts` runs this engine against the real backend functions with two simulated phones.
+
+How it behaves:
+- Signing in with Apple brings in every household on your account. A household made before signing in is shared from Invite people, and you become its owner.
+- Everyone invited gets a personal six-character code (or a link) that works once, for them.
+- Everything works offline. Changes wait on the phone and go out in order when there is a connection.
+- If the server refuses a change because someone changed the same thing at the same time, the app says so on Home and keeps the history as the server has it.
+
+Limits for now:
+- Sign in with Apple works only in an iPhone build with the bundle id `tech.arsik.numashared` (the backend accepts one Apple audience). It does not work inside Expo Go, on Android or on the web, where households stay on the device. Android and web sign-in need a second sign-in method or an Apple Services ID on the backend.
+- Groups are one or two people (a couple), as the backend models them.
+- Push notifications use APNs directly (iPhone only).

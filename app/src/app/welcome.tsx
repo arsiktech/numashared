@@ -1,6 +1,6 @@
 // Welcome. Phone: the two-band hero ("Share the" / "house money.") with the orb on the seam and the
 // actions on a paper sheet below. Tablet and desk web: the hero fills the left half and the actions
-// sit in a card on the right. Everything lives on this device for now: there is no sign-in yet.
+// sit in a card on the right. On iPhone, Continue with Apple brings in your shared households.
 import { useState } from 'react';
 import { ScrollView, View } from 'react-native';
 import { useRouter } from 'expo-router';
@@ -11,6 +11,7 @@ import { CTA, Press, T } from '@/ui/primitives';
 import { useTheme } from '@/ui/theme';
 import { fonts } from '@/ui/tokens';
 import { Brand, MiniOrb } from '@/features/onboarding/chrome';
+import { AppleCTA, useAppleAvailable } from '@/features/account/session';
 
 export default function Welcome() {
   const { layout } = useTheme();
@@ -86,6 +87,7 @@ function WelcomeActions({ desk }: { desk?: boolean }) {
   const router = useRouter();
   const locked = useStore((s) => s.locked && s.households.length > 0);
   const lockedCount = useStore((s) => s.households.length);
+  const apple = useAppleAvailable();
   return (
     <View>
       {!desk ? (
@@ -102,7 +104,10 @@ function WelcomeActions({ desk }: { desk?: boolean }) {
           <CTA label="Unlock" icon={<Lock size={20} color={c.bg} />} onPress={() => { unlock(); router.replace('/home'); }} />
         ) : (
           <>
-            <CTA label="Start a household" onPress={() => router.push('/setup/new')} />
+            {apple ? (
+              <AppleCTA onSignedIn={(arrived) => router.replace(arrived > 0 ? '/home' : '/setup/new')} />
+            ) : null}
+            <CTA label="Start a household" variant={apple ? 'second' : 'primary'} onPress={() => router.push('/setup/new')} />
             <CTA label="Look around a sample household" variant="second" onPress={() => { loadSample(); router.replace('/home'); }} />
           </>
         )}
@@ -113,7 +118,9 @@ function WelcomeActions({ desk }: { desk?: boolean }) {
         <T style={{ fontSize: 14, fontFamily: fonts.bold, textDecorationLine: 'underline' }}>Enter a code</T>
       </Press>
       <T style={{ fontSize: 13, lineHeight: 18, color: c.ink2, textAlign: 'center', marginTop: 6, paddingHorizontal: 8 }}>
-        Sign in with Apple or Google arrives with sync. Everything stays on this device until then.
+        {apple
+          ? 'Sign in to share a household between phones. Without it, everything stays on this device.'
+          : 'Sharing between phones needs Sign in with Apple on an iPhone for now. Here, everything stays on this device.'}
       </T>
     </View>
   );

@@ -6,6 +6,9 @@ import { Redirect } from 'expo-router';
 import { GROUP_COLORS, MAX_GROUPS, type GroupColor, type ID } from '@/core/types';
 import { addPerson, hasFinancialHistory, setGroupColor, setGroups } from '@/store/store';
 import { showToast } from '@/store/ui';
+import { explainFailure } from '@/features/account/session';
+import { failureOf } from '@/sync/engine';
+import { online } from '@/sync/runtime';
 import { Lock } from '@/ui/icons';
 import { haptic, Pill, Press, T } from '@/ui/primitives';
 import { useTheme } from '@/ui/theme';
@@ -33,18 +36,30 @@ export default function PeopleScreen() {
   const full = h.groups.length >= MAX_GROUPS;
   const nm = (pid: ID) => h.people.find((p) => p.id === pid)?.name ?? 'Someone';
 
-  const moveTo = (index: number) => {
+  const shared = !!h.sync && !h.sync.setup;
+  const moveTo = async (index: number) => {
     if (!sel) return;
-    const next = movePerson(h.groups.map((g) => g.memberIds), sel, index);
-    try { setGroups(h.id, next.map((m) => ({ memberIds: m }))); } catch (e) { showToast((e as Error).message); return; }
+    const before = h.groups.map((g) => g.memberIds);
+    const next = movePerson(before, sel, index);
+    if (next === before) { showToast('A group is one or two people who pay as one'); return; }
+    if (shared) {
+      try { await online.regroup(h, next); } catch (e) { showToast(explainFailure(failureOf(e).code)); return; }
+    } else {
+      try { setGroups(h.id, next.map((m) => ({ memberIds: m }))); } catch (e) { showToast((e as Error).message); return; }
+    }
     haptic.tick();
     setSel(null);
   };
 
-  const add = () => {
+  const add = async () => {
     const v = newName.trim();
     if (!v) return;
-    if (addPerson(h.id, v)) { showToast(`${v} added in a group of their own`); haptic.success(); }
+    if (shared) {
+      if (h.sync!.role !== 'owner') { showToast('Only the person who set up the household can add people'); return; }
+      try { await online.addPerson(h, v); } catch (e) { showToast(explainFailure(failureOf(e).code)); return; }
+      showToast(`${v} added. Their invite code is on the Invite screen`);
+      haptic.success();
+    } else if (addPerson(h.id, v)) { showToast(`${v} added in a group of their own`); haptic.success(); }
     setNewName('');
     setAdding(false);
   };

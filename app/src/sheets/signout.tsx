@@ -1,10 +1,13 @@
-// Sign out of this device. Without sync there is no copy anywhere else, so the two choices are
-// honest: lock (keep the data, hidden until Unlock on Welcome) or erase (gone, after two confirmations).
+// Sign out of this device. Shared households are safe on the account and leave this phone until you
+// sign in again. Households that were never shared have no other copy, so for those the two choices
+// are honest: lock (kept, hidden until Unlock on Welcome) or erase (gone, after two confirmations).
 import { useState } from 'react';
 import { View } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { signOut, useStore } from '@/store/store';
+import { useSession } from '@/features/account/session';
+import { signOutEverywhere } from '@/sync/runtime';
 import { Close, Lock, VoidX, Warn } from '@/ui/icons';
 import { Banner, BannerText, CTA, haptic, IconButton, Press, T, TextButton } from '@/ui/primitives';
 import { Sheet, useSheet } from '@/ui/sheet';
@@ -31,20 +34,17 @@ function Body() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const households = useStore((s) => s.households);
-  const names = households.map((h) => h.name);
+  const session = useSession();
+  const names = households.filter((h) => !h.sync).map((h) => h.name);
+  const onlyShared = !!session && names.length === 0;
   const [mode, setMode] = useState<'lock' | 'erase'>('lock');
   const [step, setStep] = useState(0); // erase needs two confirmations
 
-  const go = () => {
-    if (mode === 'lock') {
-      signOut('lock');
-      haptic.success();
-      close();
-      router.replace('/welcome');
-      return;
-    }
-    if (step === 0) { setStep(1); haptic.warn(); return; }
-    signOut('erase');
+  const go = async () => {
+    // Erasing asks twice; nothing happens until the second tap.
+    if (!onlyShared && mode === 'erase' && step === 0) { setStep(1); haptic.warn(); return; }
+    if (session) await signOutEverywhere();
+    if (!onlyShared) signOut(mode);
     haptic.success();
     close();
     router.replace('/welcome');
@@ -74,14 +74,18 @@ function Body() {
       <View style={{ paddingHorizontal: 22, paddingTop: isAndroid ? 0 : 22 }}>
         <T accessibilityRole="header" style={{ fontFamily: fonts.bold, fontSize: 22, lineHeight: 26, letterSpacing: -0.2 }}>Sign out of this device?</T>
         <T style={{ fontSize: 14, lineHeight: 19, color: c.ink2, marginTop: 6 }}>
-          Nothing is in the cloud yet: your households live only on this device. Choose what happens to them.
+          {onlyShared
+            ? 'Your shared households stay on your account. Sign in with Apple again to get them back.'
+            : session
+              ? `Shared households stay on your account. ${listNames(names)} ${names.length === 1 ? 'was' : 'were'} never shared and ${names.length === 1 ? 'lives' : 'live'} only here. Choose what happens to ${names.length === 1 ? 'it' : 'them'}.`
+              : 'Your households live only on this device. Choose what happens to them.'}
         </T>
-        <View accessibilityRole="radiogroup" accessibilityLabel="What happens on this device" style={{ gap: 12, marginTop: 22 }}>
+        {onlyShared ? null : <View accessibilityRole="radiogroup" accessibilityLabel="What happens on this device" style={{ gap: 12, marginTop: 22 }}>
           {option('lock', 'Lock this device', 'Keeps everything here, hidden until you tap Unlock on the welcome screen.',
             (on) => <Lock size={18} color={on ? c.bg : c.ink} />)}
           {option('erase', 'Erase from this device', `Deletes ${listNames(names)} from this device. There’s no other copy yet.`,
             (on) => <VoidX size={18} color={on ? c.bg : c.ink} />)}
-        </View>
+        </View>}
         {mode === 'erase' && step === 1 ? (
           <View style={{ marginTop: 16 }} accessibilityLiveRegion="assertive">
             <Banner kind="bad" icon={<Warn size={18} color={c.bad} />}>
@@ -91,8 +95,8 @@ function Body() {
         ) : null}
       </View>
       <View style={{ paddingHorizontal: 22, paddingTop: 24, paddingBottom: Math.max(insets.bottom + 4, 16) }}>
-        <CTA variant={mode === 'erase' ? 'danger' : 'primary'} onPress={go}
-          label={mode === 'lock' ? 'Lock this device' : step === 0 ? 'Erase from this device' : 'Yes, erase everything'} />
+        <CTA variant={mode === 'erase' && !onlyShared ? 'danger' : 'primary'} onPress={go}
+          label={onlyShared ? 'Sign out' : mode === 'lock' ? 'Lock this device' : step === 0 ? 'Erase from this device' : 'Yes, erase everything'} />
         {mode === 'erase' && step === 1 ? (
           <TextButton label="Export CSV first" bold onPress={() => { close(); router.push('/settings/export'); }} style={{ alignSelf: 'center', marginTop: 6 }} />
         ) : null}

@@ -1,5 +1,7 @@
-// Identifiers and dates for new records. IDs are random and collision-resistant enough for
-// client-side creation; the server later sequences events by its own order.
+// Identifiers and dates for new records. Every id is a UUIDv7, the format the server requires, so a
+// household made offline can move to the server without renaming anything.
+import { uuidv7 } from '../sync/uuid';
+
 const ALPHABET = 'abcdefghijkmnpqrstuvwxyz23456789';
 
 function randomString(n: number, alphabet = ALPHABET) {
@@ -11,7 +13,8 @@ function randomString(n: number, alphabet = ALPHABET) {
   return out;
 }
 
-export const newId = (prefix: string) => `${prefix}_${Date.now().toString(36)}${randomString(10)}`;
+/** The prefix only documents intent at call sites. */
+export const newId = (_prefix?: string) => uuidv7();
 
 /** Six characters, no look-alikes (no 0/O, 1/I/L). Shown as "K7Q 4MZ". */
 export const inviteCode = () => randomString(6, 'ABCDEFGHJKMNPQRSTUVWXYZ23456789');

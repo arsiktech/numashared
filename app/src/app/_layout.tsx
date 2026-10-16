@@ -7,6 +7,7 @@ import { StatusBar } from 'expo-status-bar';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { hydrate } from '@/store/store';
+import { startSyncRuntime } from '@/sync/runtime';
 import { ThemeProvider, useTheme } from '@/ui/theme';
 import { fontFiles } from '@/ui/tokens';
 import { SheetHost } from '@/sheets/host';
@@ -18,7 +19,7 @@ SplashScreen.preventAutoHideAsync().catch(() => {});
 export default function RootLayout() {
   const [fontsLoaded, fontError] = useFonts(fontFiles);
   const [ready, setReady] = useState(false);
-  useEffect(() => { hydrate().finally(() => setReady(true)); }, []);
+  useEffect(() => { hydrate().finally(() => { setReady(true); startSyncRuntime(); }); }, []);
   const go = ready && (fontsLoaded || !!fontError);
   useEffect(() => { if (go) SplashScreen.hideAsync().catch(() => {}); }, [go]);
   if (!go) return null;

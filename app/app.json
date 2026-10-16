@@ -12,7 +12,11 @@
       "supportsTablet": true,
       "config": {
         "usesNonExemptEncryption": false
-      }
+      },
+      "usesAppleSignIn": true,
+      "associatedDomains": [
+        "applinks:adept-camel-457.convex.site"
+      ]
     },
     "android": {
       "package": "tech.arsik.numashared",
@@ -40,6 +44,14 @@
           "backgroundColor": "#0D1013",
           "image": "./assets/images/splash-icon.png",
           "imageWidth": 120
+        }
+      ],
+      "expo-apple-authentication",
+      "expo-secure-store",
+      [
+        "expo-notifications",
+        {
+          "mode": "production"
         }
       ]
     ],

@@ -1,5 +1,5 @@
-// Settings: household, you, data and account. Everything is stored on this device; the rows that
-// depend on sync (sign-in, notifications) say so instead of pretending.
+// Settings: household, you, data and account. A shared household lives on the server and on every
+// member's phone; one made without signing in stays on this device until it is shared.
 import { useState } from 'react';
 import { TextInput, View } from 'react-native';
 import { Redirect, useLocalSearchParams, useRouter } from 'expo-router';
@@ -13,6 +13,11 @@ import { fonts, isAndroid, isWeb } from '@/ui/tokens';
 import { useHousehold } from '@/features/hooks';
 import { CURRENCIES, currencyLabel } from '@/features/onboarding/model';
 import { SGroup, SNote, SRow, SettingsShell, useDesk, type DeskSection } from '@/features/settings/parts';
+import { AppleCTA, explainFailure, useAppleAvailable, useSession } from '@/features/account/session';
+import { showToast } from '@/store/ui';
+import { failureOf } from '@/sync/engine';
+import { online, registerPush, signOutEverywhere, turnOnSync } from '@/sync/runtime';
+import { Apple, CloudOff } from '@/ui/icons';
 import { Kbd } from '@/features/web/kbd';
 
 const version = Constants.expoConfig?.version ?? '1.0.0';
@@ -37,7 +42,7 @@ export default function Settings() {
       {shown('account') ? <AccountGroup /> : null}
       {!desk || active === 'account' ? (
         <T style={{ fontFamily: fonts.semibold, fontSize: 12.5, color: c.ink2, textAlign: 'center', paddingTop: 24, paddingBottom: 16 }}>
-          Numa Shared {version} · Saved on this device
+          Numa Shared {version} · {h.sync ? 'Shared' : 'Saved on this device'}
         </T>
       ) : null}
     </SettingsShell>
@@ -84,8 +89,11 @@ function NameRow() {
   if (!h) return null;
   const commit = () => {
     const v = draft.trim();
-    if (v && v !== h.name) renameHousehold(h.id, v);
     setEditing(false);
+    if (!v || v === h.name) return;
+    if (h.sync && !h.sync.setup) {
+      online.rename(h, v).catch((e) => showToast(explainFailure(failureOf(e).code)));
+    } else renameHousehold(h.id, v);
   };
   if (desk || editing) {
     return (
@@ -132,9 +140,30 @@ function YouGroup() {
           })}
         </View>
       ) : null}
-      <SRow label="Notifications" sub="Arrive with sync" icon={<Bell size={22} color={c.ink2} />} a11y="Notifications, arrive with sync" last
-        right={<Toggle label="Notifications" value={prefs.notifications} android={isAndroid} onChange={(v) => setPrefs({ notifications: v })} />} />
+      <NotificationsRow />
     </SGroup>
+  );
+}
+
+function NotificationsRow() {
+  const { c } = useTheme();
+  const prefs = useStore((s) => s.prefs);
+  const session = useSession();
+  const canPush = !!session && !isAndroid && !isWeb;
+  const sub = canPush ? 'When someone adds, edits or repays' : session ? 'On iPhone for now' : 'After you sign in';
+  return (
+    <SRow label="Notifications" sub={sub} icon={<Bell size={22} color={c.ink2} />} a11y={`Notifications, ${sub}`} last
+      right={<Toggle label="Notifications" value={prefs.notifications && canPush} android={isAndroid}
+        onChange={async (v) => {
+          if (!canPush) { showToast(sub); return; }
+          setPrefs({ notifications: v });
+          if (v) {
+            try {
+              const ok = await registerPush();
+              if (!ok) { setPrefs({ notifications: false }); showToast('Allow notifications for Numa Shared in iPhone Settings'); }
+            } catch (e) { showToast(explainFailure(failureOf(e).code)); }
+          }
+        }} />} />
   );
 }
 
@@ -152,9 +181,33 @@ function DataGroup() {
 function AccountGroup() {
   const { c } = useTheme();
   const desk = useDesk();
+  const { h } = useHousehold();
+  const session = useSession();
+  const apple = useAppleAvailable();
+  const [busy, setBusy] = useState(false);
+  if (!h) return null;
+  const share = async () => {
+    setBusy(true);
+    try { await turnOnSync(h.id); showToast(`${h.name} is shared. Invite people from Invite people.`); }
+    catch (e) { showToast((e as Error).message === 'group-too-large' ? 'A group can be one or two people. Change the groups first.' : explainFailure(failureOf(e).code)); }
+    finally { setBusy(false); }
+  };
   return (
     <SGroup title={desk ? undefined : 'Account'}>
-      <SRow first label="On this device" sub="Sign-in arrives with sync" icon={<Lock size={22} color={c.ink2} />} />
+      {session ? (
+        <SRow first label="Signed in with Apple" sub={h.sync ? `${h.name} is shared` : `${h.name} is only on this device`} icon={<Apple size={22} color={c.ink2} />} chevron={false} />
+      ) : (
+        <SRow first label="Not signed in" sub={apple ? 'Sign in to share households between phones' : 'Sign in with Apple works on iPhone for now'} icon={<CloudOff size={22} color={c.ink2} />} chevron={false} />
+      )}
+      {session && !h.sync ? (
+        <SRow label={busy ? 'Sharing…' : `Share ${h.name}`} sub="Move it to your account so others can join" icon={<ShareIcon size={22} color={c.ink2} />}
+          onPress={busy ? undefined : share} />
+      ) : null}
+      {!session && apple ? (
+        <View style={{ paddingHorizontal: 16, paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: c.hair }}>
+          <AppleCTA />
+        </View>
+      ) : null}
       <SRow label="Sign out" icon={<View />} chevron={false} onPress={() => openSheet({ type: 'signout' })} last={desk} />
       {!desk ? <LeaveRow last /> : null}
     </SGroup>
@@ -167,24 +220,33 @@ function LeaveRow({ last }: { last?: boolean }) {
   const router = useRouter();
   const [confirm, setConfirm] = useState(false);
   if (!h) return null;
-  const leave = () => {
-    leaveHousehold(h.id);
+  const shared = !!h.sync && !h.sync.setup;
+  const leave = async () => {
+    if (shared) {
+      try { await online.leave(h); } catch (e) {
+        const code = failureOf(e).code;
+        showToast(code === 'SOLE_ACTIVE_MEMBER' ? 'You’re the only one here. Invite someone first, or keep it.' : explainFailure(code));
+        return;
+      }
+    } else leaveHousehold(h.id);
     router.replace(getState().households.length ? '/home' : '/welcome');
   };
   return (
     <View>
       <SRow label={`Leave ${h.name}`} danger chevron={false} icon={<VoidX size={22} color={c.bad} />} last={last && !confirm}
-        sub={confirm ? undefined : 'Removes it from this device'} onPress={() => setConfirm(!confirm)}
+        sub={confirm ? undefined : shared ? 'Your history stays for the others' : 'Removes it from this device'} onPress={() => setConfirm(!confirm)}
         a11y={`Leave ${h.name}`} />
       {confirm ? (
         <View accessibilityLiveRegion="polite" style={{ paddingHorizontal: 16, paddingBottom: 16, gap: 12 }}>
           <T style={{ fontSize: 14.5, lineHeight: 20, color: c.ink }}>
-            Leave {h.name}? Without sync, this device has the only copy, so its history is deleted here for good.
+            {shared
+              ? `Leave ${h.name}? Everything you added stays in its history for the others, and your balance stays visible to them. You can’t add anything after leaving.`
+              : `Leave ${h.name}? It isn’t shared, so this device has the only copy and its history is deleted for good.`}
           </T>
           <View style={{ flexDirection: 'row', gap: 10, flexWrap: 'wrap' }}>
             <Press onPress={leave} accessibilityLabel={`Yes, leave ${h.name}`}
               style={{ minHeight: 44, paddingHorizontal: 18, borderRadius: 22, backgroundColor: c.bad, justifyContent: 'center' }}>
-              <T style={{ fontFamily: fonts.semibold, fontSize: 16, color: '#FFFFFF' }}>Leave and delete</T>
+              <T style={{ fontFamily: fonts.semibold, fontSize: 16, color: '#FFFFFF' }}>{shared ? 'Leave' : 'Leave and delete'}</T>
             </Press>
             <Press onPress={() => setConfirm(false)} accessibilityLabel="Cancel"
               style={{ minHeight: 44, paddingHorizontal: 18, borderRadius: 22, backgroundColor: c.chip, justifyContent: 'center' }}>

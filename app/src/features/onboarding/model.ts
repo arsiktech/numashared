@@ -26,11 +26,15 @@ export const currencyLabel = (code: string) => {
 
 export type Arrangement = ID[][];
 
+/** People who pay as one: a group is one or two people (a couple). */
+export const MAX_GROUP_SIZE = 2;
+
 /** Move a person into group `target` (an index) or into a new group ('new'). Empty groups drop out. */
 export function movePerson(groups: Arrangement, personId: ID, target: number | 'new'): Arrangement {
   const from = groups.findIndex((g) => g.includes(personId));
   if (from < 0) return groups;
   if (target === from) return groups;
+  if (target !== 'new' && groups[target].length >= MAX_GROUP_SIZE) return groups;
   if (target === 'new') {
     if (groups[from].length === 1 || groups.length >= MAX_GROUPS) return groups;
     return [...groups.map((g) => g.filter((id) => id !== personId)), [personId]];
