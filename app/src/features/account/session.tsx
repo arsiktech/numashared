@@ -11,14 +11,15 @@ export function useSession() {
   return useSyncExternalStore(subscribeSession, currentSession, currentSession);
 }
 
-/** Sign in with Apple exists only on iPhone and iPad for now. */
+/** Running inside Expo Go, where Apple sign-in can't reach this app's account. */
+export const inExpoGo = Constants.executionEnvironment === 'storeClient';
+
+/** Sign in with Apple exists only in the installed iPhone and iPad app for now. */
 export function useAppleAvailable() {
   const [ok, setOk] = useState(false);
-  useEffect(() => { void appleSignInSupported().then(setOk); }, []);
+  useEffect(() => { if (!inExpoGo) void appleSignInSupported().then(setOk); }, []);
   return ok;
 }
-
-const inExpoGo = Constants.executionEnvironment === 'storeClient';
 
 /** Plain words for a sign-in or sync failure. */
 export function explainFailure(code: string): string {

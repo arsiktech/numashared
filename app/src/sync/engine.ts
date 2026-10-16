@@ -155,10 +155,10 @@ function couples(h: Household): WireSettlementGroup[] {
 const peopleOrder = (h: Household) => [h.people.find((p) => p.id === h.youId)!, ...h.people.filter((p) => p.id !== h.youId)];
 
 /**
- * Starts syncing a household that so far lives only on this device: fixes identities and the
- * setup stamps (so a retried promotion is byte-identical), then promotes it.
+ * Readies a household that so far lives only on this device: fixes identities and the setup
+ * stamps (so a retried upload is byte-identical) and stores it. Returns its (possibly new) id.
  */
-export async function startSync(backend: Backend, access: Access, householdId: ID, now = Date.now()): Promise<ID> {
+export function stageSync(access: Access, householdId: ID, now = Date.now()): ID {
   const local = access.get(householdId);
   if (!local) throw new Error('Household not found.');
   if (local.sync) return local.id;
@@ -172,12 +172,17 @@ export async function startSync(backend: Backend, access: Access, householdId: I
     groupEventId: uuidv7(now),
     financialEventIds: ready.map((e) => e.id),
   };
-  const next: Household = { ...h, sync: { role: 'owner', schema: 2, lastSeq: 0, lastTextRev: 0, setup } };
   // The id may have changed: drop the old copy so the household is not listed twice.
   if (h.id !== local.id) access.remove(local.id);
-  access.put(next);
-  await promote(backend, access, next.id);
-  return next.id;
+  access.put({ ...h, sync: { role: 'owner', schema: 2, lastSeq: 0, lastTextRev: 0, setup } });
+  return h.id;
+}
+
+/** Stages and promotes a local household; you become its owner. */
+export async function startSync(backend: Backend, access: Access, householdId: ID, now = Date.now()): Promise<ID> {
+  const id = stageSync(access, householdId, now);
+  await promote(backend, access, id);
+  return id;
 }
 
 export async function promote(backend: Backend, access: Access, householdId: ID): Promise<void> {

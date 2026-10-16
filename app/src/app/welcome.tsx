@@ -11,7 +11,7 @@ import { CTA, Press, T } from '@/ui/primitives';
 import { useTheme } from '@/ui/theme';
 import { fonts } from '@/ui/tokens';
 import { Brand, MiniOrb } from '@/features/onboarding/chrome';
-import { AppleCTA, useAppleAvailable } from '@/features/account/session';
+import { AppleCTA, inExpoGo, useAppleAvailable } from '@/features/account/session';
 
 export default function Welcome() {
   const { layout } = useTheme();
@@ -120,7 +120,9 @@ function WelcomeActions({ desk }: { desk?: boolean }) {
       <T style={{ fontSize: 13, lineHeight: 18, color: c.ink2, textAlign: 'center', marginTop: 6, paddingHorizontal: 8 }}>
         {apple
           ? 'Sign in to share a household between phones. Without it, everything stays on this device.'
-          : 'Sharing between phones needs Sign in with Apple on an iPhone for now. Here, everything stays on this device.'}
+          : inExpoGo
+            ? 'This is the Expo Go preview: everything stays on this device. Sharing between phones works in the installed app.'
+            : 'Sharing between phones needs Sign in with Apple on an iPhone for now. Here, everything stays on this device.'}
       </T>
     </View>
   );

@@ -7,7 +7,7 @@ import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { signOut, useStore } from '@/store/store';
 import { useSession } from '@/features/account/session';
-import { signOutEverywhere } from '@/sync/runtime';
+import { signOutEverywhere, unsentCount } from '@/sync/runtime';
 import { Close, Lock, VoidX, Warn } from '@/ui/icons';
 import { Banner, BannerText, CTA, haptic, IconButton, Press, T, TextButton } from '@/ui/primitives';
 import { Sheet, useSheet } from '@/ui/sheet';
@@ -86,6 +86,14 @@ function Body() {
           {option('erase', 'Erase from this device', `Deletes ${listNames(names)} from this device. There’s no other copy yet.`,
             (on) => <VoidX size={18} color={on ? c.bg : c.ink} />)}
         </View>}
+        {session && unsentCount() > 0 ? (
+          <View style={{ marginTop: 16 }}>
+            <Banner kind="warn" icon={<Warn size={18} color={c.warnInk} />}>
+              <BannerText kind="warn" strong={`${unsentCount()} change${unsentCount() > 1 ? 's haven’t' : ' hasn’t'} reached the others yet.`}
+                rest=" Connect to the internet first: signing out now removes them from this phone." />
+            </Banner>
+          </View>
+        ) : null}
         {mode === 'erase' && step === 1 ? (
           <View style={{ marginTop: 16 }} accessibilityLiveRegion="assertive">
             <Banner kind="bad" icon={<Warn size={18} color={c.bad} />}>

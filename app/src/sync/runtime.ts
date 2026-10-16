@@ -10,7 +10,7 @@ import { accessToken, currentSession, loadSession, signInWithApple, signOutSessi
 import { CONVEX_URL, SITE_URL } from './config';
 import {
   addPersonOnline, adoptPots, claimInvite, failureOf, flush, issueInvites, leaveOnline, promote, pull,
-  regroupOnline, renameOnline, resolveInvite, resume, startSync, SEND_DELAY_MS,
+  regroupOnline, renameOnline, resolveInvite, resume, stageSync, SEND_DELAY_MS,
   type Access, type Backend, type InvitePreview, type PotSummary,
 } from './engine';
 
@@ -141,6 +141,7 @@ function connect() {
   }, () => { /* auth or network: the next update or tick retries */ });
   timer = setInterval(tick, 2000);
   setStatus({ signedIn: true });
+  registerPush(false).catch(() => {});
 }
 
 function disconnect() {
@@ -178,6 +179,18 @@ export function startSyncRuntime() {
 
 // ---------- actions for screens ----------
 
+/**
+ * The Convex client waits for a connection instead of failing, which is right for background
+ * sync but leaves a button spinning offline. Screens get an answer within `ms`; the request
+ * itself still goes through once the connection is back.
+ */
+function within<T>(p: Promise<T>, ms = 15_000): Promise<T> {
+  return new Promise<T>((resolve, reject) => {
+    const t = setTimeout(() => reject({ data: { code: 'TRANSPORT_UNAVAILABLE', retryable: true } }), ms);
+    p.then((v) => { clearTimeout(t); resolve(v); }, (e) => { clearTimeout(t); reject(e); });
+  });
+}
+
 export class NeedsSignIn extends Error { constructor() { super('NEEDS_SIGN_IN'); } }
 
 /** Apple sign-in, then bring in this account's households. Returns how many arrived. */
@@ -186,6 +199,7 @@ export async function signIn(): Promise<number> {
   connect();
   const before = getState().households.length;
   await requestSync();
+  registerPush(true).catch(() => {});
   return getState().households.length - before;
 }
 
@@ -193,8 +207,9 @@ export async function signIn(): Promise<number> {
 export async function turnOnSync(householdId: ID): Promise<ID> {
   if (!currentSession()) throw new NeedsSignIn();
   connect();
-  const id = await startSync(backend, access, householdId);
+  const id = stageSync(access, householdId);
   switchHousehold(id);
+  await within(promote(backend, access, id));
   void requestSync();
   return id;
 }
@@ -206,37 +221,48 @@ export async function lookUpInvite(code: string): Promise<InvitePreview> {
 export async function joinWithInvite(preview: Extract<InvitePreview, { status: 'active' }>) {
   if (!currentSession()) throw new NeedsSignIn();
   connect();
-  const result = await claimInvite(backend, access, preview);
+  const result = await within(claimInvite(backend, access, preview), 30_000);
   if (result.status === 'joined') switchHousehold(result.householdId);
   return result;
 }
 
 /** Online-only household changes. Each throws when offline so the screen can say so. */
 export const online = {
-  addPerson: (h: Household, name: string) => addPersonOnline(backend, access, h.id, name).then(async (id) => { await issueInvites(backend, access, h.id); return id; }),
-  rename: (h: Household, name: string) => renameOnline(backend, access, h.id, name),
-  regroup: (h: Household, arrangement: ID[][]) => regroupOnline(backend, access, h.id, arrangement),
-  leave: async (h: Household) => { await leaveOnline(backend, access, h.id); removeHousehold(h.id); },
-  invites: (h: Household) => issueInvites(backend, access, h.id),
+  addPerson: (h: Household, name: string) => within(addPersonOnline(backend, access, h.id, name)).then((id) => { issueInvites(backend, access, h.id).catch(() => {}); return id; }),
+  rename: (h: Household, name: string) => within(renameOnline(backend, access, h.id, name)),
+  regroup: (h: Household, arrangement: ID[][]) => within(regroupOnline(backend, access, h.id, arrangement)),
+  leave: async (h: Household) => { await within(leaveOnline(backend, access, h.id)); removeHousehold(h.id); },
+  invites: (h: Household) => within(issueInvites(backend, access, h.id)),
   retry: (h: Household) => { resume(access, h.id); return requestSync(); },
 };
 
 /** Signs out: ends the session and removes households that live on the server from this device. */
 export async function signOutEverywhere(): Promise<void> {
+  // Give queued changes one last chance to reach the server.
+  try { await within(requestSync(), 8_000); } catch { /* the sheet warned about unsent changes */ }
   try { await unregisterPush(); } catch { /* best effort */ }
   await signOutSession();
   disconnect();
   for (const h of synced()) removeHousehold(h.id);
 }
 
+/** Changes in shared households that haven't reached the server yet. */
+export const unsentCount = () => synced().reduce((n, h) => n + h.events.filter((e) => e.seq === undefined).length, 0);
+
 // ---------- push ----------
 
 let pushToken: string | null = null;
 
-export async function registerPush(): Promise<boolean> {
-  if (Platform.OS !== 'ios' || !client) return false;
+/**
+ * Registers this iPhone for notifications. With `ask: false` it only refreshes an existing
+ * permission (used at launch); with `ask: true` it may show the system prompt.
+ */
+export async function registerPush(ask = true): Promise<boolean> {
+  if (Platform.OS !== 'ios' || !client || !getState().prefs.notifications) return false;
   const Notifications = await import('expo-notifications');
-  const perm = await Notifications.requestPermissionsAsync({ ios: { allowAlert: true, allowSound: true, allowBadge: false } });
+  const perm = ask
+    ? await Notifications.requestPermissionsAsync({ ios: { allowAlert: true, allowSound: true, allowBadge: false } })
+    : await Notifications.getPermissionsAsync();
   if (!perm.granted) return false;
   const token = await Notifications.getDevicePushTokenAsync();
   const hex = String(token.data).toLowerCase();
