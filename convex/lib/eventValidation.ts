@@ -249,7 +249,7 @@ export function validateEvent(
       validateRecord(event.payload.recordId);
       validateExpense(event.payload.content, configuration);
       validateManifestAndText(
-        event, ["title"], ["title", "category"], allowLegacyAuthoredText,
+        event, ["title"], ["title", "category", "note"], allowLegacyAuthoredText,
       );
       return;
     case "expenseRevised":
@@ -258,7 +258,7 @@ export function validateEvent(
       if (event.payload.content.kind === "expense") {
         validateExpense(event.payload.content, configuration);
         validateManifestAndText(
-          event, ["title"], ["title", "category"], allowLegacyAuthoredText,
+          event, ["title"], ["title", "category", "note", "reason"], allowLegacyAuthoredText,
         );
       } else {
         validateOpeningBalance(event.payload.content.entries, configuration);
@@ -294,7 +294,11 @@ export function validateEvent(
           "SETTLEMENT_REVERSAL_SELF_TARGET",
         );
       }
-      validateManifestAndText(event, ["title"], ["title"], allowLegacyAuthoredText);
+      // category carries the optional payment method (for example "bank"), note the
+      // optional free-text description of how the money moved.
+      validateManifestAndText(
+        event, ["title"], ["title", "category", "note"], allowLegacyAuthoredText,
+      );
       return;
     case "settlementFlagged":
       validateRecord(event.payload.recordId);
