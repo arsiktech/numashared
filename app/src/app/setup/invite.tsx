@@ -14,7 +14,7 @@ import { Caption, Screen, ScreenHeader } from '@/features/onboarding/chrome';
 import { showCode } from '@/features/onboarding/model';
 import { InvitePattern } from '@/features/onboarding/pattern';
 import { shareText } from '@/features/onboarding/share';
-import { AppleCTA, explainFailure, useAppleAvailable, useSession } from '@/features/account/session';
+import { explainFailure, SignInButtons, useSession, useSignInOptions } from '@/features/account/session';
 import { showToast } from '@/store/ui';
 import { SITE_URL } from '@/sync/config';
 import { failureOf } from '@/sync/engine';
@@ -33,7 +33,7 @@ export default function Invite() {
 function ShareFirst({ h }: { h: Household }) {
   const { c } = useTheme();
   const session = useSession();
-  const apple = useAppleAvailable();
+  const signInOptions = useSignInOptions();
   const [busy, setBusy] = useState(false);
   const share = async () => {
     setBusy(true);
@@ -52,11 +52,11 @@ function ShareFirst({ h }: { h: Household }) {
       <People h={h} />
       {session ? (
         <CTA label={busy ? 'Sharing…' : `Share ${h.name}`} disabled={busy} onPress={share} />
-      ) : apple ? (
-        <AppleCTA label="Continue with Apple to share" onSignedIn={() => { void share(); }} />
+      ) : signInOptions.any ? (
+        <SignInButtons verb="to share" onSignedIn={() => { void share(); }} />
       ) : (
         <Banner icon={<CloudOff size={18} color={c.ink2} />}>
-          <BannerText rest="Sharing needs Sign in with Apple, which works on iPhone for now. Until then, add their expenses for them." />
+          <BannerText rest="Sharing needs you to sign in, which this device can’t do yet. Until then, add their expenses for them." />
         </Banner>
       )}
       <Caption style={{ fontFamily: fonts.medium, lineHeight: 18 }}>You become the owner. Nothing already recorded changes.</Caption>

@@ -1,6 +1,6 @@
 // Welcome. Phone: the two-band hero ("Share the" / "house money.") with the orb on the seam and the
 // actions on a paper sheet below. Tablet and desk web: the hero fills the left half and the actions
-// sit in a card on the right. On iPhone, Continue with Apple brings in your shared households.
+// sit in a card on the right. Two ways in: start a household, or join one with an invite.
 import { useState } from 'react';
 import { ScrollView, View } from 'react-native';
 import { useRouter } from 'expo-router';
@@ -11,7 +11,6 @@ import { CTA, Press, T } from '@/ui/primitives';
 import { useTheme } from '@/ui/theme';
 import { fonts } from '@/ui/tokens';
 import { Brand, MiniOrb } from '@/features/onboarding/chrome';
-import { AppleCTA, inExpoGo, useAppleAvailable } from '@/features/account/session';
 
 export default function Welcome() {
   const { layout } = useTheme();
@@ -87,7 +86,6 @@ function WelcomeActions({ desk }: { desk?: boolean }) {
   const router = useRouter();
   const locked = useStore((s) => s.locked && s.households.length > 0);
   const lockedCount = useStore((s) => s.households.length);
-  const apple = useAppleAvailable();
   return (
     <View>
       {!desk ? (
@@ -104,26 +102,25 @@ function WelcomeActions({ desk }: { desk?: boolean }) {
           <CTA label="Unlock" icon={<Lock size={20} color={c.bg} />} onPress={() => { unlock(); router.replace('/home'); }} />
         ) : (
           <>
-            {apple ? (
-              <AppleCTA onSignedIn={(arrived) => router.replace(arrived > 0 ? '/home' : '/setup/new')} />
-            ) : null}
-            <CTA label="Start a household" variant={apple ? 'second' : 'primary'} onPress={() => router.push('/setup/new')} />
-            <CTA label="Look around a sample household" variant="second" onPress={() => { loadSample(); router.replace('/home'); }} />
+            <CTA label="Start a household" onPress={() => router.push('/setup/account')}
+              accessibilityLabel="Start a household. You set it up and invite the others" />
+            <CTA label="Join with an invite" variant="second" onPress={() => router.push('/join')}
+              accessibilityLabel="Join with an invite. Someone already set up your household" />
           </>
         )}
       </View>
-      <Press onPress={() => router.push('/join')} accessibilityRole="link" accessibilityLabel="Got an invite? Enter a code"
-        style={{ minHeight: 44, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', flexWrap: 'wrap', marginTop: desk ? 14 : 10 }}>
-        <T style={{ fontSize: 14, color: c.ink2 }}>Got an invite? </T>
-        <T style={{ fontSize: 14, fontFamily: fonts.bold, textDecorationLine: 'underline' }}>Enter a code</T>
-      </Press>
-      <T style={{ fontSize: 13, lineHeight: 18, color: c.ink2, textAlign: 'center', marginTop: 6, paddingHorizontal: 8 }}>
-        {apple
-          ? 'Sign in to share a household between phones. Without it, everything stays on this device.'
-          : inExpoGo
-            ? 'This is the Expo Go preview: everything stays on this device. Sharing between phones works in the installed app.'
-            : 'Sharing between phones needs Sign in with Apple on an iPhone for now. Here, everything stays on this device.'}
-      </T>
+      {!locked ? (
+        <View style={{ flexDirection: 'row', justifyContent: 'center', flexWrap: 'wrap', columnGap: 18, marginTop: desk ? 14 : 10 }}>
+          <Press onPress={() => router.push({ pathname: '/setup/account', params: { mode: 'signin' } })} accessibilityRole="link"
+            accessibilityLabel="Already use Numa Shared? Sign in" style={{ minHeight: 44, justifyContent: 'center' }}>
+            <T style={{ fontSize: 14, fontFamily: fonts.bold, textDecorationLine: 'underline' }}>I already have an account</T>
+          </Press>
+          <Press onPress={() => { loadSample(); router.replace('/home'); }} accessibilityRole="link"
+            accessibilityLabel="Look around a sample household" style={{ minHeight: 44, justifyContent: 'center' }}>
+            <T style={{ fontSize: 14, color: c.ink2, textDecorationLine: 'underline' }}>Look around a sample</T>
+          </Press>
+        </View>
+      ) : null}
     </View>
   );
 }

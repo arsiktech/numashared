@@ -6,7 +6,7 @@ import { AppState, Platform } from 'react-native';
 import { useSyncExternalStore } from 'react';
 import type { Household, ID } from '../core/types';
 import { getState, putHousehold, removeHousehold, switchHousehold } from '../store/store';
-import { accessToken, currentSession, loadSession, signInWithApple, signOutSession, subscribeSession } from './auth';
+import { accessToken, currentSession, loadSession, signInWithApple, signInWithGoogle, signOutSession, subscribeSession } from './auth';
 import { CONVEX_URL, SITE_URL } from './config';
 import {
   addPersonOnline, adoptPots, claimInvite, failureOf, flush, issueInvites, leaveOnline, promote, pull,
@@ -193,9 +193,9 @@ function within<T>(p: Promise<T>, ms = 15_000): Promise<T> {
 
 export class NeedsSignIn extends Error { constructor() { super('NEEDS_SIGN_IN'); } }
 
-/** Apple sign-in, then bring in this account's households. Returns how many arrived. */
-export async function signIn(): Promise<number> {
-  await signInWithApple();
+/** Sign in (Apple or Google), then bring in this account's households. Returns how many arrived. */
+export async function signIn(provider: 'apple' | 'google' = 'apple'): Promise<number> {
+  if (provider === 'google') await signInWithGoogle(); else await signInWithApple();
   connect();
   const before = getState().households.length;
   await requestSync();

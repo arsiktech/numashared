@@ -10,7 +10,7 @@ import { useTheme } from '@/ui/theme';
 import { fonts, isWeb } from '@/ui/tokens';
 import { Brand, Field, Screen, ScreenHeader } from '@/features/onboarding/chrome';
 import { cleanCode, showCode } from '@/features/onboarding/model';
-import { AppleCTA, explainFailure, useAppleAvailable, useSession } from '@/features/account/session';
+import { explainFailure, SignInButtons, useSession, useSignInOptions } from '@/features/account/session';
 import { useStore } from '@/store/store';
 import { failureOf, type InvitePreview } from '@/sync/engine';
 import { joinWithInvite, lookUpInvite, requestSync } from '@/sync/runtime';
@@ -38,7 +38,7 @@ export default function Join() {
   const [error, setError] = useState<string | null>(null);
   const hasHousehold = useStore((s) => s.households.length > 0 && !s.locked);
   const session = useSession();
-  const apple = useAppleAvailable();
+  const signInOptions = useSignInOptions();
   const phone = layout === 'phone';
   const citrus = tone('citrus');
   const lilac = tone('lilac');
@@ -137,10 +137,10 @@ export default function Join() {
           <Banner><BannerText strong="Asked to join." rest={` The owner of ${potName} needs to let you in. It opens here as soon as they do.`} /></Banner>
         </View>
       ) : null}
-      {active && !apple && !session ? (
+      {active && !signInOptions.any && !session ? (
         <View style={{ marginTop: 16 }}>
           <Banner icon={<CloudOff size={18} color={c.ink2} />}>
-            <BannerText rest="Joining needs Sign in with Apple, which works on iPhone for now. Open this code in Numa Shared on an iPhone." />
+            <BannerText rest="Joining needs you to sign in, which this device can’t do yet. Open the invite in the Numa Shared app on your phone." />
           </Banner>
         </View>
       ) : null}
@@ -151,11 +151,11 @@ export default function Join() {
             accessibilityLabel={ready ? `Check code ${code.split('').join(' ')}` : 'Check code. Type the 6-character code first'} />
         ) : session ? (
           <CTA label={busy ? 'Joining…' : `Join ${potName}`} disabled={busy || waiting} onPress={() => join(active)} />
-        ) : apple ? (
-          <AppleCTA label="Continue with Apple to join" disabled={busy} onSignedIn={() => { void join(active); }} />
+        ) : signInOptions.any ? (
+          <SignInButtons verb="to join" disabled={busy} onSignedIn={() => { void join(active); }} />
         ) : null}
         <CTA variant="second" label={hasHousehold ? 'Back to my household' : 'Start my own household'}
-          onPress={() => (hasHousehold ? router.replace('/home') : router.replace('/setup/new'))} />
+          onPress={() => (hasHousehold ? router.replace('/home') : router.replace('/setup/account'))} />
       </View>
 
       <Press onPress={() => (router.canGoBack() ? router.back() : router.replace('/'))} accessibilityRole="link" accessibilityLabel="Not now"

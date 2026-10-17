@@ -479,8 +479,9 @@ const CODE_ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
 
 function random(n: number): Uint8Array {
   const b = new Uint8Array(n);
-  if (typeof globalThis.crypto?.getRandomValues === 'function') globalThis.crypto.getRandomValues(b);
-  else for (let i = 0; i < n; i++) b[i] = Math.floor(Math.random() * 256);
+  // Invite secrets must come from a secure generator; there is deliberately no fallback.
+  if (typeof globalThis.crypto?.getRandomValues !== 'function') throw new Error('No secure random generator');
+  globalThis.crypto.getRandomValues(b);
   return b;
 }
 

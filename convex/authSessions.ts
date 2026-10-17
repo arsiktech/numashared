@@ -253,6 +253,33 @@ export const establishSession = internalMutation({
   }),
 });
 
+/** A Google account: no Apple authorization to keep, so nothing to revoke at deletion. */
+export const establishGoogleSession = internalMutation({
+  args: {
+    googleSubjectHash: v.string(),
+    sessionId: v.string(),
+    publicAccountIdCandidate: v.string(),
+    refreshTokenHash: v.string(),
+    now: v.number(),
+    expiresAt: v.number(),
+  },
+  handler: (ctx: MutationCtx, args): Promise<{
+    publicAccountId: string;
+    sessionId: string;
+    refreshExpiresAt: number;
+  }> => establish(ctx, {
+    subjectHash: args.googleSubjectHash,
+    relayEmail: undefined,
+    encryptedAppleRefresh: undefined,
+    sessionId: args.sessionId,
+    publicAccountIdCandidate: args.publicAccountIdCandidate,
+    refreshTokenHash: args.refreshTokenHash,
+    now: args.now,
+    expiresAt: args.expiresAt,
+    requireAppleAuthorization: false,
+  }),
+});
+
 export const establishLocalE2ESession = internalMutation({
   args: {
     localSubjectHash: v.string(),

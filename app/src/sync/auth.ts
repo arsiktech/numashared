@@ -5,7 +5,7 @@ import * as AppleAuthentication from 'expo-apple-authentication';
 import * as Crypto from 'expo-crypto';
 import * as SecureStore from 'expo-secure-store';
 import { Platform } from 'react-native';
-import { SITE_URL } from './config';
+import { GOOGLE_IOS_CLIENT_ID, GOOGLE_WEB_CLIENT_ID, SITE_URL } from './config';
 import { base64url } from './engine';
 
 export type Session = {
@@ -106,8 +106,7 @@ export async function appleSignInSupported(): Promise<boolean> {
 
 /** Shows Apple's sheet and starts a session. Throws AuthError('CANCELLED') if the person backs out. */
 export async function signInWithApple(): Promise<Session> {
-  const raw = new Uint8Array(32);
-  globalThis.crypto.getRandomValues(raw);
+  const raw = Crypto.getRandomBytes(32);
   const rawNonce = base64url(raw);
   const hashed = await Crypto.digestStringAsync(Crypto.CryptoDigestAlgorithm.SHA256, rawNonce, { encoding: Crypto.CryptoEncoding.HEX });
   let credential: AppleAuthentication.AppleAuthenticationCredential;
@@ -130,6 +129,60 @@ export async function signInWithApple(): Promise<Session> {
   await setSession(next);
   return next;
 }
+
+// ---------- Sign in with Google ----------
+
+type GoogleModule = typeof import('@react-native-google-signin/google-signin');
+let googleModule: GoogleModule | null | undefined;
+
+/** The native Google Sign-In module, or null where it isn't built in (Expo Go, the web). */
+function google(): GoogleModule | null {
+  if (googleModule !== undefined) return googleModule;
+  try {
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    googleModule = Platform.OS === 'web' ? null : (require('@react-native-google-signin/google-signin') as GoogleModule);
+  } catch {
+    googleModule = null;
+  }
+  return googleModule;
+}
+
+/** Google sign-in is offered on iPhone and Android once the build carries its client IDs. */
+export function googleSignInAvailable(): boolean {
+  if (!GOOGLE_WEB_CLIENT_ID) return false;
+  if (Platform.OS === 'ios' && !GOOGLE_IOS_CLIENT_ID) return false;
+  return google() !== null;
+}
+
+/** Shows Google's account picker and starts a session. Throws AuthError('CANCELLED') if the person backs out. */
+export async function signInWithGoogle(): Promise<Session> {
+  const mod = google();
+  if (!mod || !googleSignInAvailable()) throw new AuthError('GOOGLE_SIGN_IN_UNAVAILABLE', false);
+  const { GoogleSignin, statusCodes } = mod;
+  GoogleSignin.configure({ webClientId: GOOGLE_WEB_CLIENT_ID, iosClientId: GOOGLE_IOS_CLIENT_ID });
+  let idToken: string | null;
+  try {
+    if (Platform.OS === 'android') await GoogleSignin.hasPlayServices({ showPlayServicesUpdateDialog: true });
+    const result = await GoogleSignin.signIn();
+    if (result.type !== 'success') throw new AuthError('CANCELLED', false);
+    idToken = result.data.idToken;
+  } catch (e) {
+    if (e instanceof AuthError) throw e;
+    const code = (e as { code?: string }).code;
+    if (code === statusCodes.SIGN_IN_CANCELLED) throw new AuthError('CANCELLED', false);
+    if (code === statusCodes.PLAY_SERVICES_NOT_AVAILABLE) throw new AuthError('PLAY_SERVICES_NOT_AVAILABLE', false);
+    throw new AuthError('GOOGLE_SIGN_IN_FAILED', true);
+  }
+  if (!idToken) throw new AuthError('GOOGLE_SIGN_IN_FAILED', true);
+  const tokens = await post<TokenResponse>('/auth/google/exchange', { idToken });
+  const next = fromTokens(tokens);
+  await setSession(next);
+  // The Numa Shared session is what counts from here; let the Google picker show next time.
+  GoogleSignin.signOut().catch(() => {});
+  return next;
+}
+
+// ---------- refreshing ----------
 
 let refreshing: Promise<string | null> | null = null;
 

@@ -421,3 +421,10 @@ that stay in the private development repository.
 - Decision (owner delegated the choice): the Expo app syncs through the existing Convex backend rather than a new one. Additive changes: expense notes, repayment method (`category`) and note, an optional reason on expense edits, and `recordedAtMillis` on pulled events.
 - Why: the backend already provides Apple sign-in, rotating sessions, sequenced append-only events, invites, push and account deletion, with tests.
 - Consequence: the retired SwiftUI reader would treat the new text fields as invalid; it is not being shipped again.
+
+## 2026-10-17 — Sign in with Google next to Apple, and a two-choice welcome
+
+- Decision (owner): the welcome screen offers two choices, start a household or join with an invite, and signing in happens inside each flow. Sign in with Google is added next to Apple so Android users (and iPhone users without an Apple ID preference) can join.
+- Backend: `POST /auth/google/exchange` verifies Google ID tokens against `NUMA_SHARED_GOOGLE_CLIENT_IDS` and creates an ordinary session; Google accounts have no Apple authorization, which account deletion already handles.
+- Owner actions: create the Google OAuth clients (iOS for `tech.arsik.numashared`, Android with the signing certificate fingerprint, and a web client), set `NUMA_SHARED_GOOGLE_CLIENT_IDS` on production, and build with the client IDs in `app/.env`.
+

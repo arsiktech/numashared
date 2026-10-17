@@ -3,6 +3,7 @@ import { httpRouter } from "convex/server";
 import {
   appleExchange,
   appleNotification,
+  googleExchange,
   accountDeletionPreview,
   deleteAccount,
   e2eBootstrap,
@@ -30,6 +31,7 @@ http.route({
   method: "POST",
   handler: appleNotification,
 });
+http.route({ path: "/auth/google/exchange", method: "POST", handler: googleExchange });
 http.route({ path: "/auth/refresh", method: "POST", handler: refresh });
 http.route({ path: "/auth/logout", method: "POST", handler: logout });
 http.route({

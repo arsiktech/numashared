@@ -14,6 +14,7 @@ import {
   fetchAppleJwks,
   generateOpaqueRefreshToken,
   hashAppleSubject,
+  hashGoogleSubject,
   hashIdentityRateKey,
   hashLocalE2ESubject,
   hashRefreshToken,
@@ -34,6 +35,11 @@ import {
   type SessionSigningEnvironment,
 } from "./lib/identity";
 import { ios18TimeZoneIdentifiers } from "./lib/ios18TimeZoneIdentifiers";
+import {
+  fetchGoogleJwks,
+  readGoogleClientIds,
+  verifyGoogleIdentityToken,
+} from "./lib/googleIdentity";
 import { generateUUIDv7 } from "./lib/uuidV7";
 import {
   consumeTrustedSourceRateLimit,
@@ -194,6 +200,48 @@ function readIdentityBody(
     ? readIdentityEnvironment(process.env)
     : readSessionSigningEnvironment(process.env);
   return { environment, value: stringField(body, field, maximum), nowMillis: Date.now() };
+}
+
+async function exchangeGoogle(
+  ctx: ActionCtx,
+  body: Record<string, unknown>,
+): Promise<Response> {
+  const head = readIdentityBody("session", body, "idToken", 16_384);
+  const { environment, nowMillis } = head;
+  const idToken = head.value;
+  const clientIds = readGoogleClientIds(process.env);
+  await validateSessionSigningKey(environment);
+  const nowSeconds = Math.floor(nowMillis / 1_000);
+  const tokenRateKey = await hashIdentityRateKey("google-exchange-token", idToken, environment.tokenHashSecret);
+  await consumeRateBuckets(ctx, nowMillis, "GOOGLE_EXCHANGE_RATE_LIMITED", [
+    { bucketKey: tokenRateKey, limit: 5n, windowMillis: 600_000 },
+  ]);
+  const identity = await verifyGoogleIdentityToken(idToken, clientIds, await fetchGoogleJwks(fetch), nowSeconds);
+  const googleSubjectHash = await hashGoogleSubject(identity.subject, environment.tokenHashSecret);
+  const refreshToken = generateOpaqueRefreshToken();
+  const refreshTokenHash = await hashRefreshToken(refreshToken, environment.tokenHashSecret);
+  const established = await ctx.runMutation(anyApi.authSessions.establishGoogleSession, {
+    googleSubjectHash,
+    sessionId: crypto.randomUUID(),
+    publicAccountIdCandidate: crypto.randomUUID(),
+    refreshTokenHash,
+    now: nowMillis,
+    expiresAt: nowMillis + refreshSessionLifetimeMillis,
+  }) as EstablishResult;
+  const access = await issueNumaAccessToken(
+    { publicAccountId: established.publicAccountId, sessionId: established.sessionId },
+    environment,
+    nowSeconds,
+    crypto.randomUUID(),
+    established.refreshExpiresAt,
+  );
+  return jsonResponse({
+    accessToken: access.token,
+    accessTokenExpiresInSeconds: access.expiresInSeconds,
+    refreshToken,
+    refreshExpiresAt: established.refreshExpiresAt,
+    accountId: established.publicAccountId,
+  });
 }
 
 async function exchangeApple(
@@ -658,6 +706,12 @@ const endpointPolicies = {
     limit: 30n,
     errorCode: "APPLE_EXCHANGE_RATE_LIMITED",
   },
+  googleExchange: {
+    environment: "session",
+    namespace: "google-exchange-source",
+    limit: 30n,
+    errorCode: "GOOGLE_EXCHANGE_RATE_LIMITED",
+  },
   appleNotification: {
     environment: "identity",
     namespace: "apple-notification-source",
@@ -692,6 +746,9 @@ const endpointPolicies = {
 
 export const appleExchange = httpAction(async (ctx, request) =>
   await guardedEndpoint(ctx, request, endpointPolicies.appleExchange, exchangeApple));
+
+export const googleExchange = httpAction(async (ctx, request) =>
+  await guardedEndpoint(ctx, request, endpointPolicies.googleExchange, exchangeGoogle));
 
 export const appleNotification = httpAction(async (ctx, request) =>
   await guardedEndpoint(ctx, request, endpointPolicies.appleNotification, processAppleNotification));

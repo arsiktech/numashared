@@ -39,6 +39,7 @@ export {
   hashAppleSubject,
   hashIdentityRateKey,
   hashLocalE2ESubject,
+  hashGoogleSubject,
   hashRefreshToken,
   identityErrorResponse,
   issueNumaAccessToken,

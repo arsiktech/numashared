@@ -42,7 +42,7 @@ Households sync through the existing Convex backend (`convex/`), the same one th
 | `mapping.ts` | App events to wire events and back. A group's id is its settlement unit, a person's id is their member id. |
 | `engine.ts` | Promotion of a local household, the send queue (one event at a time, after the undo window), pulling, invites, joining, and the online-only changes (add person, rename, regroup, leave). |
 | `runtime.ts` | The Convex client, a live subscription to your households, push registration. |
-| `auth.ts` | Sign in with Apple, the 30-day session and its rotating refresh token (Keychain). |
+| `auth.ts` | Sign in with Apple or Google, the 30-day session and its rotating refresh token (Keychain). |
 
 `convex/clientSync.test.ts` runs this engine against the real backend functions with two simulated phones.
 
@@ -52,7 +52,12 @@ How it behaves:
 - Everything works offline. Changes wait on the phone and go out in order when there is a connection.
 - If the server refuses a change because someone changed the same thing at the same time, the app says so on Home and keeps the history as the server has it.
 
+Signing in:
+- Apple works in an iPhone build with the bundle id `tech.arsik.numashared` (the backend accepts that one Apple audience), not inside Expo Go.
+- Google works on iPhone and Android once the build has its OAuth client IDs. Put them in `app/.env` before building:
+  `EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID=…` and `EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID=…`. The backend accepts the same two IDs from `NUMA_SHARED_GOOGLE_CLIENT_IDS` (comma-separated). Without them the Google button stays hidden.
+- The web build has no sign-in yet; households there stay in the browser.
+
 Limits for now:
-- Sign in with Apple works only in an iPhone build with the bundle id `tech.arsik.numashared` (the backend accepts one Apple audience). It does not work inside Expo Go, on Android or on the web, where households stay on the device. Android and web sign-in need a second sign-in method or an Apple Services ID on the backend.
 - A group is one to six people who pay as one (a single person, a couple, a family).
 - Push notifications use APNs directly (iPhone only).

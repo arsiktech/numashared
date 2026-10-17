@@ -13,7 +13,7 @@ import { fonts, isAndroid, isWeb } from '@/ui/tokens';
 import { useHousehold } from '@/features/hooks';
 import { CURRENCIES, currencyLabel } from '@/features/onboarding/model';
 import { SGroup, SNote, SRow, SettingsShell, useDesk, type DeskSection } from '@/features/settings/parts';
-import { AppleCTA, explainFailure, useAppleAvailable, useSession } from '@/features/account/session';
+import { explainFailure, SignInButtons, useSession, useSignInOptions } from '@/features/account/session';
 import { showToast } from '@/store/ui';
 import { failureOf } from '@/sync/engine';
 import { online, registerPush, signOutEverywhere, turnOnSync } from '@/sync/runtime';
@@ -183,7 +183,7 @@ function AccountGroup() {
   const desk = useDesk();
   const { h } = useHousehold();
   const session = useSession();
-  const apple = useAppleAvailable();
+  const signInOptions = useSignInOptions();
   const [busy, setBusy] = useState(false);
   if (!h) return null;
   const share = async () => {
@@ -195,17 +195,17 @@ function AccountGroup() {
   return (
     <SGroup title={desk ? undefined : 'Account'}>
       {session ? (
-        <SRow first label="Signed in with Apple" sub={h.sync ? `${h.name} is shared` : `${h.name} is only on this device`} icon={<Apple size={22} color={c.ink2} />} chevron={false} />
+        <SRow first label="Signed in" sub={h.sync ? `${h.name} is shared` : `${h.name} is only on this device`} icon={<Apple size={22} color={c.ink2} />} chevron={false} />
       ) : (
-        <SRow first label="Not signed in" sub={apple ? 'Sign in to share households between phones' : 'Sign in with Apple works on iPhone for now'} icon={<CloudOff size={22} color={c.ink2} />} chevron={false} />
+        <SRow first label="Not signed in" sub={signInOptions.any ? 'Sign in to share households between phones' : 'Signing in isn’t available on this device yet'} icon={<CloudOff size={22} color={c.ink2} />} chevron={false} />
       )}
       {session && !h.sync ? (
         <SRow label={busy ? 'Sharing…' : `Share ${h.name}`} sub="Move it to your account so others can join" icon={<ShareIcon size={22} color={c.ink2} />}
           onPress={busy ? undefined : share} />
       ) : null}
-      {!session && apple ? (
+      {!session && signInOptions.any ? (
         <View style={{ paddingHorizontal: 16, paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: c.hair }}>
-          <AppleCTA />
+          <SignInButtons />
         </View>
       ) : null}
       <SRow label="Sign out" icon={<View />} chevron={false} onPress={() => openSheet({ type: 'signout' })} last={desk} />
