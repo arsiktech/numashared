@@ -1,0 +1,80 @@
+{
+  "expo": {
+    "name": "Numa Shared",
+    "slug": "numa-shared",
+    "version": "2.0.0",
+    "orientation": "default",
+    "icon": "./assets/images/icon.png",
+    "scheme": "numashared",
+    "userInterfaceStyle": "automatic",
+    "ios": {
+      "bundleIdentifier": "tech.arsik.numashared",
+      "supportsTablet": true,
+      "config": {
+        "usesNonExemptEncryption": false
+      },
+      "usesAppleSignIn": true,
+      "associatedDomains": [
+        "applinks:adept-camel-457.convex.site"
+      ]
+    },
+    "android": {
+      "package": "tech.arsik.numashared",
+      "adaptiveIcon": {
+        "backgroundColor": "#0D1013",
+        "foregroundImage": "./assets/images/android-icon-foreground.png",
+        "backgroundImage": "./assets/images/android-icon-background.png",
+        "monochromeImage": "./assets/images/android-icon-monochrome.png"
+      },
+      "predictiveBackGestureEnabled": true
+    },
+    "web": {
+      "output": "single",
+      "favicon": "./assets/images/favicon.png",
+      "name": "Numa Shared",
+      "shortName": "Numa Shared",
+      "themeColor": "#FBFAF6",
+      "backgroundColor": "#FBFAF6"
+    },
+    "plugins": [
+      "expo-router",
+      [
+        "expo-splash-screen",
+        {
+          "backgroundColor": "#0D1013",
+          "image": "./assets/images/splash-icon.png",
+          "imageWidth": 120
+        }
+      ],
+      "expo-apple-authentication",
+      "expo-secure-store",
+      [
+        "expo-notifications",
+        {
+          "mode": "production"
+        }
+      ],
+      "./plugins/with-ios-scene-lifecycle"
+    ],
+    "experiments": {
+      "typedRoutes": true,
+      "reactCompiler": true
+    },
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "9bd0be32-be67-4d8c-99b2-b63afbf22e36"
+      }
+    },
+    "owner": "arsiktech",
+    "runtimeVersion": {
+      "policy": "sdkVersion"
+    },
+    "updates": {
+      "url": "https://u.expo.dev/9bd0be32-be67-4d8c-99b2-b63afbf22e36",
+      "requestHeaders": {
+        "expo-channel-name": "production"
+      }
+    }
+  }
+}

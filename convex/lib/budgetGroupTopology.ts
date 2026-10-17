@@ -74,6 +74,9 @@ export function projectedUnitId(topology: BudgetGroupTopology, unitId: string): 
   return member && (topology.minimumSchemaVersion >= 2n || !member.archived) ? member.unitId : unitId;
 }
 
+/** People who pay as one: a single person, a couple, a family, up to six people. */
+export const maximumBudgetGroupSize = 6;
+
 function validateGroups(groups: Group[], topology: BudgetGroupTopology, known: readonly string[], schema: bigint): void {
   if (groups.length > 64) fail("TOO_MANY_GROUPS");
   const groupIds = new Set<string>();
@@ -82,7 +85,8 @@ function validateGroups(groups: Group[], topology: BudgetGroupTopology, known: r
   for (const group of groups) {
     const unchanged = topology.groups.some((old) => canonicalValue(old) === canonicalValue(group));
     if (schema === 2n && !unchanged
-      && (group.orderedMemberIds.length < 1 || group.orderedMemberIds.length > 2 || group.defaultShareWeight !== 1n)) {
+      && (group.orderedMemberIds.length < 1 || group.orderedMemberIds.length > maximumBudgetGroupSize
+        || group.defaultShareWeight !== 1n)) {
       fail("INVALID_BUDGET_GROUP");
     }
     if (group.defaultShareWeight <= 0n) fail("INVALID_GROUP_SHARE_WEIGHT");

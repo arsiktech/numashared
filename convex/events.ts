@@ -123,6 +123,9 @@ export const listEvents = query({
           ...(stored.legacyAuthoredText ? { legacyAuthoredText: true } : {}),
         },
         serverSequence: stored.sequence,
+        // When the server sequenced the event. occurredAtMillis is the author's chosen time
+        // (an expense can be backdated); this says when it was actually recorded.
+        recordedAtMillis: stored.createdAt,
         textStates,
       });
     }

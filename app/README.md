@@ -1,0 +1,63 @@
+# Numa Shared app (Expo)
+
+One TypeScript codebase for iPhone, Android and the web, replacing the SwiftUI app in `ios/`. The design follows the approved direction "Color is who": a color always means a group of people, orange means add, and the history reads as a conversation.
+
+## Run
+
+```bash
+cd app
+npm install          # .npmrc sets legacy-peer-deps
+npx expo start       # i: iOS simulator, a: Android, w: web
+npm test             # ledger core tests (vitest)
+npm run typecheck
+```
+
+## Layout
+
+| Path | What |
+|---|---|
+| `src/core/` | Pure ledger core: integer money, exact-sum allocation, events, reducer, explanations, exact minimum settlement plan, undo policy. No React. Ported from `NumaSharedCore` and tested against its vectors. |
+| `src/store/` | Local-first household store. Every change is a validated, appended event. Persists on the device. |
+| `src/ui/` | Tokens and components: orb, bands, ticket, keypad, split bar, undo lane, sheets that grow from the orb. |
+| `src/features/` | Screen building blocks (home bands, history thread, record detail, add flow, settings). |
+| `src/sheets/` | Sheets opened over any screen (add, repay, detail, balance plan, void, flag, households, sign out). |
+| `src/app/` | Routes (Expo Router). Phones get the stacked layout; the web gets three panes at desk width. |
+
+## Product contracts kept
+
+- Money is integer minor units. Splits sum exactly. Balances are derived from events and always zero-sum.
+- History is append-only. Edits keep the old version, voids keep the record. Only an unsent event inside its 8-second undo window can disappear.
+- Groups are fixed once money is recorded, so past balances never change silently.
+
+## Build variants
+
+`APP_VARIANT=preview` builds "Numa Shared Preview" (`tech.arsik.numashared.preview`), so a test build never replaces the app people already use. See `eas.json`.
+
+## Sync
+
+Households sync through the existing Convex backend (`convex/`), the same one the SwiftUI app used. `src/sync/` holds the client:
+
+| File | What |
+|---|---|
+| `mapping.ts` | App events to wire events and back. A group's id is its settlement unit, a person's id is their member id. |
+| `engine.ts` | Promotion of a local household, the send queue (one event at a time, after the undo window), pulling, invites, joining, and the online-only changes (add person, rename, regroup, leave). |
+| `runtime.ts` | The Convex client, a live subscription to your households, push registration. |
+| `auth.ts` | Sign in with Apple or Google, the 30-day session and its rotating refresh token (Keychain). |
+
+`convex/clientSync.test.ts` runs this engine against the real backend functions with two simulated phones.
+
+How it behaves:
+- Signing in with Apple brings in every household on your account. A household made before signing in is shared from Invite people, and you become its owner.
+- Everyone invited gets a personal six-character code (or a link) that works once, for them.
+- Everything works offline. Changes wait on the phone and go out in order when there is a connection.
+- If the server refuses a change because someone changed the same thing at the same time, the app says so on Home and keeps the history as the server has it.
+
+Signing in:
+- Apple works in an iPhone build with the bundle id `tech.arsik.numashared` (the backend accepts that one Apple audience), not inside Expo Go.
+- Google works on iPhone and Android once the build has its OAuth client IDs. Put them in `app/.env` before building:
+  `EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID=…` and `EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID=…`. The backend accepts the same two IDs from `NUMA_SHARED_GOOGLE_CLIENT_IDS` (comma-separated). Without them the Google button stays hidden.
+- The web build has no sign-in yet; households there stay in the browser.
+
+Limits for now:
+- A group is one to six people who pay as one (a single person, a couple, a family).
+- Push notifications use APNs directly (iPhone only).

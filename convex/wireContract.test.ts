@@ -237,6 +237,7 @@ describe("Swift and Convex v1 wire contract", () => {
       expect(listed.events[index]).toEqual({
         event: { ...uploaded, authoredText: [] },
         serverSequence: BigInt(index + 1),
+        recordedAtMillis: expect.any(Number),
         textStates: uploaded.authoredText.map(({ field, value }) => ({
           field,
           state: "present",
@@ -244,5 +245,69 @@ describe("Swift and Convex v1 wire contract", () => {
         })),
       });
     }
+  });
+  test("accepts an expense note, a repayment method and note, and an edit reason", () => {
+    const fixture = withConvexInt64(wireEventsJSON as unknown as JSONValue) as Array<{
+      potId: string;
+      actorMemberId: string;
+      payload: { kind: string; content?: { kind?: string } };
+      textFields: string[];
+      authoredText: Array<{ field: string; value: string }>;
+      [key: string]: ConvexFixtureValue;
+    }>;
+    const configuration = {
+      potId: fixture[0].potId,
+      currency: { code: "EUR", exponent: 2n },
+      orderedUnitIds: [...collectUnitIds(fixture)],
+      ownerMemberId: fixture[0].actorMemberId,
+      minimumReaderSchemaVersion: 1n,
+    } satisfies PotConfigurationInput;
+    const withText = (
+      source: (typeof fixture)[number],
+      text: Array<{ field: string; value: string }>,
+    ) => ({
+      ...source,
+      textFields: text.map(({ field }) => field),
+      authoredText: text,
+    }) as unknown as EventInput;
+    const expense = fixture.find(({ payload }) => payload.kind === "expenseAdded")!;
+    const revision = fixture.find(({ payload }) => (
+      payload.kind === "expenseRevised" && payload.content?.kind === "expense"
+    ))!;
+    const settlement = fixture.find(({ payload }) => payload.kind === "settlementRecorded")!;
+    expect(revision).toBeDefined();
+
+    expect(() => validateEvent(withText(expense, [
+      { field: "title", value: "Groceries" },
+      { field: "category", value: "groceries" },
+      { field: "note", value: "Apples, bread and coffee" },
+    ]), configuration)).not.toThrow();
+    expect(() => validateEvent(withText(revision, [
+      { field: "title", value: "Groceries" },
+      { field: "note", value: "Apples" },
+      { field: "reason", value: "Wrong amount" },
+    ]), configuration)).not.toThrow();
+    expect(() => validateEvent(withText(settlement, [
+      { field: "title", value: "Repayment" },
+      { field: "category", value: "bank" },
+      { field: "note", value: "Half now, half on Friday" },
+    ]), configuration)).not.toThrow();
+
+    // Still required, still canonical, still nonblank.
+    expect(() => validateEvent(withText(settlement, [
+      { field: "note", value: "No title" },
+    ]), configuration)).toThrow("TEXT_FIELD_REQUIRED_TITLE");
+    expect(() => validateEvent(withText(settlement, [
+      { field: "title", value: "Repayment" },
+      { field: "reason", value: "Not a repayment field" },
+    ]), configuration)).toThrow("TEXT_FIELD_NOT_ALLOWED_REASON");
+    expect(() => validateEvent(withText(expense, [
+      { field: "title", value: "Groceries" },
+      { field: "note", value: "   " },
+    ]), configuration)).toThrow();
+    expect(() => validateEvent(withText(expense, [
+      { field: "title", value: "Groceries" },
+      { field: "reason", value: "Edits only" },
+    ]), configuration)).toThrow("TEXT_FIELD_NOT_ALLOWED_REASON");
   });
 });

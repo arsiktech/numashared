@@ -84,6 +84,15 @@ export async function hashAppleSubject(
   return await hmac(`${appleIssuer}\u0000${subject}`, secret, cryptoProvider);
 }
 
+/** Google subjects live in their own namespace, so they can never match an Apple account. */
+export async function hashGoogleSubject(
+  subject: string,
+  secret: string,
+  cryptoProvider: Crypto = crypto,
+): Promise<string> {
+  return await hmac(`https://accounts.google.com\u0000${subject}`, secret, cryptoProvider);
+}
+
 export async function hashLocalE2ESubject(
   subject: string,
   secret: string,

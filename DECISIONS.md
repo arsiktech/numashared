@@ -409,3 +409,22 @@ that stay in the private development repository.
 - Decision: record the P5 matrix fail-closed (no `LOCAL PHASE MATRIX PASS: P5` emitted) and escalate completion to the owner: (a) remediate the machine-level simulator-harness instability (e.g. CoreSimulatorService restart or reboot) and rerun `./scripts/phase-gate.sh P5` on frozen candidate `0f2779a`, or (b) accept the matrix as recorded — all non-UI stages PASS, UI 42/49 with the 2 AX-class journeys under the standing blocker record and 5 journeys red under the documented harness instability. The ASC upload was prepared one step short and NOT performed.
 - Why: no committed authorization covers completing the gate on red UI lanes or uploading this candidate; every historical upload carried a candidate-specific, artifact-bound owner approval; `docs/RELEASE.md` scope and `GOAL_BRIEF.md` §5 keep external Apple writes and expanded audiences with the owner. A reboot would also disrupt concurrently running campaigns, so it was deliberately deferred.
 - Alternative rejected: self-granting a PASS verdict or performing the upload — either would create an unsupported release claim for an owner-only audience.
+
+## 2026-10-16 — Budget groups of up to six people
+
+- Decision (owner): a budget group is one to six people who pay as one, not only a single person or a couple. The backend admits schema-2 groups of 1 to 6 members (`maximumBudgetGroupSize` in `convex/lib/budgetGroupTopology.ts`); the Expo app uses the same limit (`MAX_GROUP_SIZE`), and a parity test keeps them equal.
+- Why: households such as a family with a child, or friends who pool money, pay as one. Nothing in the ledger depends on group size: balances, splits and repayments are per group, and per-person split weighting already uses the member count.
+- Unchanged: groups are still fixed once money is recorded, default share weight stays 1, and separate debts inside a group remain out of scope.
+
+## 2026-10-16 — Sync for the Expo app stays on the existing Convex backend
+
+- Decision (owner delegated the choice): the Expo app syncs through the existing Convex backend rather than a new one. Additive changes: expense notes, repayment method (`category`) and note, an optional reason on expense edits, and `recordedAtMillis` on pulled events.
+- Why: the backend already provides Apple sign-in, rotating sessions, sequenced append-only events, invites, push and account deletion, with tests.
+- Consequence: the retired SwiftUI reader would treat the new text fields as invalid; it is not being shipped again.
+
+## 2026-10-17 — Sign in with Google next to Apple, and a two-choice welcome
+
+- Decision (owner): the welcome screen offers two choices, start a household or join with an invite, and signing in happens inside each flow. Sign in with Google is added next to Apple so Android users (and iPhone users without an Apple ID preference) can join.
+- Backend: `POST /auth/google/exchange` verifies Google ID tokens against `NUMA_SHARED_GOOGLE_CLIENT_IDS` and creates an ordinary session; Google accounts have no Apple authorization, which account deletion already handles.
+- Owner actions: create the Google OAuth clients (iOS for `tech.arsik.numashared`, Android with the signing certificate fingerprint, and a web client), set `NUMA_SHARED_GOOGLE_CLIENT_IDS` on production, and build with the client IDs in `app/.env`.
+

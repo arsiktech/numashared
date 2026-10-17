@@ -235,6 +235,14 @@ The iOS target also defines `NUMA_SHARED_CONVEX_URL` and
 deterministic scripts inject loopback values only into a Debug test build; the
 E2E auth seam and its launch handling are compiled out of Release.
 
+Google sign-in (`POST /auth/google/exchange`, body `{ "idToken" }`) needs
+`NUMA_SHARED_GOOGLE_CLIENT_IDS`: the comma-separated OAuth client IDs whose ID tokens
+are accepted (the iOS client and the web client, which Android tokens carry). The
+server checks Google's RS256 signature against its published keys, the issuer, the
+audience, expiry and issue time. Google subjects are hashed in their own namespace, so a
+Google account never matches an Apple one. Unset, the route answers
+`503 GOOGLE_SIGN_IN_UNAVAILABLE`.
+
 Real Apple exchange additionally requires `SIWA_CLIENT_ID` (the bundle id),
 `APPLE_TEAM_ID`, `SIWA_KEY_ID`, `SIWA_PRIVATE_KEY_PKCS8_PEM`,
 `NUMA_SHARED_APPLE_REFRESH_ENCRYPTION_KEY` (base64url 32 bytes), and
