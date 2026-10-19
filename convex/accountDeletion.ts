@@ -64,7 +64,7 @@ async function takeIndexed(
     .take(deletionBatchSize)) as unknown as Array<{ _id: never }>;
 }
 
-async function sweepPot(ctx: MutationCtx, pot: Doc<"pots">): Promise<void> {
+export async function sweepPot(ctx: MutationCtx, pot: Doc<"pots">): Promise<void> {
   const lastIndex = potSweep.length - 1;
   for (let i = 0; i < potSweep.length; i += 1) {
     const rows = await takeIndexed(ctx.db, potSweep[i][0], potSweep[i][1], "potId", pot.potId);

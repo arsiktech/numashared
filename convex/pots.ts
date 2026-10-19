@@ -2,6 +2,7 @@ import { v } from "convex/values";
 
 import type { Doc } from "./_generated/dataModel";
 import { mutation, query } from "./_generated/server";
+import { sweepPot } from "./accountDeletion";
 import { appendPromotedPrerequisite, changeBudgetGroupsForMember } from "./members";
 import { loadBudgetGroupTopology } from "./lib/budgetGroupTopology";
 import { appendEventsToPot } from "./lib/appendEvents";
@@ -266,6 +267,8 @@ export const listMyPots = query({
         .withIndex("by_pot_id", (index) => index.eq("potId", membership.potId))
         .unique();
       if (!pot) fail("POT_MISSING");
+      // A household being deleted is already gone for its members.
+      if (pot.deletingAt !== undefined) continue;
       result.push({
         potId: pot.potId,
         currency: {
@@ -285,5 +288,61 @@ export const listMyPots = query({
       });
     }
     return result.sort((left, right) => left.potId.localeCompare(right.potId));
+  },
+});
+
+/**
+ * Deletes a household that nobody else has joined, for a household made by mistake. Only the
+ * owner can, and only while no other account has ever been a member: once someone has joined,
+ * their history is theirs too, so the owner can leave but not delete. Large households are
+ * removed over several calls; the call answers `deleted: false` until the last one.
+ */
+export const deleteHousehold = mutation({
+  args: { potId: v.string() },
+  handler: async (ctx, args) => {
+    requireApprovedWriteTarget();
+    const { account } = await requireSession(ctx);
+    const pot = await ctx.db
+      .query("pots")
+      .withIndex("by_pot_id", (index) => index.eq("potId", args.potId))
+      .unique();
+    if (!pot) return { deleted: true };
+    const membership = await ctx.db
+      .query("potMembers")
+      .withIndex("by_pot_account", (index) => index.eq("potId", args.potId).eq("accountId", account._id))
+      .unique();
+    if (!membership || membership.status !== "active") fail("NOT_MEMBER");
+    if (membership.role !== "owner") fail("NOT_OWNER");
+    if (pot.deletingAt === undefined) {
+      const members = await ctx.db
+        .query("potMembers")
+        .withIndex("by_pot_account", (index) => index.eq("potId", args.potId))
+        .take(65);
+      if (members.some((member) => member.accountId !== account._id)) fail("HOUSEHOLD_HAS_MEMBERS");
+      // Membership rows can move between accounts (members:reassignClaim), so the claim history
+      // is what proves nobody else ever joined.
+      for (const kind of ["memberClaimed", "memberClaimReassigned"] as const) {
+        const claimed = await ctx.db
+          .query("events")
+          .withIndex("by_pot_kind", (index) => index.eq("potId", args.potId).eq("payload.kind", kind))
+          .first();
+        if (claimed) fail("HOUSEHOLD_HAS_MEMBERS");
+      }
+      // From here the household is closed: no member call, join or write gets through, and the
+      // invites go first so no code can be claimed while the rest is erased over several calls.
+      await ctx.db.patch(pot._id, { deletingAt: Date.now() });
+      for (const table of ["inviteClaims", "invites"] as const) {
+        for (;;) {
+          const rows = await ctx.db.query(table).withIndex("by_pot", (index) => index.eq("potId", args.potId)).take(256);
+          for (const row of rows) await ctx.db.delete(row._id);
+          if (rows.length < 256) break;
+        }
+      }
+    }
+    for (let pass = 0; pass < 40; pass += 1) {
+      if (!await ctx.db.get(pot._id)) return { deleted: true };
+      await sweepPot(ctx, pot);
+    }
+    return { deleted: await ctx.db.get(pot._id) === null };
   },
 });

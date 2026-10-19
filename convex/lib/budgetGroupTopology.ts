@@ -3,6 +3,7 @@ import type { Doc } from "../_generated/dataModel";
 import type { MutationCtx, QueryCtx } from "../_generated/server";
 import { budgetGroupTopologyValidator } from "../model";
 import { fail } from "./access";
+import { legacyMaximumBudgetGroupSize } from "./clientContract";
 import { canonicalValue, type EventInput } from "./eventValidation";
 import type { FinancialRecordState } from "./financialRecordState";
 
@@ -74,7 +75,12 @@ export function projectedUnitId(topology: BudgetGroupTopology, unitId: string): 
   return member && (topology.minimumSchemaVersion >= 2n || !member.archived) ? member.unitId : unitId;
 }
 
-function validateGroups(groups: Group[], topology: BudgetGroupTopology, known: readonly string[], schema: bigint): void {
+/** People who pay as one: a single person, a couple, a family, up to six people. */
+export const maximumBudgetGroupSize = 6;
+
+function validateGroups(
+  groups: Group[], topology: BudgetGroupTopology, known: readonly string[], schema: bigint, maximumSize: number,
+): void {
   if (groups.length > 64) fail("TOO_MANY_GROUPS");
   const groupIds = new Set<string>();
   const unitIds = new Set<string>();
@@ -82,7 +88,8 @@ function validateGroups(groups: Group[], topology: BudgetGroupTopology, known: r
   for (const group of groups) {
     const unchanged = topology.groups.some((old) => canonicalValue(old) === canonicalValue(group));
     if (schema === 2n && !unchanged
-      && (group.orderedMemberIds.length < 1 || group.orderedMemberIds.length > 2 || group.defaultShareWeight !== 1n)) {
+      && (group.orderedMemberIds.length < 1 || group.orderedMemberIds.length > Math.min(maximumSize, maximumBudgetGroupSize)
+        || group.defaultShareWeight !== 1n)) {
       fail("INVALID_BUDGET_GROUP");
     }
     if (group.defaultShareWeight <= 0n) fail("INVALID_GROUP_SHARE_WEIGHT");
@@ -112,6 +119,8 @@ export function applyStructuralTopology(
   sequence: bigint,
   knownUnits: readonly string[],
   rebuilding = false,
+  /** Groups larger than two need every reader past Swift build 11 (see lib/clientContract.ts). */
+  maximumGroupSize = legacyMaximumBudgetGroupSize,
 ): BudgetGroupTopology {
   const topology = structuredClone(source);
   if (event.schemaVersion < topology.minimumSchemaVersion) fail("SCHEMA_DOWNGRADE");
@@ -141,7 +150,7 @@ export function applyStructuralTopology(
   } else if (payload.kind === "groupChanged") {
     if (canonicalValue(payload.groups) === canonicalValue(topology.groups)) return topology;
     if (!rebuilding && topology.hasFinancialHistory && event.schemaVersion === 2n) fail("BUDGET_GROUPS_LOCKED");
-    if (!rebuilding) validateGroups(payload.groups, topology, knownUnits, event.schemaVersion);
+    if (!rebuilding) validateGroups(payload.groups, topology, knownUnits, event.schemaVersion, maximumGroupSize);
     for (const member of topology.members) member.unitId = member.personalUnitId;
     for (const group of payload.groups) {
       for (const memberId of group.orderedMemberIds) {

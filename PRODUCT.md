@@ -8,9 +8,10 @@ ios
 
 ## Users
 
-Flatmates sharing ongoing household costs. A budget group is one person or a
-couple sharing their finances. People enter purchases; their group owns the
-balance. Separate debts within a couple are outside the first release.
+Flatmates sharing ongoing household costs. A budget group is one to six people
+who pay as one (a single person, a couple, a family). People enter purchases;
+their group owns the balance. Separate debts within a group are outside the
+first release.
 
 ## Product Purpose
 
@@ -30,7 +31,7 @@ the household spreadsheet's expense and repayment workflow, not the bank.
 - One expense flow records who paid and who benefited. Shared and personal
   expenses are split presets, not separate ledger systems.
 - Payments, allocated shares, and recorded repayments determine group balances.
-- Configure couples before financial activity. Once expenses are recorded, defer
+- Configure budget groups before financial activity. Once expenses are recorded, defer
   merging or splitting their budget groups. Departure and account erasure do not
   redistribute existing debts; historical group ownership stays intact.
 - One currency is explicitly confirmed per household and then fixed. Foreign

@@ -20,6 +20,7 @@ let package = Package(
                 .copy("Fixtures/wire-events-v1.json"),
                 .copy("Fixtures/authored-text-blank-parity.json"),
                 .copy("Fixtures/time-zone-identifier-parity.json"),
+                .copy("Fixtures/build-11-reader-contract.json"),
             ]
         ),
     ]

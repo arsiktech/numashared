@@ -118,6 +118,36 @@ test("owner configures an unclaimed couple atomically without assigning accounts
     event: { ...groupEvent(12), actorMemberId: partnerId } })).rejects.toThrow("ACTOR_MISMATCH");
 });
 
+test("groups stay at one or two people until Swift build 11 is fenced out", async () => {
+  const f = await fixture();
+  await f.activate();
+  const household = { ...couple, orderedMemberIds: [ownerId, partnerId, neighborId] };
+  await expect(f.owner.mutation(change, { potId, expectedTopologyRevision: 4n, event: groupEvent(11, [household]) }))
+    .rejects.toThrow("INVALID_BUDGET_GROUP");
+  await f.t.run(async (ctx) => {
+    await ctx.db.insert("appConfiguration", { key: "global", minimumSupportedBuild: 11, updatedAt: 1 });
+  });
+  await expect(f.owner.mutation(change, { potId, expectedTopologyRevision: 4n, event: groupEvent(11, [household]) }))
+    .rejects.toThrow("INVALID_BUDGET_GROUP");
+});
+
+test("a group of more than two people pays and is charged as one unit", async () => {
+  const f = await fixture();
+  await f.t.run(async (ctx) => {
+    await ctx.db.insert("appConfiguration", { key: "global", minimumSupportedBuild: 12, updatedAt: 1 });
+  });
+  await f.activate();
+  const household = { ...couple, orderedMemberIds: [ownerId, partnerId, neighborId] };
+  await f.owner.mutation(change, { potId, expectedTopologyRevision: 4n, event: groupEvent(11, [household]) });
+  const topology = await f.owner.query(topologyQuery, { potId });
+  expect(topology.groups).toEqual([household]);
+  expect(topology.members.find((m: { memberId: string }) => m.memberId === neighborId)).toMatchObject({ unitId: coupleUnit });
+  const groceries = event(30, { kind: "expenseAdded", recordId: id(2030), content: { expenseKind: "shared", amount: money(3_000n),
+    payerUnitId: coupleUnit, payerMemberId: neighborId, allocations: [{ unitId: coupleUnit, amount: money(3_000n) }] } });
+  await f.owner.mutation(append, { potId, events: [groceries] });
+  await expect(f.owner.mutation(append, { potId, events: [purchase(31, 100n, coupleUnit, neighborUnit)] })).rejects.toThrow("INACTIVE_UNIT");
+});
+
 test("exact retry retains sequence after finances; changed payload/revision and concurrent stale setup fail atomically", async () => {
   const f = await fixture();
   const first = await f.activate();
@@ -159,7 +189,7 @@ test("the active original actor recovers only their exact setup receipt after tr
 });
 
 test.each([
-  ["oversized", [{ ...couple, orderedMemberIds: [ownerId, partnerId, neighborId] }], "INVALID_BUDGET_GROUP"],
+  ["oversized", [{ ...couple, orderedMemberIds: [ownerId, partnerId, neighborId, id(901), id(902), id(903), id(904)] }], "INVALID_BUDGET_GROUP"],
   ["per-person weight", [{ ...couple, defaultShareWeight: 2n }], "INVALID_BUDGET_GROUP"],
   ["unknown person", [{ ...couple, orderedMemberIds: [ownerId, id(999)] }], "UNKNOWN_GROUP_MEMBER"],
   ["personal ID reuse", [{ ...couple, unitId: personal }], "GROUP_UNIT_CONFLICTS_WITH_PERSONAL_UNIT"],

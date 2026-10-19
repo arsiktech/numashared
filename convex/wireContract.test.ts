@@ -4,6 +4,8 @@ import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 
 import authoredTextBlankParityJSON from "../NumaSharedCore/Tests/NumaSharedCoreTests/Fixtures/authored-text-blank-parity.json";
 import wireEventsJSON from "../NumaSharedCore/Tests/NumaSharedCoreTests/Fixtures/wire-events-v1.json";
+import build11ReaderJSON from "../NumaSharedCore/Tests/NumaSharedCoreTests/Fixtures/build-11-reader-contract.json";
+import { legacyClientContract } from "./lib/clientContract";
 import schema from "./schema";
 import {
   validateEvent,
@@ -237,6 +239,7 @@ describe("Swift and Convex v1 wire contract", () => {
       expect(listed.events[index]).toEqual({
         event: { ...uploaded, authoredText: [] },
         serverSequence: BigInt(index + 1),
+        recordedAtMillis: expect.any(Number),
         textStates: uploaded.authoredText.map(({ field, value }) => ({
           field,
           state: "present",
@@ -244,5 +247,112 @@ describe("Swift and Convex v1 wire contract", () => {
         })),
       });
     }
+  });
+  test("once build 11 is fenced out, accepts an expense note, a repayment method and note, and an edit reason", () => {
+    const fixture = withConvexInt64(wireEventsJSON as unknown as JSONValue) as Array<{
+      potId: string;
+      actorMemberId: string;
+      payload: { kind: string; content?: { kind?: string } };
+      textFields: string[];
+      authoredText: Array<{ field: string; value: string }>;
+      [key: string]: ConvexFixtureValue;
+    }>;
+    const configuration = {
+      potId: fixture[0].potId,
+      currency: { code: "EUR", exponent: 2n },
+      orderedUnitIds: [...collectUnitIds(fixture)],
+      ownerMemberId: fixture[0].actorMemberId,
+      minimumReaderSchemaVersion: 1n,
+    } satisfies PotConfigurationInput;
+    const withText = (
+      source: (typeof fixture)[number],
+      text: Array<{ field: string; value: string }>,
+    ) => ({
+      ...source,
+      textFields: text.map(({ field }) => field),
+      authoredText: text,
+    }) as unknown as EventInput;
+    const expense = fixture.find(({ payload }) => payload.kind === "expenseAdded")!;
+    const revision = fixture.find(({ payload }) => (
+      payload.kind === "expenseRevised" && payload.content?.kind === "expense"
+    ))!;
+    const settlement = fixture.find(({ payload }) => payload.kind === "settlementRecorded")!;
+    expect(revision).toBeDefined();
+
+    expect(() => validateEvent(withText(expense, [
+      { field: "title", value: "Groceries" },
+      { field: "category", value: "groceries" },
+      { field: "note", value: "Apples, bread and coffee" },
+    ]), configuration, { extendedText: true })).not.toThrow();
+    expect(() => validateEvent(withText(revision, [
+      { field: "title", value: "Groceries" },
+      { field: "note", value: "Apples" },
+      { field: "reason", value: "Wrong amount" },
+    ]), configuration, { extendedText: true })).not.toThrow();
+    expect(() => validateEvent(withText(settlement, [
+      { field: "title", value: "Repayment" },
+      { field: "category", value: "bank" },
+      { field: "note", value: "Half now, half on Friday" },
+    ]), configuration, { extendedText: true })).not.toThrow();
+
+    // Still required, still canonical, still nonblank.
+    expect(() => validateEvent(withText(settlement, [
+      { field: "note", value: "No title" },
+    ]), configuration, { extendedText: true })).toThrow("TEXT_FIELD_REQUIRED_TITLE");
+    expect(() => validateEvent(withText(settlement, [
+      { field: "title", value: "Repayment" },
+      { field: "reason", value: "Not a repayment field" },
+    ]), configuration, { extendedText: true })).toThrow("TEXT_FIELD_NOT_ALLOWED_REASON");
+    expect(() => validateEvent(withText(expense, [
+      { field: "title", value: "Groceries" },
+      { field: "note", value: "   " },
+    ]), configuration, { extendedText: true })).toThrow();
+    expect(() => validateEvent(withText(expense, [
+      { field: "title", value: "Groceries" },
+      { field: "reason", value: "Edits only" },
+    ]), configuration, { extendedText: true })).toThrow("TEXT_FIELD_NOT_ALLOWED_REASON");
+  });
+
+  test("by default accepts exactly the text and group size Swift build 11 reads", () => {
+    const fixture = withConvexInt64(wireEventsJSON as unknown as JSONValue) as Array<{
+      potId: string;
+      actorMemberId: string;
+      payload: { kind: string; content?: { kind?: string } };
+      textFields: string[];
+      [key: string]: ConvexFixtureValue;
+    }>;
+    const configuration = {
+      potId: fixture[0].potId,
+      currency: { code: "EUR", exponent: 2n },
+      orderedUnitIds: [...collectUnitIds(fixture)],
+      ownerMemberId: fixture[0].actorMemberId,
+      minimumReaderSchemaVersion: 1n,
+    } satisfies PotConfigurationInput;
+    const canonical = ["title", "category", "note", "reason"];
+    const keyOf = (e: (typeof fixture)[number]) => (
+      e.payload.kind === "expenseRevised" ? `expenseRevised.${e.payload.content?.kind}` : e.payload.kind
+    );
+    const accepted: Record<string, string[]> = {};
+    for (const source of fixture) {
+      const allowed = new Set<string>();
+      for (const field of canonical) {
+        const fields = canonical.filter((f) => f === field || source.textFields.includes(f));
+        const candidate = {
+          ...source,
+          textFields: fields,
+          authoredText: fields.map((f) => ({ field: f, value: "Synthetic text" })),
+        } as unknown as EventInput;
+        try {
+          validateEvent(candidate, configuration);
+          for (const f of fields) allowed.add(f);
+        } catch { /* not readable by build 11 */ }
+      }
+      accepted[keyOf(source)] = canonical.filter((f) => allowed.has(f));
+    }
+    expect(accepted).toEqual(build11ReaderJSON.allowedTextFields);
+    expect(legacyClientContract).toEqual({
+      extendedText: false,
+      maximumBudgetGroupSize: build11ReaderJSON.maximumBudgetGroupSize,
+    });
   });
 });

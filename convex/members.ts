@@ -33,6 +33,7 @@ import {
   verifyInviteClaimTicketProof,
 } from "./lib/inviteTicket";
 import { eventInputValidator } from "./model";
+import { loadClientContract } from "./lib/clientContract";
 import {
   applyStructuralTopology,
   loadBudgetGroupTopology,
@@ -529,7 +530,10 @@ export async function changeBudgetGroupsForMember(
       fail("OWNER_UNIT_NOT_BOUND");
     }
     if (before.revision !== args.expectedTopologyRevision) fail("TOPOLOGY_REVISION_CONFLICT");
-    const topology = applyStructuralTopology(before, args.event, pot.nextSequence, pot.orderedUnitIds);
+    const contract = await loadClientContract(ctx);
+    const topology = applyStructuralTopology(
+      before, args.event, pot.nextSequence, pot.orderedUnitIds, false, contract.maximumBudgetGroupSize,
+    );
     const orderedUnitIds = [...pot.orderedUnitIds];
     for (const group of topology.groups) if (!orderedUnitIds.includes(group.unitId)) orderedUnitIds.push(group.unitId);
     await consumeAccountWriteQuota(ctx, {

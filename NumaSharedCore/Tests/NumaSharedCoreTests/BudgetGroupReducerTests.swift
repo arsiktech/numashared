@@ -131,6 +131,22 @@ struct BudgetGroupReducerTests {
         }
     }
 
+    /// The backend allows groups up to this size until build 11 is fenced out
+    /// (convex/lib/clientContract.ts); build 11 must read every one of them.
+    @Test func everyGroupSizeTheBackendAllowsByDefaultIsReadable() throws {
+        let url = try #require(Bundle.module.url(forResource: "build-11-reader-contract", withExtension: "json"))
+        let data = try Data(contentsOf: url)
+        let object = try #require(JSONSerialization.jsonObject(with: data) as? [String: Any])
+        let size = try #require(object["maximumBudgetGroupSize"] as? Int)
+        let f = try Fixture()
+        let members = Array([f.base.actorID, f.partner, f.neighbor].prefix(size))
+        #expect(members.count == size)
+        let group = SettlementGroupSnapshot(groupID: f.coupleID, unitID: f.coupleUnit,
+            orderedMemberIDs: members, defaultShareWeight: 1)
+        let change = f.event(1, .groupChanged(GroupChangedPayload(groups: [group])))
+        #expect(f.reduce([change]).access == .readWrite)
+    }
+
     @Test func newCardinalityAndWeightRulesDoNotRewriteValidLegacyGroups() throws {
         let f = try Fixture()
         for members in [[], [f.base.actorID, f.partner, f.neighbor]] {

@@ -1,0 +1,23 @@
+{
+  "comment": "What Swift build 11 reads. The backend accepts exactly this until appConfiguration.minimumSupportedBuild is 12 or higher (convex/lib/clientContract.ts). Checked by convex/wireContract.test.ts and NumaSharedCoreTests.",
+  "maximumBudgetGroupSize": 2,
+  "allowedTextFields": {
+    "expenseAdded": ["title", "category"],
+    "expenseRevised.expense": ["title", "category"],
+    "expenseRevised.openingBalance": ["title", "note"],
+    "recordVoided": ["reason"],
+    "recordRestored": [],
+    "settlementRecorded": ["title"],
+    "settlementFlagged": ["reason"],
+    "openingBalanceSet": ["title", "note"],
+    "memberAdded": [],
+    "memberClaimed": [],
+    "memberClaimReassigned": [],
+    "memberArchived": ["reason"],
+    "ownershipTransferred": [],
+    "groupChanged": [],
+    "presetChanged": [],
+    "potRenamed": [],
+    "potArchived": ["reason"]
+  }
+}

@@ -140,6 +140,8 @@ export default defineSchema({
     negativeContributionBudget: v.int64(),
     legacyMigrationCompletedAt: v.optional(v.number()),
     archivedAtSequence: v.optional(v.int64()),
+    /** Set when the owner starts deleting the household; nothing can join or write after. */
+    deletingAt: v.optional(v.number()),
     createdAt: v.number(),
   }).index("by_pot_id", ["potId"]),
 
