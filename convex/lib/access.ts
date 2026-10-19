@@ -62,6 +62,11 @@ export async function requireActiveMembership(
     .unique();
   if (!membership) fail("NOT_MEMBER");
   if (membership.status !== "active") fail("MEMBERSHIP_ARCHIVED");
+  const pot = await ctx.db
+    .query("pots")
+    .withIndex("by_pot_id", (query) => query.eq("potId", potId))
+    .unique();
+  if (pot?.deletingAt !== undefined) fail("POT_DELETING");
   return membership;
 }
 

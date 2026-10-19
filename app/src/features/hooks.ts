@@ -31,6 +31,19 @@ export function yourStanding(h: Household, balances: Record<ID, number>) {
   return standing(balances[g.id] ?? 0, g, h.people, h.youId);
 }
 
+/** The effect line. With amounts hidden it keeps the direction and drops the amount. */
+export function effectText(h: Household, r: LedgerRecord, hide?: boolean) {
+  const e = r.voided || r.kind === 'settlement' ? 0 : r.effect[yourGroup(h).id] ?? 0;
+  if (!hide || e === 0) return effectLine(h, r);
+  return e > 0 ? 'you’re owed' : 'you owe';
+}
+
+/** A group's standing on Home: "owes €12.00", "get back €3.00", "square". Hidden amounts stay hidden. */
+export function standingWords(h: Household, own: number, single: boolean, hide = false) {
+  if (own === 0) return 'square';
+  return own < 0 ? `${single ? 'owes' : 'owe'} ${money(h, -own, hide)}` : `${single ? 'gets' : 'get'} back ${money(h, own, hide)}`;
+}
+
 /** How a record touches your group: "you owe €36.00", "you’re owed €26.40", "no effect". */
 export function effectLine(h: Household, r: LedgerRecord) {
   if (r.voided) return 'no effect';

@@ -73,4 +73,16 @@ describe('households follow the signed-in account', () => {
     store.showAccount('A');
     expect(names()).not.toContain('pot-a');
   });
+
+  // Review item 12: the server fixed the currency when the household was shared.
+  test('a shared household’s currency can’t change, even before any expense', () => {
+    store.showAccount('A');
+    store.putHousehold({ ...shared('pot-a', 'A'), events: [], currency: 'EUR' });
+    store.setCurrency('pot-a', 'USD');
+    expect(store.getState().households.find((h) => h.id === 'pot-a')?.currency).toBe('EUR');
+    const local = store.getState().households.find((h) => !h.sync)!;
+    store.putHousehold({ ...local, id: 'local-empty', events: [] });
+    store.setCurrency('local-empty', 'USD');
+    expect(store.getState().households.find((h) => h.id === 'local-empty')?.currency).toBe('USD');
+  });
 });

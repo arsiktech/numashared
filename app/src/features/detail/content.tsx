@@ -6,13 +6,14 @@ import { ScrollView, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { categoryLabel, explain, shares } from '@/core';
 import type { Household, ID, Ledger, LedgerRecord, TimelineEntry } from '@/core/types';
-import { groupOfPerson, restoreRecord, SaveError } from '@/store/store';
+import { groupOfPerson, keepVersion, restoreRecord, SaveError } from '@/store/store';
 import { openSheet, replaceSheet, showToast, type SheetSpec } from '@/store/ui';
 import { CategoryIcon, Close, House, Pencil, Repay, VoidX, ArrowRight } from '@/ui/icons';
 import { Badge, Banner, BannerText, Dot, Press, T, TextButton } from '@/ui/primitives';
 import { useSheet } from '@/ui/sheet';
 import { useTheme } from '@/ui/theme';
 import { fonts, isAndroid, isWeb } from '@/ui/tokens';
+import { editSpoken, speak } from './spoken';
 import { clock, money, nameOf, personName, recordTitle, useHousehold } from '../hooks';
 import { dayMonth, fullDay, isoDay, joinNames, METHOD_LABEL, splitLabel, weekday } from '../history/model';
 
@@ -58,7 +59,10 @@ export function RecordDetail({ recordId, variant, onClose }: { recordId: ID; var
     : r.kind === 'settlement' ? <RepayBody h={h} r={r} ledger={ledger} hide={hide} panel={panel} />
       : <OpeningBody h={h} r={r} hide={hide} panel={panel} />;
   const partial = r.kind === 'settlement' && partialInfo(h, r, ledger).partial;
-  const titleRow = <TitleRow h={h} r={r} panel={panel} partial={partial} onClose={close} />;
+  const titleRow = <>
+    <TitleRow h={h} r={r} panel={panel} partial={partial} onClose={close} />
+    {r.contested && !r.voided ? <Contest h={h} r={r} hide={hide} /> : null}
+  </>;
   const foot = <Footer r={r} panel={panel} actions={actions} hideButtons={androidIcons} />;
 
   if (panel) {
@@ -100,6 +104,45 @@ export function RecordDetail({ recordId, variant, onClose }: { recordId: ID; var
 }
 
 type Actions = { edit: () => void; void: () => void; flag: () => void; restore: () => void };
+
+// ---------- two edits at once ----------
+
+/** Two people changed the same version at once. The newest counts until someone keeps one. */
+function Contest({ h, r, hide }: { h: Household; r: LedgerRecord; hide: boolean }) {
+  const { c } = useTheme();
+  const versions = (r.contested ?? []).map((id) => r.revisions.find((v) => v.eventId === id)!).filter(Boolean);
+  const amountOf = (content: (typeof versions)[number]['content']) => ('amount' in content ? money(h, content.amount, hide) : null);
+  const keep = async (eventId: ID, who: string) => {
+    try {
+      await keepVersion(h, r.id, eventId, `Kept ${who} version`);
+      showToast(`Kept ${who} version`);
+    } catch (e) {
+      showToast(e instanceof SaveError ? e.message : 'Couldn’t save that. Try again.');
+    }
+  };
+  return (
+    <View style={{ marginTop: 14, gap: 10 }} accessibilityLiveRegion="polite">
+      <Banner kind="warn">
+        <BannerText kind="warn" strong="Two edits at the same time." rest=" The newer one counts for now. Keep the right one so everyone agrees." />
+      </Banner>
+      {versions.map((v) => {
+        const who = v.by === h.youId ? 'your' : `${personName(h, v.by)}’s`;
+        const amount = amountOf(v.content);
+        return (
+          <View key={v.eventId} style={{ flexDirection: 'row', alignItems: 'center', gap: 12, minHeight: 44 }}>
+            <T style={{ flex: 1, fontSize: 15 }}>
+              {v.by === h.youId ? 'Your edit' : `${personName(h, v.by)}’s edit`}{amount ? `, ${amount}` : ''}, {clock(v.at)}
+            </T>
+            <Press onPress={() => { void keep(v.eventId, who); }} accessibilityRole="button" accessibilityLabel={`Keep ${who} version${amount ? `, ${amount}` : ''}`}
+              style={{ minHeight: 44, minWidth: 44, paddingHorizontal: 10, alignItems: 'center', justifyContent: 'center' }}>
+              <T style={{ fontFamily: fonts.semibold, fontSize: 15, textDecorationLine: 'underline' }}>Keep</T>
+            </Press>
+          </View>
+        );
+      })}
+    </View>
+  );
+}
 
 // ---------- header ----------
 
@@ -339,10 +382,8 @@ function timelineRows(h: Household, r: LedgerRecord, hide: boolean, panel: boole
       }
       case 'edited': {
         const parts: ReactNode[] = [];
-        const said: string[] = [];
         for (const ch of t.changes) {
           if (ch.field === 'amount') {
-            if (!hide) said[parts.length] = `Amount ${ch.from} → ${ch.to}`;
             parts.push(hide ? 'Amount changed' : (
               <T key="a" style={{ fontSize: 13.5, color: ink2 }}><T style={{ fontSize: 13.5, color: ink2, textDecorationLine: 'line-through' }}>{ch.from}</T> → {ch.to}</T>
             ));
@@ -353,11 +394,10 @@ function timelineRows(h: Household, r: LedgerRecord, hide: boolean, panel: boole
           else if (ch.field === 'title') parts.push(`Name “${ch.from || 'none'}” → “${ch.to || 'none'}”`);
           else parts.push(`${ch.from} → ${ch.to}`);
         }
-        parts.forEach((p, k) => { if (typeof p === 'string') said[k] = p; });
-        if (t.reason) { parts.push(`“${t.reason}”`); said.push(`reason: “${t.reason}”`); }
+        if (t.reason) parts.push(`“${t.reason}”`);
         const line = joinNodes(parts);
         rows.push({ key: t.eventId, kind: 'edited', head: `Edited by ${personName(h, t.by)}`,
-          meta: panel ? [line, time] : [joinNodes([line, time])], spoken: [...said, time] });
+          meta: panel ? [line, time] : [joinNodes([line, time])], spoken: [...editSpoken(t.changes, t.reason, hide, shortIso), time] });
         break;
       }
       case 'voided':
@@ -374,10 +414,6 @@ function timelineRows(h: Household, r: LedgerRecord, hide: boolean, panel: boole
   return rows;
 }
 
-/** One spoken line for a timeline row: arrows read as "to", dots as pauses. */
-function speak(parts: string[]) {
-  return parts.join(', ').replace(/ → /g, ' to ').replace(/ · /g, ', ');
-}
 
 function joinNodes(parts: ReactNode[]): ReactNode {
   if (parts.every((p) => typeof p === 'string')) return parts.join(' · ');

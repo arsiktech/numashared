@@ -433,10 +433,13 @@ export async function pull(backend: Backend, access: Access, householdId: ID, op
   }
   next = { ...next, sync: { ...next.sync!, lastTextRev: Number(rev) } };
 
-  // Keep anything the device added meanwhile (pull awaited the network).
+  // Merge with what the device did meanwhile (pull awaited the network): keep anything added,
+  // and drop unsent events that were undone, so an undo is never brought back.
   const latest = access.get(householdId)!;
-  const extra = latest.events.filter((e) => e.seq === undefined && !next.events.some((x) => x.id === e.id));
-  access.put(dropUnusedArchived(settle({ ...next, events: [...next.events, ...extra], seen: latest.seen })));
+  const onDevice = new Map(latest.events.map((e) => [e.id, e]));
+  const kept = next.events.flatMap((e) => (e.seq !== undefined ? [e] : onDevice.has(e.id) ? [onDevice.get(e.id)!] : []));
+  const extra = latest.events.filter((e) => e.seq === undefined && !kept.some((x) => x.id === e.id));
+  access.put(dropUnusedArchived(settle({ ...next, events: [...kept, ...extra], seen: latest.seen })));
 }
 
 // ---------- the account's households ----------

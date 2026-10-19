@@ -182,6 +182,11 @@ export type LedgerRecord = {
   /** Signed effect on each group's balance; positive = that group gets money back. Zero-sum. Empty when voided. */
   effect: Record<ID, Cents>;
   timeline: TimelineEntry[];
+  /**
+   * Set when two people edited the same version at the same time: the revision event ids that
+   * both stand (oldest first). The newest counts until someone keeps one, as on the server.
+   */
+  contested?: ID[];
 };
 
 export type Ledger = {

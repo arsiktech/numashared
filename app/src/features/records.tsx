@@ -2,13 +2,13 @@
 import { useRef } from 'react';
 import { View, type StyleProp, type ViewStyle } from 'react-native';
 import type { Household, LedgerRecord } from '@/core/types';
-import { groupOfPerson, yourGroup } from '@/store/store';
+import { groupOfPerson } from '@/store/store';
 import { openSheet, type Origin, type SheetSpec } from '@/store/ui';
 import { CategoryIcon, Repay, House } from '@/ui/icons';
 import { Badge, OrbView, Press, T } from '@/ui/primitives';
 import { useTheme } from '@/ui/theme';
 import { fonts } from '@/ui/tokens';
-import { effectLine, money, personName, recordTitle, relativeDay } from './hooks';
+import { effectText, money, personName, recordTitle, relativeDay } from './hooks';
 
 export function RecordRow({ h, r, hide, fresh, last, onPress }: {
   h: Household; r: LedgerRecord; hide?: boolean; fresh?: boolean; last?: boolean; onPress?: () => void;
@@ -61,13 +61,6 @@ export function RecordRow({ h, r, hide, fresh, last, onPress }: {
       </View>
     </Press>
   );
-}
-
-/** The effect line. With amounts hidden it keeps the direction and drops the amount. */
-export function effectText(h: Household, r: LedgerRecord, hide?: boolean) {
-  const e = r.voided || r.kind === 'settlement' ? 0 : r.effect[yourGroup(h).id] ?? 0;
-  if (!hide || e === 0) return effectLine(h, r);
-  return e > 0 ? 'you’re owed' : 'you owe';
 }
 
 function lastBy(r: LedgerRecord, type: 'voided') {

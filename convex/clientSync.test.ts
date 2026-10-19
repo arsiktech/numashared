@@ -450,6 +450,81 @@ describe("app sync engine against the backend", () => {
     expect(await flush(ana, phoneA, id)).toBe("paused");
   });
 
+  test("two phones editing the same expense at once see a contest, and keeping one settles it", async () => {
+    const t = convexTest(schema, modules);
+    const ana = await signIn(t, "ana");
+    const leo = await signIn(t, "leo");
+    const phoneA = phone();
+    const phoneB = phone();
+    phoneA.put(localHousehold());
+    const id = await startSync(ana, phoneA, "h_local");
+    await pull(ana, phoneA, id);
+    await issueInvites(ana, phoneA, id);
+    const leoId = phoneA.get(id)!.people.find((p) => p.name === "Leo")!.id;
+    const site = ((url: string, init?: RequestInit) => t.fetch(new URL(url).pathname, init)) as typeof fetch;
+    const preview = await resolveInvite("http://127.0.0.1:3211", phoneA.get(id)!.sync!.invites![leoId].code, site);
+    if (preview.status !== "active") throw new Error(preview.status);
+    await claimInvite(leo, phoneB, preview);
+
+    const first = phoneA.get(id)!.events[0];
+    if (first.kind !== "expenseAdded") throw new Error("expected an expense");
+    const edit = (eventId: string, by: string, amount: number): LedgerEvent => ({
+      id: eventId, at: Date.now() - 20_000, by, kind: "expenseRevised", recordId: first.recordId,
+      basis: { kind: "parent", parentEventId: first.id }, content: { ...first.content, amount },
+    });
+    append(phoneA, id, edit("01890f5e-7b00-7000-8000-00000000f401", phoneA.get(id)!.youId, 9_500));
+    append(phoneB, id, edit("01890f5e-7b00-7000-8000-00000000f402", leoId, 8_000));
+    expect(await flush(ana, phoneA, id)).toBe("done");
+    expect(await flush(leo, phoneB, id)).toBe("done");
+    await pull(ana, phoneA, id);
+    await pull(leo, phoneB, id);
+    const contestedA = reduce(phoneA.get(id)!).byId[first.recordId];
+    expect(contestedA.contested).toHaveLength(2);
+    expect(balances(phoneA.get(id)!)).toEqual(balances(phoneB.get(id)!));
+
+    // Ana keeps her own version.
+    const [firstEventId, secondEventId] = [...contestedA.contested!].sort();
+    append(phoneA, id, {
+      id: "01890f5e-7b00-7000-8000-00000000f403", at: Date.now() - 10_000, by: phoneA.get(id)!.youId, kind: "expenseRevised",
+      recordId: first.recordId, basis: { kind: "resolution", firstEventId, secondEventId }, content: { ...first.content, amount: 9_500 },
+    });
+    expect(await flush(ana, phoneA, id)).toBe("done");
+    await pull(leo, phoneB, id);
+    const settled = reduce(phoneB.get(id)!).byId[first.recordId];
+    expect(settled.contested).toBeUndefined();
+    expect(settled.expense!.amount).toBe(9_500);
+    expect(balances(phoneB.get(id)!)).toEqual(balances(phoneA.get(id)!));
+  });
+
+  test("an expense undone while a pull is on the network stays undone", async () => {
+    const t = convexTest(schema, modules);
+    const ana = await signIn(t, "ana");
+    const phoneA = phone();
+    phoneA.put(localHousehold());
+    const id = await startSync(ana, phoneA, "h_local");
+    await pull(ana, phoneA, id);
+    const a = phoneA.get(id)!;
+    const pending = {
+      ...a.events[0], id: "01890f5e-7b00-7000-8000-00000000f301", recordId: "01890f5e-7b00-7000-8000-00000000f302",
+      at: Date.now(), seq: undefined,
+    } as LedgerEvent;
+    append(phoneA, id, pending);
+    // The person taps Undo while the pull waits for the server.
+    const undoing: Backend = {
+      mutation: ana.mutation,
+      query: async <R,>(fn: string, args: Record<string, unknown>) => {
+        const result = await ana.query<R>(fn, args);
+        if (fn === "events:listTextChangesWithSkippedRevisions") {
+          const h = phoneA.get(id)!;
+          phoneA.put({ ...h, events: h.events.filter((e) => e.id !== pending.id) });
+        }
+        return result;
+      },
+    };
+    await pull(undoing, phoneA, id);
+    expect(phoneA.get(id)!.events.some((e) => e.id === pending.id)).toBe(false);
+  });
+
   test("deleting the account from the app erases it on the server and its households on the phone", async () => {
     vi.stubEnv("NUMA_SHARED_AUTH_KEY_ID", "client-sync");
     vi.stubEnv("NUMA_SHARED_AUTH_PRIVATE_KEY_PKCS8_PEM", "unused: deletion signs nothing");
@@ -536,5 +611,53 @@ describe("app sync engine against the backend", () => {
     await claimInvite(leo, phoneB, preview);
     await expect(deleteHouseholdOnline(ana, phoneA, second)).rejects.toThrow("HOUSEHOLD_HAS_MEMBERS");
     await expect(removePersonOnline(ana, phoneA, second, leo2)).rejects.toThrow();
+
+    // Even after the owner detaches Leo's claim, the household still had a guest: no delete.
+    await ana.mutation("members:reassignClaim", {
+      potId: second,
+      event: {
+        eventId: "01890f5e-7b00-7000-8000-00000000f201", potId: second, actorMemberId: phoneA.get(second)!.youId,
+        occurredAtMillis: BigInt(Date.now()), originatingTimeZone: "Europe/Madrid", schemaVersion: 2n,
+        payload: { kind: "memberClaimReassigned", memberId: leo2 }, textFields: [], authoredText: [],
+      },
+    });
+    await expect(t.run(async (ctx) => (await ctx.db.query("potMembers").collect()).filter((m) => m.potId === second).length))
+      .resolves.toBe(1);
+    await expect(deleteHouseholdOnline(ana, phoneA, second)).rejects.toThrow("HOUSEHOLD_HAS_MEMBERS");
+  });
+
+  test("a deletion that takes several calls closes the household first", async () => {
+    const t = convexTest(schema, modules);
+    const ana = await signIn(t, "ana");
+    const leo = await signIn(t, "leo");
+    const phoneA = phone();
+    phoneA.put({ ...localHousehold(), events: [] });
+    const id = await startSync(ana, phoneA, "h_local");
+    await pull(ana, phoneA, id);
+    await issueInvites(ana, phoneA, id);
+    const leoId = phoneA.get(id)!.people.find((p) => p.name === "Leo")!.id;
+    const code = phoneA.get(id)!.sync!.invites![leoId].code;
+    const site = ((url: string, init?: RequestInit) => t.fetch(new URL(url).pathname, init)) as typeof fetch;
+    const preview = await resolveInvite("http://127.0.0.1:3211", code, site);
+    if (preview.status !== "active") throw new Error("invite not active");
+    // Pad the history so one call can't erase it all.
+    await t.run(async (ctx) => {
+      for (let i = 0; i < 6_000; i++) {
+        await ctx.db.insert("textRedactions", { potId: id, eventId: `pad-${i}`, sequence: 1n, field: "note", revision: BigInt(10_000 + i), redactedAt: 1 });
+      }
+    });
+
+    const first = await ana.mutation<{ deleted: boolean }>("pots:deleteHousehold", { potId: id });
+    expect(first.deleted).toBe(false);
+    // Half-erased: nobody can join, write or even see it, and the code is gone.
+    await expect(claimInvite(leo, phone(), preview)).rejects.toThrow();
+    await expect(resolveInvite("http://127.0.0.1:3211", code, site)).resolves.toMatchObject({ status: expect.not.stringMatching(/^active$/) });
+    await expect(ana.query("pots:listMyPots", {})).resolves.toEqual([]);
+    await expect(ana.query("members:listRoster", { potId: id })).rejects.toThrow("POT_DELETING");
+    // The owner's next calls finish the job.
+    let done = first.deleted;
+    for (let i = 0; i < 20 && !done; i++) done = (await ana.mutation<{ deleted: boolean }>("pots:deleteHousehold", { potId: id })).deleted;
+    expect(done).toBe(true);
+    await expect(t.run(async (ctx) => (await ctx.db.query("pots").collect()).length)).resolves.toBe(0);
   });
 });

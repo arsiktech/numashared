@@ -13,7 +13,7 @@ import { Dot, Pill, Press, T } from '@/ui/primitives';
 import { useTheme } from '@/ui/theme';
 import { alpha, fonts, isAndroid } from '@/ui/tokens';
 import { OrbButton } from '../records';
-import { money, nameOf } from '../hooks';
+import { money, nameOf, standingWords } from '../hooks';
 
 export function Bands({ h, balances, hide, compact }: { h: Household; balances: Record<ID, number>; hide: boolean; compact?: boolean }) {
   const { tone, c, width } = useTheme();
@@ -133,7 +133,7 @@ function CompactBand({ h, g, hide, first, last, balances, transfers, mine }: {
   const iOwe = transfers.find((x) => x.fromGroupId === mine.id && x.toGroupId === g.id);
   const own = balances[g.id] ?? 0;
   const single = g.memberIds.length === 1;
-  const overall = own === 0 ? 'square' : own < 0 ? `${single ? 'owes' : 'owe'} ${money(h, -own, hide)}` : `${single ? 'gets' : 'get'} back ${money(h, own, hide)}`;
+  const overall = standingWords(h, own, single, hide);
   return (
     <View style={{ backgroundColor: t.band, paddingTop: first ? 50 : 16, paddingBottom: last ? 44 : 16, paddingHorizontal: 22 }}>
       <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>

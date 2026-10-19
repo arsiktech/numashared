@@ -6,7 +6,7 @@ import {
   canUndoInHousehold, reduce, validateEvent, sampleHousehold,
 } from '@/core';
 import type {
-  Category, ExpenseContent, Household, ID, LedgerEvent, OpeningEntry, PaymentMethod, Person, Group,
+  Category, ExpenseContent, Household, ID, LedgerEvent, OpeningContent, OpeningEntry, PaymentMethod, Person, Group,
   SettlementContent, Split,
 } from '@/core/types';
 import { GROUP_COLORS, MAX_GROUPS } from '@/core/types';
@@ -261,9 +261,14 @@ export function removeHousehold(id: ID) {
   set({ ...state, households: rest, activeId: state.activeId === id ? (rest[0]?.id ?? null) : state.activeId });
 }
 
-/** The currency is fixed once the first financial record exists. */
+/**
+ * The currency is fixed once the first financial record exists, and once the household is shared
+ * (the server fixed it when the household moved there).
+ */
+export const currencyLocked = (h: Household) => h.events.length > 0 || !!h.sync;
+
 export function setCurrency(id: ID, currency: string) {
-  updateHousehold(id, (h) => (h.events.length ? h : { ...h, currency }));
+  updateHousehold(id, (h) => (currencyLocked(h) ? h : { ...h, currency }));
 }
 
 export function hasFinancialHistory(h: Household) { return h.events.length > 0; }
@@ -394,6 +399,22 @@ export function reviseExpense(h: Household, recordId: ID, content: ExpenseConten
   const head = [...h.events].reverse().find((e) => e.recordId === recordId && (e.kind === 'expenseAdded' || e.kind === 'expenseRevised'));
   const basis = head ? { kind: 'parent' as const, parentEventId: head.id } : undefined;
   return append(h.id, { ...base(h), kind: 'expenseRevised', recordId, content, reason, basis }, label);
+}
+
+/**
+ * Settles a contest (two edits of the same version) by keeping `keepEventId`. It pairs with the
+ * newest other standing version, the way the server resolves contests.
+ */
+export function keepVersion(h: Household, recordId: ID, keepEventId: ID, label: string) {
+  const r = ledgerOf(h).byId[recordId];
+  if (!r?.contested?.includes(keepEventId)) throw new SaveError('Someone already settled this.');
+  const other = [...r.contested].reverse().find((x) => x !== keepEventId)!;
+  const [firstEventId, secondEventId] = [keepEventId, other].sort();
+  const content = r.revisions.find((v) => v.eventId === keepEventId)!.content;
+  const basis = { kind: 'resolution' as const, firstEventId, secondEventId };
+  return r.kind === 'opening'
+    ? append(h.id, { ...base(h), kind: 'openingRevised', recordId, content: content as OpeningContent, basis }, label)
+    : append(h.id, { ...base(h), kind: 'expenseRevised', recordId, content: content as ExpenseContent, basis }, label);
 }
 
 export function recordSettlement(h: Household, content: SettlementContent, label: string) {

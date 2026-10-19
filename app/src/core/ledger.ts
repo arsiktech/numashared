@@ -6,7 +6,7 @@ import { formatMoney, MAX_AMOUNT } from './money';
 import { categoryLabel, groupName, personName } from './names';
 import type {
   Category, Cents, ExpenseContent, FieldChange, Group, Household, ID, Ledger, LedgerEvent,
-  LedgerRecord, OpeningContent, PaymentMethod, Person, SettlementContent, Split, TimelineEntry,
+  LedgerRecord, OpeningContent, PaymentMethod, Person, RevisionBasis, SettlementContent, Split, TimelineEntry,
 } from './types';
 
 export type LedgerErrorCode =
@@ -29,6 +29,8 @@ export type LedgerErrorCode =
   | 'split-mismatch'      // exact shares do not sum to the amount
   | 'same-group'          // settlement or opening entry from a group to itself
   | 'empty-opening'
+  | 'unknown-revision'    // an edit whose parent version isn't known
+  | 'invalid-resolution'  // keeping a version of two that aren't in conflict
   | 'already-voided'
   | 'not-voided'          // restore without void
   | 'record-voided'       // revising or flagging a voided record
@@ -65,6 +67,12 @@ type Working = {
   record: LedgerRecord;
   /** Effect of the current content, ignoring the voided flag. */
   fullEffect: Record<ID, Cents>;
+  /** Revisions nobody has built on yet, oldest first. More than one means the record is contested. */
+  heads: ID[];
+  /** Each revision's content and effect, by event id. */
+  versions: Map<ID, { content: ExpenseContent | OpeningContent; effect: Record<ID, Cents> }>;
+  /** Contests already settled ("a|b" sorted), to the event that settled them. */
+  resolved: Map<string, ID>;
 };
 
 type State = {
@@ -269,7 +277,41 @@ function apply(base: Omit<Ctx, 'eventId'>, state: State, event: LedgerEvent): vo
     if (kind === 'expense') record.expense = content as ExpenseContent;
     if (kind === 'settlement') record.settlement = content as SettlementContent;
     if (kind === 'opening') record.opening = content as OpeningContent;
-    state.records.set(record.id, { record, fullEffect });
+    state.records.set(record.id, {
+      record, fullEffect, heads: [event.id], resolved: new Map(),
+      versions: new Map(kind === 'settlement' ? [] : [[event.id, { content: content as ExpenseContent | OpeningContent, effect: fullEffect }]]),
+    });
+  };
+  /**
+   * A new revision, placed the way the server places it: on its parent, or settling a contest
+   * between two versions. The newest standing version counts.
+   */
+  const revise = (w: Working, content: ExpenseContent | OpeningContent, effect: Record<ID, Cents>, basis: RevisionBasis | undefined) => {
+    const b: RevisionBasis = basis ?? { kind: 'parent', parentEventId: w.heads[w.heads.length - 1] };
+    if (b.kind === 'parent') {
+      if (!w.versions.has(b.parentEventId)) fail(ctx, 'unknown-revision', 'This edit builds on a version that doesn’t exist.');
+      w.heads = w.heads.filter((x) => x !== b.parentEventId);
+      for (const [pair, by] of w.resolved) if (by === b.parentEventId) w.resolved.set(pair, event.id);
+    } else {
+      const { firstEventId: one, secondEventId: two } = b;
+      if (!w.versions.has(one) || !w.versions.has(two)) fail(ctx, 'invalid-resolution', 'This choice names a version that doesn’t exist.');
+      const pair = [one, two].sort().join('|');
+      if (w.heads.includes(one) && w.heads.includes(two)) {
+        w.heads = w.heads.filter((x) => x !== one && x !== two);
+      } else {
+        const prior = w.resolved.get(pair);
+        if (!prior) fail(ctx, 'invalid-resolution', 'These two versions aren’t in conflict.');
+        w.heads = w.heads.filter((x) => x !== prior);
+      }
+      w.resolved.set(pair, event.id);
+    }
+    w.heads.push(event.id);
+    w.versions.set(event.id, { content, effect });
+    const applied = w.versions.get(w.heads[w.heads.length - 1])!;
+    w.fullEffect = applied.effect;
+    if (w.heads.length > 1) w.record.contested = [...w.heads];
+    else delete w.record.contested;
+    return applied.content;
   };
   const touch = (r: LedgerRecord) => { r.updatedAt = Math.max(r.updatedAt, event.at); };
 
@@ -289,10 +331,10 @@ function apply(base: Omit<Ctx, 'eventId'>, state: State, event: LedgerEvent): vo
       if (r.kind !== 'expense' || !r.expense) fail(ctx, 'wrong-record-kind', 'Only expenses can be edited.');
       if (r.voided) fail(ctx, 'record-voided', 'Restore this expense before editing it.');
       const effect = expenseEffect(ctx, event.content);
-      r.timeline.push({ type: 'edited', at: event.at, by: event.by, eventId: event.id, reason: event.reason, changes: diff(ctx, r.expense, event.content) });
+      const parent = event.basis?.kind === 'parent' ? w.versions.get(event.basis.parentEventId)?.content as ExpenseContent | undefined : undefined;
+      r.timeline.push({ type: 'edited', at: event.at, by: event.by, eventId: event.id, reason: event.reason, changes: diff(ctx, parent ?? r.expense, event.content) });
       r.revisions.push({ eventId: event.id, at: event.at, by: event.by, content: event.content });
-      r.expense = event.content;
-      w.fullEffect = effect;
+      r.expense = revise(w, event.content, effect, event.basis) as ExpenseContent;
       touch(r);
       break;
     }
@@ -304,8 +346,7 @@ function apply(base: Omit<Ctx, 'eventId'>, state: State, event: LedgerEvent): vo
       const effect = openingEffect(ctx, event.content);
       r.timeline.push({ type: 'edited', at: event.at, by: event.by, eventId: event.id, changes: [] });
       r.revisions.push({ eventId: event.id, at: event.at, by: event.by, content: event.content });
-      r.opening = event.content;
-      w.fullEffect = effect;
+      r.opening = revise(w, event.content, effect, event.basis) as OpeningContent;
       touch(r);
       break;
     }

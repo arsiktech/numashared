@@ -15,16 +15,11 @@ import { useHousehold } from '@/features/hooks';
 import { Caption, Label, Segmented, Select } from '@/features/onboarding/chrome';
 import { SettingsShell, usePillBg } from '@/features/settings/parts';
 import { buildCsv, csvFileName, recordsInRange, type Range } from '@/features/settings/csv';
+import { datedName } from '@/features/settings/fileName';
 
 const INCLUDED = ['Every expense and repayment', 'Every edit, with old and new values', 'Voids and their reasons', 'Who added what'];
 const mono = Platform.select({ ios: 'Menlo', android: 'monospace', default: 'ui-monospace, Menlo, Consolas, monospace' });
 
-/** "numa-shared-home.csv" becomes "numa-shared-home-2026-10-19.csv" (local date). */
-function datedName(name: string, now = new Date()) {
-  const pad = (n: number) => String(n).padStart(2, '0');
-  const day = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`;
-  return name.replace(/\.csv$/, `-${day}.csv`);
-}
 
 export default function ExportScreen() {
   const { h: active } = useHousehold();

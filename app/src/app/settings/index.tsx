@@ -4,7 +4,7 @@ import { useState } from 'react';
 import { TextInput, View } from 'react-native';
 import { Redirect, useLocalSearchParams, useRouter } from 'expo-router';
 import Constants from 'expo-constants';
-import { getState, hasFinancialHistory, leaveHousehold, renameHousehold, setCurrency, setPrefs, useStore, type Appearance } from '@/store/store';
+import { currencyLocked, getState, hasFinancialHistory, leaveHousehold, renameHousehold, setCurrency, setPrefs, useStore, type Appearance } from '@/store/store';
 import { openSheet } from '@/store/ui';
 import { Bell, Check, Download, Eye, House, Lock, Moon, Pencil, People, Share as ShareIcon, VoidX } from '@/ui/icons';
 import { Press, T, Toggle } from '@/ui/primitives';
@@ -57,7 +57,7 @@ function HouseholdGroup() {
   const desk = useDesk();
   const [pickCurrency, setPickCurrency] = useState(false);
   if (!h) return null;
-  const locked = hasFinancialHistory(h);
+  const locked = currencyLocked(h);
   const groups = h.groups.length;
   const people = `${h.people.length} ${h.people.length === 1 ? 'person' : 'people'} · ${groups} ${groups === 1 ? 'group' : 'groups'}`;
   return (
@@ -65,10 +65,10 @@ function HouseholdGroup() {
       <NameRow />
       <SRow first={false} label="Currency" icon={<Lock size={22} color={c.ink2} />}
         value={isAndroid && !desk ? currencyLabel(h.currency) : `${currencyLabel(h.currency)}`}
-        sub={locked ? (isAndroid && !desk ? 'fixed' : 'Fixed after the first expense') : 'Fixed once the first expense is added'}
+        sub={locked ? (isAndroid && !desk ? 'fixed' : h.sync && !hasFinancialHistory(h) ? 'Fixed once shared' : 'Fixed after the first expense') : 'Fixed once the first expense is added or the household is shared'}
         right={!isAndroid || desk ? (locked ? <Lock size={16} color={c.ink2} /> : null) : undefined}
         onPress={locked ? undefined : () => setPickCurrency(!pickCurrency)}
-        a11y={`Currency, ${currencyLabel(h.currency)}${locked ? ', fixed because money is recorded' : '. Change'}`} />
+        a11y={`Currency, ${currencyLabel(h.currency)}${locked ? (hasFinancialHistory(h) ? ', fixed because money is recorded' : ', fixed because the household is shared') : '. Change'}`} />
       {pickCurrency && !locked ? CURRENCIES.map((cur) => (
         <SRow key={cur.code} label={cur.name} value={cur.code} chevron={false}
           right={cur.code === h.currency ? <Check size={18} color={c.ink} /> : null}

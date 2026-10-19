@@ -12,6 +12,7 @@ import { SheetHead } from '@/ui/sheet';
 import { useTheme } from '@/ui/theme';
 import { alpha, fonts, isAndroid, isWeb, type GroupTone } from '@/ui/tokens';
 import { dateLabel, dateSpoken, daysAgoISO, groupInitials, shiftISO } from './draft';
+import { tabJumpsToNote } from './keys';
 
 // ---------- header ----------
 
@@ -237,7 +238,7 @@ export function useWebKeys(enabled: boolean, handlers: KeyHandlers) {
       // Shift+Tab move through the controls as usual.
       if (e.key === 'Tab' && h.onTab) {
         const nothingFocused = !t || t === document.body || t === document.documentElement;
-        if (nothingFocused && !e.shiftKey) { e.preventDefault(); h.onTab(); }
+        if (tabJumpsToNote(nothingFocused, e.shiftKey)) { e.preventDefault(); h.onTab(); }
         return;
       }
       if (/^[0-9]$/.test(e.key) && h.onKey) { e.preventDefault(); h.onKey(e.key as Key); return; }
