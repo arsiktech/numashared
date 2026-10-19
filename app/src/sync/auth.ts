@@ -162,15 +162,28 @@ function google(): GoogleModule | null {
   return googleModule;
 }
 
-/** Google sign-in is offered on iPhone and Android once the build carries its client IDs. */
+/**
+ * Google sign-in is offered on iPhone and Android once the build carries its client IDs, and on the
+ * web (through Google's own button) once it carries the web client ID.
+ */
 export function googleSignInAvailable(): boolean {
   if (!GOOGLE_WEB_CLIENT_ID) return false;
+  if (Platform.OS === 'web') return true;
   if (Platform.OS === 'ios' && !GOOGLE_IOS_CLIENT_ID) return false;
   return google() !== null;
 }
 
-/** Shows Google's account picker and starts a session. Throws AuthError('CANCELLED') if the person backs out. */
-export async function signInWithGoogle(): Promise<Session> {
+/**
+ * Shows Google's account picker and starts a session. Throws AuthError('CANCELLED') if the person
+ * backs out. On the web Google's own button has already produced the ID token; pass it in.
+ */
+export async function signInWithGoogle(webIdToken?: string): Promise<Session> {
+  if (Platform.OS === 'web') {
+    if (!webIdToken || !googleSignInAvailable()) throw new AuthError('GOOGLE_SIGN_IN_UNAVAILABLE', false);
+    const next = fromTokens(await post<TokenResponse>('/auth/google/exchange', { idToken: webIdToken }));
+    await setSession(next);
+    return next;
+  }
   const mod = google();
   if (!mod || !googleSignInAvailable()) throw new AuthError('GOOGLE_SIGN_IN_UNAVAILABLE', false);
   const { GoogleSignin, statusCodes } = mod;

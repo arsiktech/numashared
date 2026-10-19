@@ -5,6 +5,7 @@
   "scripts": {
     "branding:test": "node --test scripts/tests/branding-contract-test.mjs",
     "hygiene:test": "node --test scripts/tests/public-hygiene-test.mjs",
+    "card-sync:test": "node --test tools/card-sync/etherfi.test.mjs",
     "build:home": "node scripts/build-home.mjs",
     "build:home:check": "node scripts/build-home.mjs --check",
     "backend:typecheck": "tsc --project convex/tsconfig.json --noEmit",

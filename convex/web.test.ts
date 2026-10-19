@@ -251,6 +251,44 @@ describe("free-host web entry", () => {
     expect(body).not.toContain("claimTicket");
   });
 
+  test("invites offer the web app and the TestFlight beta instead of a missing listing", async () => {
+    vi.stubEnv("NUMA_SHARED_APP_STORE_URL", "");
+    vi.stubEnv("NUMA_SHARED_TESTFLIGHT_URL", "https://testflight.apple.com/join/AbCd1234");
+    vi.stubEnv("NUMA_SHARED_WEB_APP_URL", "https://shared.example.com/app/");
+    const t = convexTest(schema, modules);
+    await seedInvite(t, { code: "ABC123", potName: "Casa Mar" });
+
+    const landing = await t.fetch("/join/abc-123?code=abc123");
+    const body = await landing.text();
+    expect(landing.status).toBe(200);
+    expect(body).toContain('href="https://shared.example.com/app/join?code=ABC123">Open in your browser');
+    expect(body).toContain('href="https://testflight.apple.com/join/AbCd1234">Get the iPhone app (TestFlight beta)');
+    expect(body).not.toContain("apps.apple.com");
+    expect(body).not.toContain("Casa Mar");
+
+    // A code that isn't one is left out of the link rather than echoed.
+    expect(await (await t.fetch("/join/abc-123?code=%3Cb%3E")).text()).toContain('href="https://shared.example.com/app/join">');
+
+    vi.stubEnv("NUMA_SHARED_TESTFLIGHT_URL", "https://example.com/join/AbCd1234");
+    expect((await t.fetch("/join/abc-123")).status).toBe(503);
+  });
+
+  test("the web app's origin, and only it, may call the endpoints it uses", async () => {
+    vi.stubEnv("NUMA_SHARED_WEB_ORIGINS", "https://shared.example.com");
+    const t = convexTest(schema, modules);
+    const ok = await t.fetch("/auth/refresh", { method: "OPTIONS", headers: { Origin: "https://shared.example.com" } });
+    expect(ok.status).toBe(204);
+    expect(ok.headers.get("access-control-allow-origin")).toBe("https://shared.example.com");
+    expect((await t.fetch("/auth/refresh", { method: "OPTIONS", headers: { Origin: "https://evil.example" } })).status).toBe(403);
+
+    const config = await t.fetch("/app-config", { headers: { Origin: "https://shared.example.com" } });
+    expect(config.headers.get("access-control-allow-origin")).toBe("https://shared.example.com");
+    const other = await t.fetch("/app-config", { headers: { Origin: "https://evil.example" } });
+    expect(other.headers.get("access-control-allow-origin")).toBeNull();
+    // Pages people open directly never get CORS headers.
+    expect((await t.fetch("/privacy", { headers: { Origin: "https://shared.example.com" } })).headers.get("access-control-allow-origin")).toBeNull();
+  });
+
   test("resolves a long-token link and its separate typed-code fallback", async () => {
     const t = convexTest(schema, modules);
     const token = "link-token-0123456789abcdef0123456789abcdef";

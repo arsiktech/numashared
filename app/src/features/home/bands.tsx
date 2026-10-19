@@ -15,7 +15,8 @@ import { alpha, fonts, isAndroid } from '@/ui/tokens';
 import { OrbButton } from '../records';
 import { money, nameOf, standingWords } from '../hooks';
 
-export function Bands({ h, balances, hide, compact }: { h: Household; balances: Record<ID, number>; hide: boolean; compact?: boolean }) {
+/** `tail` extends the lowest band's color that far below, for a list that slides up over the bands. */
+export function Bands({ h, balances, hide, compact, tail }: { h: Household; balances: Record<ID, number>; hide: boolean; compact?: boolean; tail?: number }) {
   const { tone, c, width } = useTheme();
   const insets = useSafeAreaInsets();
   const router = useRouter();
@@ -33,8 +34,10 @@ export function Bands({ h, balances, hide, compact }: { h: Household; balances: 
   const partners = mine.memberIds.filter((id) => id !== h.youId).map((id) => h.people.find((p) => p.id === id)!);
 
   const ticketTop = topH - 39;
+  const lowest = others.length ? tone(others[others.length - 1]).band : c.chip;
   return (
     <View>
+      {tail ? <View pointerEvents="none" style={{ position: 'absolute', left: 0, right: 0, top: '100%', height: tail, backgroundColor: lowest }} /> : null}
       <View style={{ backgroundColor: t.band, height: topH, paddingTop: compact ? 20 : insets.top, paddingHorizontal: 22 }}>
         {!compact ? (
           <View style={{ height: 44, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>

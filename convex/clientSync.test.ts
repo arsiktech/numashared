@@ -180,6 +180,26 @@ describe("app sync engine against the backend", () => {
     expect(balances(a)).toEqual({ [family.id]: 2_250, [zoeUnit]: -2_250 });
   });
 
+  test("events recorded on this phone in someone else's name still share and send", async () => {
+    // Sheet imports made by an earlier build named each payer as the recorder; the server only
+    // accepts events from the member sending them.
+    const t = convexTest(schema, modules);
+    const ana = await signIn(t, "ana");
+    const phoneA = phone();
+    const local = localHousehold();
+    phoneA.put({ ...local, events: local.events.map((e) => ({ ...e, by: "p_mia" })) });
+    const id = await startSync(ana, phoneA, "h_local");
+    const h = phoneA.get(id)!;
+    expect(h.events.every((e) => e.by === h.youId && e.seq)).toBe(true);
+    const mia = h.people.find((p) => p.name === "Mia")!.id;
+    const at = Date.now() - 60_000;
+    append(phoneA, id, { id: "e_2", at, by: mia, kind: "settlementRecorded", recordId: "r_2",
+      content: { fromGroupId: h.groups[1].id, toGroupId: h.groups[0].id, amount: 1_000, date: new Date(at).toISOString().slice(0, 10) } });
+    expect(await flush(ana, phoneA, id, later)).toBe("done");
+    const after = phoneA.get(id)!;
+    expect(after.events.every((e) => e.by === after.youId && e.seq)).toBe(true);
+  });
+
   test("two phones create, invite, join, record and always agree", async () => {
     const t = convexTest(schema, modules);
     await fenceBuild11(t);
@@ -659,5 +679,86 @@ describe("app sync engine against the backend", () => {
     for (let i = 0; i < 20 && !done; i++) done = (await ana.mutation<{ deleted: boolean }>("pots:deleteHousehold", { potId: id })).deleted;
     expect(done).toBe(true);
     await expect(t.run(async (ctx) => (await ctx.db.query("pots").collect()).length)).resolves.toBe(0);
+  });
+});
+
+describe("card sync", () => {
+  const post = (t: T, key: string, spends: unknown[]) => t.fetch("/card-sync/spends", {
+    method: "POST", headers: { "Content-Type": "application/json", Authorization: `Bearer ${key}` }, body: JSON.stringify({ spends }),
+  });
+  const sha256 = async (s: string) => Array.from(new Uint8Array(await crypto.subtle.digest("SHA-256", new TextEncoder().encode(s))),
+    (b) => b.toString(16).padStart(2, "0")).join("");
+  const KEY = "nscs_test_key_abcdefghijklmnopqrstuvwxyz012345";
+
+  test("spends on a linked card become expenses for that group, once; other cards leave no trace", async () => {
+    const t = convexTest(schema, modules);
+    await fenceBuild11(t);
+    const ana = await signIn(t, "ana");
+    const phoneA = phone();
+    phoneA.put({ ...localHousehold(), events: [] });
+    const id = await startSync(ana, phoneA, "h_local");
+    await pull(ana, phoneA, id);
+    let a = phoneA.get(id)!;
+    const leoGroup = a.groups.find((g) => g.memberIds.length === 1)!.id;
+    const ownGroup = a.groups.find((g) => g.memberIds.includes(a.youId))!.id;
+
+    // Only the owner links, never to their own group.
+    await expect(ana.mutation("cardSync:link", { potId: id, keyHash: await sha256(KEY), timeZone: "Europe/Madrid",
+      cards: [{ last4: "4242", forUnitId: ownGroup, label: "Leo" }] })).rejects.toThrow("CARD_SYNC_CARDS_INVALID");
+    await ana.mutation("cardSync:link", { potId: id, keyHash: await sha256(KEY), timeZone: "Europe/Madrid",
+      cards: [{ last4: "4242", forUnitId: leoGroup, label: "Leo" }] });
+
+    const res = await post(t, KEY, [
+      { id: "tx-1", card: "•4242", occurredAt: "2026-09-30T18:04:51Z", merchant: "Corner Shop 12", amount: "5.33", currency: "EUR", category: "Grocery Stores and Supermarkets" },
+      { id: "tx-2", card: "1234", occurredAt: "2026-09-30T19:00:00Z", merchant: "Someone else's card", amount: "99.00", currency: "EUR" },
+      { id: "tx-3", card: "4242", occurredAt: "2026-09-30T20:00:00Z", merchant: "US shop", amount: "10.00", currency: "USD" },
+      { id: "tx-1", card: "4242", occurredAt: "2026-09-30T18:04:51Z", merchant: "Corner Shop 12", amount: "5.33", currency: "EUR" },
+    ]);
+    expect(res.status).toBe(200);
+    expect((await res.json()).outcomes).toEqual([
+      { id: "tx-1", result: "added" },
+      { id: "tx-2", result: "ignored", reason: "card not linked" },
+      { id: "tx-3", result: "ignored", reason: "not in EUR" },
+      { id: "tx-1", result: "duplicate" },
+    ]);
+    // Sending it again later is a no-op too.
+    expect((await (await post(t, KEY, [{ id: "tx-1", card: "4242", occurredAt: "2026-09-30T18:04:51Z", merchant: "x", amount: "5.33", currency: "EUR" }])).json()).outcomes)
+      .toEqual([{ id: "tx-1", result: "duplicate" }]);
+    // Nothing about the other card is stored.
+    expect(await t.run(async (ctx) => (await ctx.db.query("cardSyncSpends").collect()).map((s) => s.spendId))).toEqual(["tx-1"]);
+
+    await pull(ana, phoneA, id);
+    a = phoneA.get(id)!;
+    const spend = a.events.find((e) => e.kind === "expenseAdded")!;
+    expect(spend.kind === "expenseAdded" && spend.content).toMatchObject({
+      payerId: a.youId, amount: 533, title: "Corner Shop 12", category: "groceries", note: "Card •4242 Leo", date: "2026-09-30",
+    });
+    expect(balances(a)).toEqual({ [ownGroup]: 533, [leoGroup]: -533 });
+    expect(await ana.query("cardSync:status", { potId: id })).toMatchObject({ added: 1n, cards: [{ last4: "4242", label: "Leo" }] });
+
+    // A wrong key, and the old key after unlinking, are refused.
+    expect((await post(t, "nscs_wrong_key_abcdefghijklmnopqrstuvwxyz0123", [])).status).toBe(401);
+    await ana.mutation("cardSync:unlink", { potId: id });
+    expect((await post(t, KEY, [{ id: "tx-9", card: "4242", occurredAt: "2026-10-01T10:00:00Z", merchant: "x", amount: "1.00", currency: "EUR" }])).status).toBe(401);
+    expect(await ana.query("cardSync:status", { potId: id })).toBeNull();
+  });
+
+  test("a member who isn't the owner can't link cards", async () => {
+    const t = convexTest(schema, modules);
+    const ana = await signIn(t, "ana");
+    const leo = await signIn(t, "leo");
+    const phoneA = phone();
+    phoneA.put({ ...localHousehold(), events: [] });
+    const id = await startSync(ana, phoneA, "h_local");
+    await pull(ana, phoneA, id);
+    await issueInvites(ana, phoneA, id);
+    const leoId = phoneA.get(id)!.people.find((p) => p.name === "Leo")!.id;
+    const site = ((url: string, init?: RequestInit) => t.fetch(new URL(url).pathname, init)) as typeof fetch;
+    const preview = await resolveInvite("http://127.0.0.1:3211", phoneA.get(id)!.sync!.invites![leoId].code, site);
+    if (preview.status !== "active") throw new Error(preview.status);
+    await claimInvite(leo, phone(), preview);
+    const couple = phoneA.get(id)!.groups.find((g) => g.memberIds.length === 2)!.id;
+    await expect(leo.mutation("cardSync:link", { potId: id, keyHash: await sha256(KEY), timeZone: "Europe/Madrid",
+      cards: [{ last4: "4242", forUnitId: couple, label: "Ana" }] })).rejects.toThrow("NOT_OWNER");
   });
 });

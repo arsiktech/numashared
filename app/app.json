@@ -15,7 +15,8 @@
       },
       "usesAppleSignIn": true,
       "associatedDomains": [
-        "applinks:adept-camel-457.convex.site"
+        "applinks:adept-camel-457.convex.site",
+        "applinks:shared.numaworth.com"
       ],
       "buildNumber": "14",
       "appleTeamId": "794UJ787LZ"
@@ -74,9 +75,7 @@
       }
     },
     "owner": "arsiktech",
-    "runtimeVersion": {
-      "policy": "sdkVersion"
-    },
+    "runtimeVersion": "exposdk:57.0.0",
     "updates": {
       "url": "https://u.expo.dev/9bd0be32-be67-4d8c-99b2-b63afbf22e36",
       "requestHeaders": {

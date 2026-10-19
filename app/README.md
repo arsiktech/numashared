@@ -66,7 +66,7 @@ Signing in:
 - Apple works in an iPhone build with the bundle id `tech.arsik.numashared` (the backend accepts that one Apple audience), not inside Expo Go.
 - Google works on iPhone and Android once the build has its OAuth client IDs. Put them in `app/.env` before building:
   `EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID=…` and `EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID=…`. The backend accepts the same two IDs from `NUMA_SHARED_GOOGLE_CLIENT_IDS` (comma-separated). Without them the Google button stays hidden.
-- The web build has no sign-in yet; households there stay in the browser.
+- On the web (shared.numaworth.com/app) Google's own button signs in, with the web client ID in `EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID`. Apple sign-in on the web is not set up. See `tools/web-host`.
 
 Limits for now:
 - A group is one to six people who pay as one (a single person, a couple, a family).

@@ -1,18 +1,22 @@
 // Home. Phone: bands, ticket and orb, then the latest records. Desk: three panes, balance on the
 // left, the history thread in the middle and the selected record on the right.
-import { useEffect, useMemo, useState } from 'react';
-import { ScrollView, View } from 'react-native';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { FlatList, ScrollView, StyleSheet, View } from 'react-native';
+import Animated, { Extrapolation, interpolate, runOnJS, useAnimatedScrollHandler, useAnimatedStyle, useSharedValue } from 'react-native-reanimated';
 import { Redirect, useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { markSeen, useStore } from '@/store/store';
 import { openSheet } from '@/store/ui';
-import { Check } from '@/ui/icons';
+import { Check, ChevUp, Search } from '@/ui/icons';
 import { Press, T } from '@/ui/primitives';
 import { useTheme } from '@/ui/theme';
-import { fonts } from '@/ui/tokens';
+import { fonts, isWeb } from '@/ui/tokens';
 import { money, nameOf, useHousehold } from '@/features/hooks';
 import { Bands } from '@/features/home/bands';
-import { RecordRow } from '@/features/records';
+import { OrbButton, RecordRow } from '@/features/records';
+import type { LedgerRecord } from '@/core/types';
+import { dayLabel, sameDay } from '@/features/history/model';
+import { requestHistorySearch } from '@/features/history/search';
 import { SyncLine } from '@/features/home/syncline';
 import { HistoryThread } from '@/features/history/thread';
 import { RecordDetail } from '@/features/detail/content';
@@ -30,33 +34,118 @@ export default function Home() {
   return <PhoneHome freshIds={new Set(recent.filter((r) => Date.now() - r.at < 8000).map((r) => r.eventId))} />;
 }
 
+type Row = { kind: 'day'; key: string; label: string } | { kind: 'record'; key: string; r: LedgerRecord; last: boolean };
+
+/** Every record, newest first, with a line for each day. */
+function rows(records: LedgerRecord[]): Row[] {
+  const sorted = [...records].sort((a, b) => b.updatedAt - a.updatedAt);
+  const out: Row[] = [];
+  sorted.forEach((r, i) => {
+    if (i === 0 || !sameDay(sorted[i - 1].updatedAt, r.updatedAt)) out.push({ kind: 'day', key: `d${r.updatedAt}`, label: dayLabel(r.updatedAt) });
+    out.push({ kind: 'record', key: r.id, r, last: i === sorted.length - 1 || !sameDay(sorted[i + 1].updatedAt, r.updatedAt) });
+  });
+  return out;
+}
+
+// The bands stay put. The list below is one endless history that slides up over them; once its top
+// reaches the status bar it becomes History, with a bar to get back and a small orb to keep adding.
 function PhoneHome({ freshIds }: { freshIds: Set<string> }) {
   const { h, ledger, hide } = useHousehold();
-  const { c } = useTheme();
+  const { c, height: H } = useTheme();
   const router = useRouter();
   const insets = useSafeAreaInsets();
+  const list = useRef<FlatList<Row>>(null);
+  const y = useSharedValue(0);
+  const [bandsH, setBandsH] = useState(0);
+  const [docked, setDocked] = useState(false);
+  const dockedSV = useSharedValue(false);
+  const dock = Math.max(1, bandsH - 26 - insets.top);
+  const data = useMemo(() => (ledger ? rows(ledger.records) : []), [ledger]);
+  const onScroll = useAnimatedScrollHandler((e) => {
+    y.value = e.contentOffset.y;
+    const now = e.contentOffset.y >= dock - 4;
+    if (now !== dockedSV.value) { dockedSV.value = now; runOnJS(setDocked)(now); }
+  });
+  // Counter-scroll the bands so they never move, even when the list is pulled down past its top.
+  // Once the list has docked they are covered, so they stop there and scroll away.
+  const pinned = useAnimatedStyle(() => ({ transform: [{ translateY: Math.min(y.value, dock) }] }));
+  const bar = useAnimatedStyle(() => ({ opacity: interpolate(y.value, [dock - 36, dock], [0, 1], Extrapolation.CLAMP) }));
+  const fold = useAnimatedStyle(() => ({ opacity: interpolate(y.value, [dock - 36, dock - 6], [1, 0], Extrapolation.CLAMP) }));
   if (!h || !ledger) return null;
-  const latest = [...ledger.records].sort((a, b) => b.updatedAt - a.updatedAt).slice(0, 6);
   const freshRecord = new Set(h.events.filter((e) => freshIds.has(e.id)).map((e) => ('recordId' in e ? e.recordId : '')));
+  const search = () => { requestHistorySearch(true); router.push('/history'); };
+
   return (
-    <ScrollView style={{ flex: 1, backgroundColor: c.bg }} contentContainerStyle={{ paddingBottom: insets.bottom + 90 }} showsVerticalScrollIndicator={false}>
-      <Bands h={h} balances={ledger.balances} hide={hide} />
-      <View style={{ marginTop: -26, backgroundColor: c.bg, borderTopLeftRadius: 26, borderTopRightRadius: 26, paddingHorizontal: 22, paddingTop: 14 }}>
-        <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', height: 44 }}>
-          <T accessibilityRole="header" style={{ fontFamily: fonts.bold, fontSize: 20 }}>Latest</T>
-          {ledger.records.length ? (
-            <Press accessibilityRole="link" accessibilityLabel="All history" onPress={() => router.push('/history')} style={{ height: 44, justifyContent: 'center' }}>
-              <T style={{ fontSize: 16, fontFamily: fonts.medium }}>All history</T>
+    <View style={{ flex: 1, backgroundColor: c.bg }}>
+      <Animated.FlatList
+        ref={list}
+        data={data}
+        keyExtractor={(row) => row.key}
+        onScroll={onScroll}
+        scrollEventThrottle={16}
+        showsVerticalScrollIndicator={docked}
+        initialNumToRender={14}
+        windowSize={11}
+        contentContainerStyle={{ flexGrow: 1 }}
+        ListHeaderComponent={(
+          <>
+            <Animated.View style={pinned} onLayout={(e) => setBandsH(e.nativeEvent.layout.height)}>
+              <Bands h={h} balances={ledger.balances} hide={hide} tail={isWeb ? undefined : H} />
+            </Animated.View>
+            <Animated.View style={[{ marginTop: -26, backgroundColor: c.bg, borderTopLeftRadius: 26, borderTopRightRadius: 26, paddingHorizontal: 22, paddingTop: 14 }]}>
+              <Animated.View style={[{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', height: 44 }, fold]}>
+                <T accessibilityRole="header" style={{ fontFamily: fonts.bold, fontSize: 20 }}>Latest</T>
+                {ledger.records.length ? (
+                  <Press accessibilityRole="button" accessibilityLabel="Search history" onPress={search} style={{ height: 44, flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                    <Search size={18} color={c.ink} />
+                    <T style={{ fontSize: 16, fontFamily: fonts.medium }}>Search</T>
+                  </Press>
+                ) : null}
+              </Animated.View>
+              <SyncLine />
+            </Animated.View>
+          </>
+        )}
+        renderItem={({ item }) => (
+          <View style={{ backgroundColor: c.bg, paddingHorizontal: 22 }}>
+            {item.kind === 'day' ? (
+              <T style={{ fontFamily: fonts.semibold, fontSize: 13, color: c.ink2, paddingTop: 16, paddingBottom: 2 }}>{item.label}</T>
+            ) : (
+              <RecordRow h={h} r={item.r} hide={hide} fresh={freshRecord.has(item.r.id)} last={item.last}
+                onPress={() => openSheet({ type: 'detail', recordId: item.r.id })} />
+            )}
+          </View>
+        )}
+        ListEmptyComponent={<View style={{ backgroundColor: c.bg, paddingHorizontal: 22 }}><EmptyState /></View>}
+        ListFooterComponentStyle={{ flexGrow: 1, backgroundColor: c.bg }}
+        ListFooterComponent={(
+          <View style={{ flexGrow: 1, minHeight: insets.bottom + 120, alignItems: 'center', paddingTop: 22 }}>
+            {data.length > 12 ? <T style={{ fontSize: 13, color: c.ink3 }}>That’s everything in {h.name}</T> : null}
+            {/* A floor, so pulling past the end never shows the bands behind the list. */}
+            {isWeb ? null : <View pointerEvents="none" style={{ position: 'absolute', left: 0, right: 0, top: '100%', height: H, backgroundColor: c.bg }} />}
+          </View>
+        )}
+      />
+
+      {/* History bar: appears as the list reaches the top. */}
+      <Animated.View pointerEvents={docked ? 'box-none' : 'none'} style={[StyleSheet.absoluteFill, bar]}>
+        <View style={{ paddingTop: insets.top, backgroundColor: c.bg, borderBottomWidth: 1, borderBottomColor: c.hair }}>
+          <View style={{ height: 52, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 12 }}>
+            <Press accessibilityRole="button" accessibilityLabel="Back to balances" onPress={() => list.current?.scrollToOffset({ offset: 0, animated: true })}
+              style={{ height: 44, minWidth: 44, flexDirection: 'row', alignItems: 'center', gap: 4, paddingHorizontal: 8 }}>
+              <ChevUp size={18} color={c.ink} />
+              <T style={{ fontSize: 16, fontFamily: fonts.medium }}>Balances</T>
             </Press>
-          ) : null}
+            <T accessibilityRole="header" style={{ fontFamily: fonts.bold, fontSize: 17 }}>History</T>
+            <Press accessibilityRole="button" accessibilityLabel="Search history" onPress={search}
+              style={{ height: 44, minWidth: 92, alignItems: 'flex-end', justifyContent: 'center', paddingHorizontal: 8 }}>
+              <Search size={20} color={c.ink} />
+            </Press>
+          </View>
         </View>
-        <SyncLine />
-        {latest.length ? latest.map((r, i) => (
-          <RecordRow key={r.id} h={h} r={r} hide={hide} fresh={freshRecord.has(r.id)} last={i === latest.length - 1}
-            onPress={() => openSheet({ type: 'detail', recordId: r.id })} />
-        )) : <EmptyState />}
-      </View>
-    </ScrollView>
+        {docked ? <OrbButton size={64} plus={24} style={{ position: 'absolute', right: 18, bottom: insets.bottom + 18 }} /> : null}
+      </Animated.View>
+    </View>
   );
 }
 

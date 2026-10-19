@@ -2,7 +2,7 @@
 // and a paper receipt with the split, what it changes, and the orange Add button. The same sheet
 // edits an expense (dark "Save changes") and, on a desk, becomes a popover without a keypad.
 import { useEffect, useMemo, useRef, useState, type Dispatch, type ReactNode, type SetStateAction } from 'react';
-import { ScrollView, TextInput, View, type TextStyle } from 'react-native';
+import { TextInput, View, type TextStyle } from 'react-native';
 import { applyKey, categoryLabel, currencyDigits, formatMoney, inputFromCents, parseInput, type Key } from '@/core';
 import type { Category, ExpenseContent, Household, ID, LedgerEvent } from '@/core/types';
 import { addExpense, groupOfPerson, ledgerOf, reviseExpense, SaveError, yourGroup } from '@/store/store';
@@ -11,7 +11,7 @@ import { todayISO } from '@/store/ids';
 import { CategoryIcon, Plus, Warn } from '@/ui/icons';
 import { BigAmount, Keypad, SplitBar, Word, type SplitSegment } from '@/ui/money-ui';
 import { Avatar, Banner, BannerText, CTA, haptic, Press, T, TChip } from '@/ui/primitives';
-import { saveGuard, Sheet, useSheet } from '@/ui/sheet';
+import { saveGuard, Sheet, SheetScrollView, useSheet } from '@/ui/sheet';
 import { isShortSheet, SHORT_KEY_HEIGHT } from '@/features/add/layout';
 import { useTheme } from '@/ui/theme';
 import { alpha, fonts, isWeb, type GroupTone } from '@/ui/tokens';
@@ -434,7 +434,7 @@ function AddBody({ h, spec, draft, set, t, pop }: {
     return (
       <View style={{ flex: 1 }}>
         {head}
-        <ScrollView style={{ flex: 1 }} contentContainerStyle={{ paddingBottom: 12 }} keyboardShouldPersistTaps="handled">
+        <SheetScrollView style={{ flex: 1 }} contentContainerStyle={{ paddingBottom: 12 }} keyboardShouldPersistTaps="handled">
           <View style={{ paddingHorizontal: 22, paddingTop: 6 }}>
             {sentence}
             <View style={{ marginTop: 12 }}>{slot}</View>
@@ -443,7 +443,7 @@ function AddBody({ h, spec, draft, set, t, pop }: {
             {keypadArea ?? <Keypad onKey={(k) => onKey(k as Key)} color={t.ink} height={SHORT_KEY_HEIGHT} allowDot={currencyDigits(cur) > 0} />}
           </View>
           {receipt}
-        </ScrollView>
+        </SheetScrollView>
       </View>
     );
   }
@@ -455,7 +455,7 @@ function AddBody({ h, spec, draft, set, t, pop }: {
         {sentence}
         <View style={{ marginTop: 12 }}>{slot}</View>
       </View>
-      <View style={{ flex: 1, minHeight: 0, overflow: 'hidden', paddingHorizontal: 12, paddingTop: 8 }} onLayout={(e) => setMidH(e.nativeEvent.layout.height)}>
+      <View style={{ flex: 1, minHeight: 0, overflow: 'hidden', justifyContent: panel === 'category' || panel === 'newcat' ? 'flex-start' : 'flex-end', paddingHorizontal: 12, paddingTop: 8 }} onLayout={(e) => setMidH(e.nativeEvent.layout.height)}>
         {panel === 'category' ? <View style={{ paddingHorizontal: 10, paddingTop: 6 }}>{grid}</View>
           : panel === 'newcat' ? <View style={{ paddingHorizontal: 10, paddingTop: 6 }}>{newField}</View>
           : <Keypad onKey={(k) => onKey(k as Key)} color={t.ink} height={keyHeight(screenH, midH)} allowDot={currencyDigits(cur) > 0} />}

@@ -221,9 +221,12 @@ export const marketingAsset = httpAction(async (_ctx, request) => {
   });
 });
 
-export const inviteLanding = httpAction(async () => {
+export const inviteLanding = httpAction(async (_ctx, request) => {
   try {
-    return htmlResponse(genericInviteHTML(readInvitePageConfiguration(process.env)));
+    // The code in the link only pre-fills the web app's Join screen; it reveals nothing by itself.
+    const code = new URL(request.url).searchParams.get("code");
+    return htmlResponse(genericInviteHTML(readInvitePageConfiguration(process.env),
+      code && /^[A-Za-z0-9]{6}$/.test(code) ? code.toUpperCase() : undefined));
   } catch {
     return unavailableResponse();
   }

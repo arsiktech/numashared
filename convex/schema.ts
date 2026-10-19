@@ -115,6 +115,30 @@ export default defineSchema({
     .index("by_request_id", ["requestId"])
     .index("by_account", ["accountId"]),
 
+  // Card sync (cardSync.ts): one active link per household, and the spends it has added.
+  cardSyncLinks: defineTable({
+    potId: v.string(),
+    accountId: v.id("accounts"),
+    actorMemberId: v.string(),
+    keyHash: v.string(),
+    timeZone: v.string(),
+    cards: v.array(v.object({ last4: v.string(), forUnitId: v.string(), label: v.string() })),
+    createdAt: v.number(),
+    revokedAt: v.optional(v.number()),
+    lastUsedAt: v.optional(v.number()),
+    added: v.int64(),
+  })
+    .index("by_pot", ["potId"])
+    .index("by_key_hash", ["keyHash"]),
+
+  cardSyncSpends: defineTable({
+    potId: v.string(),
+    spendId: v.string(),
+    eventId: v.string(),
+    card: v.string(),
+    addedAt: v.number(),
+  }).index("by_pot_spend", ["potId", "spendId"]),
+
   appConfiguration: defineTable({
     key: v.literal("global"),
     minimumSupportedBuild: v.number(),

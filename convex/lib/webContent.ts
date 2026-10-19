@@ -1,7 +1,11 @@
 import { homeAssets, homeScript, homeTemplate } from "./homePage.generated";
 
 export type AasaConfiguration = { appIdentifier: string };
-export type InvitePageConfiguration = { appStoreURL: string };
+/**
+ * Where an invited person can get Numa Shared. Each is optional: the App Store listing once the app
+ * is published, the TestFlight public link while it is in beta, and the web app.
+ */
+export type InvitePageConfiguration = { appStoreURL?: string; testFlightURL?: string; webAppURL?: string };
 export type PrivacyPageConfiguration = {
   controllerName: string;
   controllerAddress: string;
@@ -37,16 +41,20 @@ function requiredText(
   return value;
 }
 
-function appStoreURL(
+/** An optional https link on one host (or under one path); unset or empty means "not offered". */
+function optionalURL(
   environment: Readonly<Record<string, string | undefined>>,
-): string {
-  const value = requiredText(environment, "NUMA_SHARED_APP_STORE_URL", 20, 512);
+  name: string,
+  allowed: (url: URL) => boolean,
+): string | undefined {
+  const value = environment[name]?.trim();
+  if (!value) return undefined;
   try {
     const url = new URL(value);
-    if (url.protocol !== "https:" || url.hostname !== "apps.apple.com") {
+    if (value.length > 512 || url.protocol !== "https:" || !allowed(url)) {
       throw new Error("WEB_CONFIGURATION_INVALID");
     }
-    return url.toString();
+    return url.toString().replace(/\/$/, "");
   } catch {
     throw new Error("WEB_CONFIGURATION_INVALID");
   }
@@ -79,7 +87,30 @@ export function readAasaConfiguration(
 export function readInvitePageConfiguration(
   environment: Readonly<Record<string, string | undefined>>,
 ): InvitePageConfiguration {
-  return { appStoreURL: appStoreURL(environment) };
+  return {
+    appStoreURL: optionalURL(environment, "NUMA_SHARED_APP_STORE_URL", (u) => u.hostname === "apps.apple.com"),
+    testFlightURL: optionalURL(environment, "NUMA_SHARED_TESTFLIGHT_URL",
+      (u) => u.hostname === "testflight.apple.com" && u.pathname.startsWith("/join/")),
+    webAppURL: optionalURL(environment, "NUMA_SHARED_WEB_APP_URL", () => true),
+  };
+}
+
+/**
+ * The ways to get going from an invite: the web app (with the code filled in), then the iPhone app
+ * from TestFlight while in beta, else from the App Store.
+ */
+function inviteActions(configuration: InvitePageConfiguration, inviteCode?: string): string {
+  const out: string[] = [];
+  if (configuration.webAppURL) {
+    const href = `${configuration.webAppURL}/join${inviteCode ? `?code=${encodeURIComponent(inviteCode)}` : ""}`;
+    out.push(`<a class="button" rel="noopener noreferrer" href="${escapeHTML(href)}">Open in your browser</a>`);
+  }
+  if (configuration.testFlightURL) {
+    out.push(`<a class="button secondary" rel="noopener noreferrer" href="${escapeHTML(configuration.testFlightURL)}">Get the iPhone app (TestFlight beta)</a>`);
+  } else if (configuration.appStoreURL) {
+    out.push(`<a class="button secondary" rel="noopener noreferrer" href="${escapeHTML(configuration.appStoreURL)}">Get Numa Shared on the App Store</a>`);
+  }
+  return out.length ? `<p class="actions">${out.join(" ")}</p>` : "";
 }
 
 export function readPrivacyPageConfiguration(
@@ -141,7 +172,7 @@ function page(args: {
 <meta name="description" content="${escapeHTML(args.description)}">
 ${args.head ?? ""}
 <style>
-:root{color-scheme:light dark;font-family:-apple-system,BlinkMacSystemFont,"SF Pro Text",sans-serif;background:#f5f2eb;color:#292722}*{box-sizing:border-box}body{margin:0;padding:40px 20px;overflow-wrap:anywhere}main{max-width:680px;margin:0 auto;background:#fffdf8;border:1px solid #ddd7ca;border-radius:24px;padding:32px;box-shadow:0 12px 40px #29272212}h1,h2{font-family:-apple-system,BlinkMacSystemFont,"SF Pro Display",sans-serif;letter-spacing:-.02em}h1{font-size:2rem;margin-top:0}h2{margin-top:2rem}p,li{font-size:1.04rem;line-height:1.55}a,button{color:inherit;font-weight:650}button,.button{display:inline-block;border:1px solid #292722;border-radius:999px;background:#292722;color:#fffdf8;padding:12px 18px;text-decoration:none;font:inherit;font-weight:650;cursor:pointer}small{color:#686258}a:focus-visible,button:focus-visible{outline:3px solid currentColor;outline-offset:5px}@media(max-width:480px){body{padding:20px 16px}main{padding:24px}}@media(prefers-color-scheme:dark){:root{background:#1c1b18;color:#f4f0e7}main{background:#24221e;border-color:#454139}small{color:#bdb8ae}.button,button{background:#f4f0e7;color:#24221e;border-color:#f4f0e7}}
+:root{color-scheme:light dark;font-family:-apple-system,BlinkMacSystemFont,"SF Pro Text",sans-serif;background:#f5f2eb;color:#292722}*{box-sizing:border-box}body{margin:0;padding:40px 20px;overflow-wrap:anywhere}main{max-width:680px;margin:0 auto;background:#fffdf8;border:1px solid #ddd7ca;border-radius:24px;padding:32px;box-shadow:0 12px 40px #29272212}h1,h2{font-family:-apple-system,BlinkMacSystemFont,"SF Pro Display",sans-serif;letter-spacing:-.02em}h1{font-size:2rem;margin-top:0}h2{margin-top:2rem}p,li{font-size:1.04rem;line-height:1.55}a,button{color:inherit;font-weight:650}button,.button{display:inline-block;border:1px solid #292722;border-radius:999px;background:#292722;color:#fffdf8;padding:12px 18px;text-decoration:none;font:inherit;font-weight:650;cursor:pointer}.actions{display:flex;flex-wrap:wrap;gap:10px}.button.secondary{background:transparent;color:inherit}small{color:#686258}a:focus-visible,button:focus-visible{outline:3px solid currentColor;outline-offset:5px}@media(max-width:480px){body{padding:20px 16px}main{padding:24px}}@media(prefers-color-scheme:dark){:root{background:#1c1b18;color:#f4f0e7}main{background:#24221e;border-color:#454139}small{color:#bdb8ae}.button,button{background:#f4f0e7;color:#24221e;border-color:#f4f0e7}.button.secondary{background:transparent;color:#f4f0e7}}
 </style>
 </head>
 <body><main>${args.body}</main></body>
@@ -204,6 +235,7 @@ export function homeAsset(name: string): HomeAsset | null {
 
 export function genericInviteHTML(
   configuration: InvitePageConfiguration,
+  inviteCode?: string,
 ): string {
   return page({
     title: "Numa Shared invite",
@@ -215,7 +247,7 @@ export function genericInviteHTML(
     body: `<h1>Numa Shared invite</h1>
 <p>Someone invited you to a shared pot. Details stay private until you choose to view them.</p>
 <form method="post"><button type="submit">View invite</button></form>
-<p><a class="button" rel="noopener noreferrer" href="${escapeHTML(configuration.appStoreURL)}">Get Numa Shared on the App Store</a></p>
+${inviteActions(configuration, inviteCode)}
 <small>If the app is already installed, return to the message and tap the invite link again. You can also enter the six-character code in Join.</small>`,
   });
 }
@@ -253,7 +285,7 @@ export function invitePreviewHTML(
     title: heading,
     description: "Numa Shared invite status.",
     body: `<h1>${escapeHTML(heading)}</h1><p>${escapeHTML(detail)}</p>${codeInstruction}
-<p><a class="button" rel="noopener noreferrer" href="${escapeHTML(configuration.appStoreURL)}">Open or install Numa Shared</a></p>`,
+${preview.status === "active" ? inviteActions(configuration, inviteCode) : ""}`,
   });
 }
 

@@ -29,8 +29,10 @@ const NOT_ACTIVE: Record<string, string> = {
 export default function Join() {
   const { c, tone, layout } = useTheme();
   const router = useRouter();
-  const params = useLocalSearchParams<{ link?: string }>();
-  const [code, setCode] = useState(() => (params.link ? cleanCode(/code=([A-Za-z0-9]{6})/.exec(params.link)?.[1] ?? params.link) : ''));
+  // `link` comes from an invite link opened in the app; `code` from the web invite page's button.
+  const params = useLocalSearchParams<{ link?: string; code?: string }>();
+  const [code, setCode] = useState(() => (params.link ? cleanCode(/code=([A-Za-z0-9]{6})/.exec(params.link)?.[1] ?? params.link)
+    : params.code ? cleanCode(params.code) : ''));
   const [link, setLink] = useState(params.link ?? null);
   const [busy, setBusy] = useState(false);
   const [preview, setPreview] = useState<InvitePreview | null>(null);

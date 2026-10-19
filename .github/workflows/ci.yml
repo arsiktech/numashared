@@ -55,6 +55,7 @@ jobs:
       - run: npm run branding:test
       - run: npm run build:home:check
       - run: npm run hygiene:test
+      - run: npm run card-sync:test
 
   swift-packages:
     runs-on: macos-26

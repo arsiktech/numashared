@@ -1,0 +1,14 @@
+{
+  // Deploy: npm run deploy (needs CLOUDFLARE_API_TOKEN with Workers Scripts and Workers Routes edit
+  // for the numaworth.com zone). Build the web app first: npm run build.
+  "name": "numa-shared-web",
+  "main": "worker.js",
+  "compatibility_date": "2026-09-01",
+  "assets": {
+    "directory": "./dist",
+    "binding": "ASSETS",
+    "not_found_handling": "single-page-application",
+    "run_worker_first": true
+  },
+  "routes": [{ "pattern": "shared.numaworth.com", "custom_domain": true }]
+}

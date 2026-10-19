@@ -11,8 +11,9 @@ import { accessToken, currentSession, forgetSession, loadSession, post, readDele
 import { CONVEX_URL, SITE_URL } from './config';
 import { refreshContract } from './contract';
 import {
+  base64url,
   addPersonOnline, adoptPots, deleteHouseholdOnline, removePersonOnline, claimInvite, failureOf, flush, issueInvites, leaveOnline, promote, pull,
-  regroupOnline, renameOnline, resolveInvite, resume, stageSync, SEND_DELAY_MS,
+  regroupOnline, renameOnline, resolveInvite, resume, retryReasons, stageSync, SEND_DELAY_MS,
   type Access, type Backend, type InvitePreview, type PotSummary,
 } from './engine';
 
@@ -23,6 +24,8 @@ export type SyncStatus = {
   connected: boolean;
   /** Something is on its way to the server. */
   busy: boolean;
+  /** Households whose uploads wait because this account sent its hourly maximum. */
+  throttled?: string;
   /** The last sync attempt failed for a reason worth showing (network trouble is not). */
   lastError?: string;
   /** Households fully pulled at least once since launch. */
@@ -121,7 +124,8 @@ async function syncOnce() {
         if (!f.retryable) setStatus({ lastError: f.code });
       }
     }
-    setStatus({ busy: false, ready: true, lastError: undefined });
+    const throttled = synced().filter((h) => retryReasons.get(h.id)?.endsWith('RATE_LIMITED')).map((h) => h.id).join(',');
+    setStatus({ busy: false, ready: true, lastError: undefined, throttled: throttled || undefined });
   } catch (e) {
     const f = failureOf(e);
     setStatus({ busy: false, lastError: f.retryable ? undefined : f.code });
@@ -208,8 +212,8 @@ function within<T>(p: Promise<T>, ms = 15_000): Promise<T> {
 export class NeedsSignIn extends Error { constructor() { super('NEEDS_SIGN_IN'); } }
 
 /** Sign in (Apple or Google), then bring in this account's households. Returns how many arrived. */
-export async function signIn(provider: 'apple' | 'google' = 'apple'): Promise<number> {
-  if (provider === 'google') await signInWithGoogle(); else await signInWithApple();
+export async function signIn(provider: 'apple' | 'google' = 'apple', webIdToken?: string): Promise<number> {
+  if (provider === 'google') await signInWithGoogle(webIdToken); else await signInWithApple();
   connect();
   const before = getState().households.length;
   await requestSync();
@@ -239,6 +243,35 @@ export async function joinWithInvite(preview: Extract<InvitePreview, { status: '
   if (result.status === 'joined') switchHousehold(result.householdId);
   return result;
 }
+
+// ---------- card sync (convex/cardSync.ts) ----------
+
+export type CardSyncCard = { last4: string; forUnitId: ID; label: string };
+export type CardSyncStatus = { cards: CardSyncCard[]; actorMemberId: ID; createdAt: number; lastUsedAt: number | null; added: bigint } | null;
+
+/** A new random sync key. Only its SHA-256 goes to the server; the key itself is shown once. */
+async function newCardSyncKey(): Promise<{ key: string; hash: string }> {
+  const Crypto = await import('expo-crypto');
+  const key = `nscs_${base64url(Crypto.getRandomBytes(32))}`;
+  const hash = await Crypto.digestStringAsync(Crypto.CryptoDigestAlgorithm.SHA256, key, { encoding: Crypto.CryptoEncoding.HEX });
+  return { key, hash: hash.toLowerCase() };
+}
+
+export const cardSync = {
+  status: (h: Household) => within(backend.query<CardSyncStatus>('cardSync:status', { potId: h.id })),
+  /** Links the cards and returns the key for the sync script. Replaces any earlier key. */
+  link: async (h: Household, cards: CardSyncCard[]): Promise<string> => {
+    const { key, hash } = await newCardSyncKey();
+    let timeZone = 'UTC';
+    try { timeZone = (await import('./timezones')).wireTimeZone(); } catch { /* UTC */ }
+    await within(backend.mutation('cardSync:link', { potId: h.id, keyHash: hash, timeZone, cards }));
+    return key;
+  },
+  unlink: (h: Household) => within(backend.mutation('cardSync:unlink', { potId: h.id })),
+};
+
+/** Where the sync script sends spends. */
+export const CARD_SYNC_URL = `${SITE_URL}/card-sync/spends`;
 
 /** Online-only household changes. Each throws when offline so the screen can say so. */
 export const online = {

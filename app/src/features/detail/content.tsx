@@ -2,7 +2,7 @@
 // Used inside the phone detail sheet ('sheet') and as Home's right pane on a desk ('panel').
 // Nothing here erases anything: Edit appends a revision, Void and Restore append events.
 import type { ReactNode } from 'react';
-import { ScrollView, View } from 'react-native';
+import { View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { categoryLabel, explain, shares } from '@/core';
 import type { Household, ID, Ledger, LedgerRecord, TimelineEntry } from '@/core/types';
@@ -10,7 +10,7 @@ import { groupOfPerson, keepVersion, restoreRecord, SaveError } from '@/store/st
 import { openSheet, replaceSheet, showToast, type SheetSpec } from '@/store/ui';
 import { CategoryIcon, Close, House, Pencil, Repay, VoidX, ArrowRight } from '@/ui/icons';
 import { Badge, Banner, BannerText, Dot, Press, T, TextButton } from '@/ui/primitives';
-import { useSheet } from '@/ui/sheet';
+import { SheetScrollView, useSheet } from '@/ui/sheet';
 import { useTheme } from '@/ui/theme';
 import { fonts, isAndroid, isWeb } from '@/ui/tokens';
 import { editSpoken, speak } from './spoken';
@@ -67,11 +67,11 @@ export function RecordDetail({ recordId, variant, onClose }: { recordId: ID; var
 
   if (panel) {
     return (
-      <ScrollView style={{ flex: 1 }} contentContainerStyle={{ padding: 24, paddingTop: 20 }} accessibilityLabel={`${kindName}: ${recordTitle(r)}`}>
+      <SheetScrollView style={{ flex: 1 }} contentContainerStyle={{ padding: 24, paddingTop: 20 }} accessibilityLabel={`${kindName}: ${recordTitle(r)}`}>
         {titleRow}
         {body}
         {foot}
-      </ScrollView>
+      </SheetScrollView>
     );
   }
   return (
@@ -94,10 +94,10 @@ export function RecordDetail({ recordId, variant, onClose }: { recordId: ID; var
           <TextButton label="Done" bold onPress={close} />
         </View>
       )}
-      <ScrollView style={{ flex: 1 }} contentContainerStyle={{ paddingHorizontal: isAndroid ? 20 : 22, paddingTop: 8, paddingBottom: 10 }}>
+      <SheetScrollView style={{ flex: 1 }} contentContainerStyle={{ paddingHorizontal: isAndroid ? 20 : 22, paddingTop: 8, paddingBottom: 10 }}>
         {titleRow}
         {body}
-      </ScrollView>
+      </SheetScrollView>
       <View style={{ paddingHorizontal: 22, paddingTop: 4, paddingBottom: Math.max(insets.bottom, 12) + 4 }}>{foot}</View>
     </View>
   );

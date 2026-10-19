@@ -171,9 +171,14 @@ function NotificationsRow() {
 function DataGroup() {
   const { c } = useTheme();
   const router = useRouter();
+  const { h } = useHousehold();
   return (
     <SGroup title="Data">
       <SRow first label="Export CSV" icon={<Download size={22} color={c.ink2} />} onPress={() => router.push('/settings/export')} />
+      <SRow label="Import a Google Sheet" sub="Creates a new household from it" icon={<View />} onPress={() => router.push('/import')} />
+      {h?.sync && !h.sync.setup ? (
+        <SRow label="Card sync" sub="Add spends on chosen cards by themselves" icon={<View />} onPress={() => router.push('/settings/card-sync')} />
+      ) : null}
       <SNote>History is permanent. Edits and voids stay visible to everyone.</SNote>
     </SGroup>
   );

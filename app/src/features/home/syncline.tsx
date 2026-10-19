@@ -35,9 +35,12 @@ export function SyncLine() {
   } else if (h.sync && (!status.signedIn || !status.connected) && (queued > 0 || h.sync.setup)) {
     icon = <CloudOff size={15} color={c.ink2} />;
     text = status.signedIn ? `Offline · ${queued || 'Changes'} waiting to send` : 'Signed out · changes wait on this phone';
+  } else if (h.sync && queued > 0 && status.throttled?.split(',').includes(h.id)) {
+    icon = <Clock size={15} color={c.ink2} />;
+    text = `${queued} changes left to upload. The server takes 2,000 an hour, so the rest follow by themselves.`;
   } else if (h.sync && (queued > 0 || h.sync.setup)) {
     icon = <Clock size={15} color={c.ink2} />;
-    text = 'Sending…';
+    text = queued > 1 ? `Sending ${queued} changes…` : 'Sending…';
   } else if (h.sync) {
     text = status.connected ? 'Shared · everyone sees the same' : 'Shared · last synced on this phone';
   }

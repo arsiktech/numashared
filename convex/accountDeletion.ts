@@ -29,6 +29,8 @@ const potSweep: Array<[TableNames, string]> = [
   ["invites", "by_pot"],
   ["potMutes", "by_pot_account"],
   ["potMemberProfiles", "by_pot_member"],
+  ["cardSyncSpends", "by_pot_spend"],
+  ["cardSyncLinks", "by_pot"],
   ["potMembers", "by_pot_account"],
 ];
 

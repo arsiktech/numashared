@@ -251,7 +251,7 @@ function RepayBody({ h, spec, groups, setGroups, t }: {
           style={{ marginTop: 10 }} onSubmit={isWeb ? save : undefined} />
         </> : null}
       </View>
-      <View style={{ flex: 1, minHeight: 0, overflow: 'hidden', paddingHorizontal: 12, paddingTop: 6 }} onLayout={(e) => setMidH(e.nativeEvent.layout.height)}>
+      <View style={{ flex: 1, minHeight: 0, overflow: 'hidden', justifyContent: 'flex-end', paddingHorizontal: 12, paddingTop: 6 }} onLayout={(e) => setMidH(e.nativeEvent.layout.height)}>
         <Keypad onKey={(k) => onKey(k as Key)} color={t.ink} height={keyHeight(screenH * 0.9, midH)} allowDot={currencyDigits(cur) > 0} />
       </View>
       <Receipt tone={t}>
