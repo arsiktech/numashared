@@ -32,6 +32,7 @@ export function explainFailure(code: string): string {
   if (code === 'APPLE_AUDIENCE_REJECTED') return inExpoGo
     ? 'Sign-in works in the Numa Shared app itself, not inside Expo Go.'
     : 'This build of the app can’t sign in. Install Numa Shared from TestFlight.';
+  if (code === 'UNREADABLE_EVENT') return 'Someone recorded a change this version can’t read yet. Update Numa Shared to keep balances right.';
   if (code.endsWith('RATE_LIMITED')) return 'Too many tries. Wait a minute, then try again.';
   if (code === 'SESSION_LIMIT_REACHED' || code === 'IDENTITY_REQUEST_FAILED') return 'Couldn’t sign in just now. Try again in a moment.';
   return `Couldn’t finish that (${code}). Try again.`;

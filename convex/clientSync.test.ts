@@ -8,6 +8,7 @@ import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 import { reduce } from "../app/src/core/ledger";
 import type { Household, LedgerEvent } from "../app/src/core/types";
 import {
+  adoptPots,
   addPersonOnline,
   deleteHouseholdOnline,
   removePersonOnline,
@@ -384,6 +385,69 @@ describe("app sync engine against the backend", () => {
     expect(after.events.find((e) => e.id === "01890f5e-7b00-7000-8000-00000000d002")?.seq).toBeGreaterThan(0);
     expect(after.events.some((e) => e.id === "01890f5e-7b00-7000-8000-00000000d001")).toBe(false);
   });
+  test("a changed opening balance reaches every phone", async () => {
+    const t = convexTest(schema, modules);
+    const ana = await signIn(t, "ana");
+    const phoneA = phone();
+    phoneA.put({ ...localHousehold(), events: [] });
+    const id = await startSync(ana, phoneA, "h_local");
+    await pull(ana, phoneA, id);
+    let a = phoneA.get(id)!;
+    const couple = a.groups.find((g) => g.memberIds.length === 2)!.id;
+    const leo = a.groups.find((g) => g.memberIds.length === 1)!.id;
+    const opening = "01890f5e-7b00-7000-8000-00000000f001";
+    append(phoneA, id, {
+      id: opening, at: Date.now() - 30_000, by: a.youId, kind: "openingBalanceSet", recordId: "01890f5e-7b00-7000-8000-00000000f002",
+      content: { entries: [{ fromGroupId: leo, toGroupId: couple, amount: 10_000 }], date: "2026-10-01" },
+    });
+    append(phoneA, id, {
+      id: "01890f5e-7b00-7000-8000-00000000f003", at: Date.now() - 25_000, by: a.youId, kind: "openingRevised",
+      recordId: "01890f5e-7b00-7000-8000-00000000f002", basis: { kind: "parent", parentEventId: opening },
+      content: { entries: [{ fromGroupId: leo, toGroupId: couple, amount: 20_000 }], date: "2026-10-01" },
+    });
+    expect(await flush(ana, phoneA, id)).toBe("done");
+    a = phoneA.get(id)!;
+    expect(balances(a)).toEqual({ [couple]: 20_000, [leo]: -20_000 });
+
+    // Another phone signed in as Ana reads the change instead of stopping at 100.
+    const phoneC = phone();
+    await adoptPots(ana, phoneC);
+    await pull(ana, phoneC, id);
+    const c = phoneC.get(id)!;
+    expect(c.sync!.paused).toBeUndefined();
+    expect(balances(c)).toEqual(balances(a));
+  });
+
+  test("a money event this app can't read pauses sync and keeps the cursor before it", async () => {
+    const t = convexTest(schema, modules);
+    const ana = await signIn(t, "ana");
+    const phoneA = phone();
+    phoneA.put(localHousehold());
+    const id = await startSync(ana, phoneA, "h_local");
+    await pull(ana, phoneA, id);
+    const before = phoneA.get(id)!;
+    // The server hands out one event from a newer app, then one this app knows.
+    const real = ana.query;
+    const newer: Backend = {
+      mutation: ana.mutation,
+      query: async (fn, args) => {
+        if (fn !== "events:listEvents") return real(fn, args);
+        const at = BigInt(before.sync!.lastSeq);
+        if ((args as { afterSequence: bigint }).afterSequence !== at) return { events: [], hasMore: false, nextAfterSequence: at } as never;
+        const template = { ...(await real<{ events: Array<{ event: Record<string, unknown> }> }>("events:listEvents", { potId: id, afterSequence: 0n })).events.at(-1)! };
+        const future = { ...template, serverSequence: at + 1n, event: { ...template.event, eventId: "01890f5e-7b00-7000-8000-00000000f101", payload: { kind: "budgetTransfer", recordId: "x" } } };
+        const known = { ...template, serverSequence: at + 2n, event: { ...template.event, eventId: "01890f5e-7b00-7000-8000-00000000f102" } };
+        return { events: [future, known], hasMore: false, nextAfterSequence: at + 2n } as never;
+      },
+    };
+    await pull(newer, phoneA, id);
+    const after = phoneA.get(id)!;
+    expect(after.sync!.lastSeq).toBe(before.sync!.lastSeq);
+    expect(after.sync!.paused?.code).toBe("UNREADABLE_EVENT");
+    expect(after.events.some((e) => e.id === "01890f5e-7b00-7000-8000-00000000f102")).toBe(false);
+    expect(await flush(ana, phoneA, id)).toBe("paused");
+  });
+
   test("people and households made by mistake can be removed while nobody relies on them", async () => {
     const t = convexTest(schema, modules);
     const ana = await signIn(t, "ana");

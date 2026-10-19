@@ -48,7 +48,7 @@ export function occurredAtFor(date: string | undefined, savedAt: number): number
 }
 
 function contentDate(e: LedgerEvent): string | undefined {
-  if (e.kind === 'expenseAdded' || e.kind === 'expenseRevised' || e.kind === 'settlementRecorded' || e.kind === 'openingBalanceSet') {
+  if (e.kind === 'expenseAdded' || e.kind === 'expenseRevised' || e.kind === 'settlementRecorded' || e.kind === 'openingBalanceSet' || e.kind === 'openingRevised') {
     return e.content.date;
   }
   return undefined;
@@ -179,6 +179,14 @@ export function toWire(h: Household, potId: ID, schema: number, input: LedgerEve
       payload = { kind: 'settlementFlagged', recordId: e.recordId };
       text = authored({ reason: e.reason });
       break;
+    case 'openingRevised':
+      if (!e.basis) throw new MappingError('missing-basis');
+      payload = {
+        kind: 'expenseRevised', recordId: e.recordId, basis: e.basis,
+        content: { kind: 'openingBalance', entries: openingToWire(h.currency, e.content.entries) },
+      };
+      text = authored({ title: OPENING_TITLE, note: e.content.note });
+      break;
     case 'openingBalanceSet':
       payload = { kind: 'openingBalanceSet', recordId: e.recordId, content: { entries: openingToWire(h.currency, e.content.entries) } };
       text = authored({ title: OPENING_TITLE, note: e.content.note });
@@ -258,6 +266,12 @@ function expenseFromWire(h: Household, w: WireExpense, t: Texts, date: string): 
  * The app event for a pulled server event, or null for structural events (people, groups and the
  * name are applied separately) and for anything this app cannot represent.
  */
+/** Event kinds that change who is in the household, not the money. fromWire returns null for these. */
+export const STRUCTURAL_KINDS: ReadonlySet<string> = new Set([
+  'memberAdded', 'memberClaimed', 'memberClaimReassigned', 'memberArchived', 'ownershipTransferred',
+  'groupChanged', 'presetChanged', 'potRenamed', 'potArchived',
+]);
+
 export function fromWire(h: Household, listed: ListedEvent): LedgerEvent | null {
   const ev = listed.event;
   const occurredAt = Number(ev.occurredAtMillis);
@@ -276,7 +290,13 @@ export function fromWire(h: Household, listed: ListedEvent): LedgerEvent | null 
     case 'expenseAdded':
       return { ...base, kind: 'expenseAdded', recordId: p.recordId, content: expenseFromWire(h, p.content, t, date) };
     case 'expenseRevised':
-      if (p.content.kind !== 'expense') throw new MappingError('opening-revision-unsupported');
+      if (p.content.kind === 'openingBalance') {
+        return {
+          ...base, kind: 'openingRevised', recordId: p.recordId, basis: p.basis,
+          content: { entries: openingFromWire(p.content.entries), date, ...(t.note !== undefined ? { note: t.note } : {}) },
+        };
+      }
+      if (p.content.kind !== 'expense') throw new MappingError('unknown-revision');
       return {
         ...base, kind: 'expenseRevised', recordId: p.recordId, basis: p.basis,
         content: expenseFromWire(h, p.content, t, date),
@@ -330,7 +350,8 @@ export function redact(e: LedgerEvent, field: TextField): LedgerEvent {
       if (field === 'category') delete content.method;
       return { ...e, content };
     }
-    case 'openingBalanceSet': {
+    case 'openingBalanceSet':
+    case 'openingRevised': {
       const content = { ...e.content };
       if (field === 'note') delete content.note;
       return { ...e, content };
@@ -436,7 +457,7 @@ export function isPersonReferenced(h: Household, personId: ID): boolean {
       return c.split.mode === 'equal' ? c.split.groupIds.includes(soloGroup) : soloGroup in c.split.shares;
     }
     if (e.kind === 'settlementRecorded') return e.content.fromGroupId === soloGroup || e.content.toGroupId === soloGroup;
-    if (e.kind === 'openingBalanceSet') return e.content.entries.some((x) => x.fromGroupId === soloGroup || x.toGroupId === soloGroup);
+    if (e.kind === 'openingBalanceSet' || e.kind === 'openingRevised') return e.content.entries.some((x) => x.fromGroupId === soloGroup || x.toGroupId === soloGroup);
     return false;
   });
 }

@@ -29,6 +29,8 @@ jobs:
       - run: npm ci
       - run: npm run typecheck
       - run: npm test
+      # The committed ios/ project must match app.json and app.config.ts.
+      - run: npm run native:check
 
   backend:
     # GitHub-hosted runner, free for public repositories. Never use a self-hosted

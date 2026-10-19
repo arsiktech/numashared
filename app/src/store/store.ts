@@ -31,6 +31,12 @@ export type State = {
   recent: { eventId: ID; householdId: ID; at: number; label: string }[];
   /** Simulated failure switch for QA of the Save failed state (never set in normal use). */
   failNextSave: boolean;
+  /**
+   * Shared households of accounts that aren't signed in right now, by account id ('?' for copies
+   * made before households recorded their account). They stay on the device, out of sight, until
+   * that account signs in again.
+   */
+  parked?: Record<string, Household[]>;
 };
 
 const STORAGE_KEY = 'numa-shared/state/v1';
@@ -94,10 +100,70 @@ export async function hydrate(): Promise<void> {
     // A broken saved state must never block the app; start empty.
   }
   hydrated = true;
+  applyAccount();
   emit();
 }
 
 export const isHydrated = () => hydrated;
+
+// ---------- which account's households are shown ----------
+
+const UNKNOWN_ACCOUNT = '?';
+/** The signed-in account the runtime last reported; undefined until it has. */
+let account: string | null | undefined;
+
+const ownerOf = (h: Household) => h.sync?.accountId ?? UNKNOWN_ACCOUNT;
+
+/**
+ * Shows the shared households of `accountId` (null: signed out or the session expired) and parks
+ * every other account's, so one person's households never show under another's sign-in.
+ * Households that live only on this device are always shown.
+ */
+export function showAccount(accountId: string | null) {
+  account = accountId;
+  if (hydrated) applyAccount();
+}
+
+function applyAccount() {
+  if (account === undefined) return;
+  const parked: Record<string, Household[]> = {};
+  for (const [k, list] of Object.entries(state.parked ?? {})) parked[k] = [...list];
+  const visible: Household[] = [];
+  const pool = [...state.households, ...(account ? parked[account] ?? [] : [])];
+  if (account) delete parked[account];
+  for (const h of pool) {
+    if (!h.sync) { visible.push(h); continue; }
+    // A copy from before households recorded their account, shown under the session that was
+    // already signed in, is that account's.
+    const owner: string = ownerOf(h) === UNKNOWN_ACCOUNT && account && state.households.includes(h) ? account : ownerOf(h);
+    const kept = owner === h.sync.accountId ? h : { ...h, sync: { ...h.sync, accountId: owner === UNKNOWN_ACCOUNT ? undefined : owner } };
+    if (owner === account) visible.push(kept);
+    else (parked[owner] ??= []).push(kept);
+  }
+  const unchanged = visible.length === state.households.length && visible.every((h, i) => h === state.households[i])
+    && Object.keys(parked).length === Object.keys(state.parked ?? {}).length;
+  if (unchanged) return;
+  const activeId = visible.some((h) => h.id === state.activeId) ? state.activeId : (visible[0]?.id ?? null);
+  set({ ...state, households: visible, parked, activeId });
+}
+
+/** Sign-out: removes an account's shared households from this device, shown or parked. */
+export function forgetAccount(accountId: string) {
+  const parked = { ...state.parked };
+  delete parked[accountId];
+  const rest = state.households.filter((h) => !h.sync || (h.sync.accountId ?? accountId) !== accountId);
+  set({ ...state, parked, households: rest, activeId: rest.some((h) => h.id === state.activeId) ? state.activeId : (rest[0]?.id ?? null) });
+}
+
+/** For the sync runtime: legacy copies the server confirms as this account's come back into view. */
+export function claimParked(accountId: string, potIds: ID[]) {
+  const unknown = state.parked?.[UNKNOWN_ACCOUNT] ?? [];
+  const mine = unknown.filter((h) => potIds.includes(h.id));
+  if (!mine.length || account !== accountId) return;
+  const parked = { ...state.parked, [UNKNOWN_ACCOUNT]: unknown.filter((h) => !potIds.includes(h.id)) };
+  const claimed = mine.map((h) => ({ ...h, sync: { ...h.sync!, accountId } }));
+  set({ ...state, parked, households: [...state.households, ...claimed], activeId: state.activeId ?? claimed[0].id });
+}
 
 function set(next: State) {
   state = next;
@@ -176,6 +242,12 @@ export function renameHousehold(id: ID, name: string) { updateHousehold(id, (h) 
 
 /** For the sync runtime: replace (or add) a household as the server shaped it. */
 export function putHousehold(h: Household) {
+  // A sync that finishes after its account signed out must not bring the household back into view.
+  if (h.sync?.accountId && account !== undefined && h.sync.accountId !== account) {
+    const list = (state.parked?.[h.sync.accountId] ?? []).filter((x) => x.id !== h.id);
+    set({ ...state, parked: { ...state.parked, [h.sync.accountId]: [...list, h] } });
+    return;
+  }
   const exists = state.households.some((x) => x.id === h.id);
   set({
     ...state,

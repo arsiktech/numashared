@@ -10,7 +10,7 @@ import { UNDO_WINDOW_MS } from '../core/undo';
 import type { Group, Household, ID, InviteInfo, LedgerEvent, Person, SyncMeta } from '../core/types';
 import { maxGroupSize } from './contract';
 import {
-  applyRoster, applyStructure, dropUnusedArchived, fromWire, isPersonReferenced, MappingError, redact, stamp, toWire,
+  applyRoster, applyStructure, dropUnusedArchived, fromWire, isPersonReferenced, MappingError, redact, STRUCTURAL_KINDS, stamp, toWire,
   type RosterEntry,
 } from './mapping';
 import { TERMINAL_EVENT_CODES } from './terminal';
@@ -130,6 +130,12 @@ function remapEvent(e: LedgerEvent, id: (s: string) => string, g: (s: string) =>
       return { ...base, kind: 'settlementRecorded', content: { ...e.content, fromGroupId: g(e.content.fromGroupId), toGroupId: g(e.content.toGroupId), ...(e.content.reversalOf ? { reversalOf: id(e.content.reversalOf) } : {}) } };
     case 'openingBalanceSet':
       return { ...base, kind: 'openingBalanceSet', content: { ...e.content, entries: e.content.entries.map((x) => ({ ...x, fromGroupId: g(x.fromGroupId), toGroupId: g(x.toGroupId) })) } };
+    case 'openingRevised':
+      return {
+        ...base, kind: 'openingRevised',
+        ...(e.basis?.kind === 'parent' ? { basis: { kind: 'parent', parentEventId: id(e.basis.parentEventId) } } : {}),
+        content: { ...e.content, entries: e.content.entries.map((x) => ({ ...x, fromGroupId: g(x.fromGroupId), toGroupId: g(x.toGroupId) })) },
+      };
     default:
       return base as LedgerEvent;
   }
@@ -283,6 +289,7 @@ export function labelOf(e: LedgerEvent): string {
     case 'settlementRecorded': return 'A repayment';
     case 'settlementFlagged': return 'A flag';
     case 'openingBalanceSet': return 'An opening balance';
+    case 'openingRevised': return 'An opening balance change';
     case 'recordVoided': return 'A void';
     case 'recordRestored': return 'A restore';
   }
@@ -369,21 +376,35 @@ export async function pull(backend: Backend, access: Access, householdId: ID, op
   const roster = opts.archived ? null : await backend.query<RosterEntry[]>('members:listRoster', { potId: householdId });
 
   const h0 = access.get(householdId)!;
-  const structure = applyStructure({ name: h0.name, people: h0.people, groups: h0.groups }, listed);
-  const people = roster ? applyRoster(structure.people, roster) : structure.people;
+  const shape = (events: ListedEvent[]): Household => {
+    const structure = applyStructure({ name: h0.name, people: h0.people, groups: h0.groups }, events);
+    const people = roster ? applyRoster(structure.people, roster) : structure.people;
+    return { ...h0, name: structure.name || h0.name, people, groups: structure.groups };
+  };
   const role = roster?.find((r) => r.memberId === h0.youId)?.role ?? h0.sync!.role;
-  const shaped: Household = { ...h0, name: structure.name || h0.name, people, groups: structure.groups };
 
-  let unreadable = shaped.sync!.unreadable ?? 0;
+  // A money event this app can't read stops the pull right before it: skipping it would leave
+  // balances wrong while the app says it is up to date. The cursor stays there and sync pauses
+  // until an app that can read it catches up.
+  let shaped = shape(listed);
   const incoming: LedgerEvent[] = [];
-  for (const l of listed) {
+  let stuck: string | null = null;
+  for (let i = 0; i < listed.length; i++) {
+    const l = listed[i];
+    let e: LedgerEvent | null = null;
     try {
-      const e = fromWire(shaped, l);
-      if (e) incoming.push(e);
+      e = fromWire(shaped, l);
+      if (!e && !STRUCTURAL_KINDS.has(l.event.payload.kind)) throw new MappingError(`unsupported-${l.event.payload.kind}`);
     } catch {
-      unreadable++;
+      stuck = 'UNREADABLE_EVENT';
+      after = i === 0 ? BigInt(start.sync.lastSeq) : BigInt(listed[i - 1].serverSequence);
+      listed.length = i;
+      shaped = shape(listed);
+      break;
     }
+    if (e) incoming.push(e);
   }
+  const unreadable = shaped.sync!.unreadable ?? 0;
   const byId = new Map(shaped.events.map((e) => [e.id, e]));
   for (const e of incoming) {
     const mine = byId.get(e.id);
@@ -393,7 +414,10 @@ export async function pull(backend: Backend, access: Access, householdId: ID, op
   let next: Household = settle({
     ...shaped,
     events: ordered([...byId.values()]),
-    sync: { ...shaped.sync!, role, lastSeq: Number(after), unreadable },
+    sync: {
+      ...shaped.sync!, role, lastSeq: Number(after), unreadable,
+      ...(stuck ? { paused: { code: stuck, at: Date.now() } } : shaped.sync!.paused?.code === 'UNREADABLE_EVENT' ? { paused: undefined } : {}),
+    },
   });
 
   // Erased text (account deletion) arrives as redactions of events already pulled above.

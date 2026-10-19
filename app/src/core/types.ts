@@ -89,6 +89,8 @@ export type LedgerEvent =
   | (Base & { kind: 'expenseAdded'; recordId: ID; content: ExpenseContent })
   | (Base & { kind: 'expenseRevised'; recordId: ID; content: ExpenseContent; reason?: string; basis?: RevisionBasis })
   | (Base & { kind: 'openingBalanceSet'; recordId: ID; content: OpeningContent })
+  /** A changed opening balance (made on another device; this app doesn't offer the edit yet). */
+  | (Base & { kind: 'openingRevised'; recordId: ID; content: OpeningContent; basis?: RevisionBasis })
   | (Base & { kind: 'settlementRecorded'; recordId: ID; content: SettlementContent })
   | (Base & { kind: 'settlementFlagged'; recordId: ID; reason?: string })
   | (Base & { kind: 'recordVoided'; recordId: ID; reason: string })
@@ -117,6 +119,8 @@ export type Household = {
 export type InviteInfo = { inviteId: ID; code: string; token: string; expiresAt: number; issued?: boolean };
 
 export type SyncMeta = {
+  /** The account this copy belongs to. Only that account's session shows it. */
+  accountId?: string;
   /** Your member role on the server. */
   role: 'owner' | 'member';
   /** Wire schema for new events (2 for budget-group households). */

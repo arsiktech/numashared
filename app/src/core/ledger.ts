@@ -296,6 +296,19 @@ function apply(base: Omit<Ctx, 'eventId'>, state: State, event: LedgerEvent): vo
       touch(r);
       break;
     }
+    case 'openingRevised': {
+      const w = existing();
+      const r = w.record;
+      if (r.kind !== 'opening' || !r.opening) fail(ctx, 'wrong-record-kind', 'Only an opening balance can take this change.');
+      if (r.voided) fail(ctx, 'record-voided', 'Restore this opening balance before changing it.');
+      const effect = openingEffect(ctx, event.content);
+      r.timeline.push({ type: 'edited', at: event.at, by: event.by, eventId: event.id, changes: [] });
+      r.revisions.push({ eventId: event.id, at: event.at, by: event.by, content: event.content });
+      r.opening = event.content;
+      w.fullEffect = effect;
+      touch(r);
+      break;
+    }
     case 'settlementFlagged': {
       const r = existing().record;
       if (r.kind !== 'settlement') fail(ctx, 'wrong-record-kind', 'Only repayments can be flagged.');

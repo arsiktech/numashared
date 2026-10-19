@@ -5,7 +5,7 @@ import { ConvexClient } from 'convex/browser';
 import { AppState, Platform } from 'react-native';
 import { useSyncExternalStore } from 'react';
 import type { Household, ID } from '../core/types';
-import { getState, putHousehold, removeHousehold, switchHousehold } from '../store/store';
+import { claimParked, forgetAccount, getState, putHousehold, removeHousehold, showAccount, switchHousehold } from '../store/store';
 import { accessToken, currentSession, loadSession, signInWithApple, signInWithGoogle, signOutSession, subscribeSession } from './auth';
 import { CONVEX_URL, SITE_URL } from './config';
 import { refreshContract } from './contract';
@@ -66,7 +66,11 @@ const backend: Backend = {
 
 const access: Access = {
   get: (id) => getState().households.find((h) => h.id === id),
-  put: (h) => putHousehold(h),
+  // Every shared copy records the account it belongs to (see showAccount).
+  put: (h) => {
+    const accountId = currentSession()?.accountId;
+    putHousehold(h.sync && !h.sync.accountId && accountId ? { ...h, sync: { ...h.sync, accountId } } : h);
+  },
   remove: (id) => removeHousehold(id),
   all: () => getState().households,
 };
@@ -98,6 +102,8 @@ async function syncOnce() {
     await refreshContract(SITE_URL);
     const pots = latestPots ?? await backend.query<PotSummary[]>('pots:listMyPots', {});
     latestPots = null;
+    const accountId = currentSession()?.accountId;
+    if (accountId) claimParked(accountId, pots.map((p) => p.potId));
     await adoptPots(backend, access, pots);
     for (const h of synced()) {
       const pot = pots.find((p) => p.potId === h.id);
@@ -163,7 +169,12 @@ let started = false;
 export function startSyncRuntime() {
   if (started) return;
   started = true;
-  const follow = () => (currentSession() ? connect() : disconnect());
+  const follow = () => {
+    const s = currentSession();
+    // An expired or ended session hides that account's shared households at once.
+    showAccount(s?.accountId ?? null);
+    if (s) connect(); else disconnect();
+  };
   subscribeSession(follow);
   void loadSession().then(follow);
   AppState.addEventListener('change', (s) => { if (s === 'active') void requestSync(); });
@@ -245,8 +256,10 @@ export async function signOutEverywhere(): Promise<void> {
   // Give queued changes one last chance to reach the server.
   try { await within(requestSync(), 8_000); } catch { /* the sheet warned about unsent changes */ }
   try { await unregisterPush(); } catch { /* best effort */ }
+  const accountId = currentSession()?.accountId;
   await signOutSession();
   disconnect();
+  if (accountId) forgetAccount(accountId);
   for (const h of synced()) removeHousehold(h.id);
 }
 

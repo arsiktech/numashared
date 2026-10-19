@@ -48,6 +48,11 @@ async function writeStored(s: Session | null): Promise<void> {
 
 let session: Session | null = null;
 let loaded = false;
+/**
+ * Bumped whenever the session is replaced or ended. A refresh that started under an older
+ * generation (a sign-out or another sign-in happened meanwhile) is thrown away.
+ */
+let generation = 0;
 const listeners = new Set<() => void>();
 const emit = () => { for (const l of listeners) l(); };
 
@@ -65,10 +70,19 @@ export async function loadSession(): Promise<Session | null> {
   return session;
 }
 
-async function setSession(next: Session | null) {
-  await writeStored(next);
-  session = next;
-  emit();
+let sessionWrites: Promise<void> = Promise.resolve();
+
+/** Replaces the session. Writes are applied in order; only the latest one takes effect here. */
+function setSession(next: Session | null): Promise<void> {
+  generation += 1;
+  const mine = generation;
+  const write = sessionWrites.then(() => writeStored(next)).then(() => {
+    if (mine !== generation) return;
+    session = next;
+    emit();
+  });
+  sessionWrites = write.catch(() => {});
+  return write;
 }
 
 // ---------- server calls ----------
@@ -185,6 +199,7 @@ export async function signInWithGoogle(): Promise<Session> {
 // ---------- refreshing ----------
 
 let refreshing: Promise<string | null> | null = null;
+let refreshingGeneration = -1;
 
 /**
  * An access token for Convex. Refreshes (once at a time) when it is about to expire. Returns
@@ -194,23 +209,27 @@ export async function accessToken(forceRefresh = false): Promise<string | null> 
   const s = session ?? await loadSession();
   if (!s) return null;
   if (!forceRefresh && s.accessToken && (s.accessExpiresAt ?? 0) - Date.now() > 30_000) return s.accessToken;
-  if (!refreshing) {
-    refreshing = (async () => {
+  if (!refreshing || refreshingGeneration !== generation) {
+    const started = generation;
+    const current = () => started === generation && session?.refreshToken === s.refreshToken;
+    let attempt: Promise<string | null> | null = null;
+    attempt = (async () => {
       try {
         const tokens = await post<TokenResponse>('/auth/refresh', { refreshToken: s.refreshToken });
+        // Signed out (or in as someone else) while this was in flight: don't bring it back.
+        if (!current()) return null;
         const next = fromTokens(tokens);
         await setSession(next);
         return next.accessToken!;
       } catch (e) {
-        if (e instanceof AuthError && !e.retryable) {
-          await setSession(null);
-          return null;
-        }
+        if (e instanceof AuthError && !e.retryable && current()) await setSession(null);
         return null;
       } finally {
-        refreshing = null;
+        if (refreshing === attempt) refreshing = null;
       }
     })();
+    refreshing = attempt;
+    refreshingGeneration = started;
   }
   return refreshing;
 }
