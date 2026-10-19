@@ -62,9 +62,12 @@ household: "<you> paid  €12.30  Corner Shop  for <their group>"
 
 ## What gets sent
 
-Only spends on the linked cards, once they are final (pending and declined ones wait or are skipped,
-refunds are skipped and listed so you can add them by hand). Each one carries its ether.fi id, the card's last four digits, the time, the
-merchant, the amount and the merchant category. A charge in another currency is converted at that day's
-ECB rate. Numa Shared adds each spend once, however often the script runs.
+Only spends on the linked cards, once they are final (pending and declined ones wait or are skipped). Each one carries its ether.fi id, the card's last four digits, the time, the merchant and ether.fi's merchant id, the amount and the merchant category. A charge in another currency is converted at that day's ECB rate. Numa Shared adds each spend once, however often the script runs.
+
+Refunds and cancellations are sent too, once they are final:
+
+- A **refund** takes the money off the spend it belongs to: the latest earlier spend on the same card at the same merchant, as people last edited it. A full refund removes that spend from the balances; a partial one lowers its amount and says so in its note.
+- A **cancelled** spend (ether.fi reversed it) is removed if it was already added, and never added if it wasn't.
+- A refund with no such spend (bigger than it, at another merchant, or before the sync started) changes nothing. The script prints `NOTICE:` once so a person can handle it.
 
 To stop, tap **Turn off card sync** in the app; the key stops working at once.

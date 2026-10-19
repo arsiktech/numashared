@@ -27,7 +27,6 @@ test('sends only final spends on the chosen cards, since the start date', () => 
     tx({ id: 'other', card: { last4: '0001' } }),
     tx({ id: 'old', timestamp: '2026-09-01T10:00:00Z' }),
     tx({ id: 'pending', status: 'PENDING' }),
-    tx({ id: 'refund', isRefund: true }),
     tx({ id: 'usd', transactionAmount: undefined, transactionCurrency: undefined, billAmount: 10 }),
   ];
   const { spends, skipped } = spendsFrom(rows, { cards: ['4242', '3131'], since: Date.parse('2026-10-01T00:00:00Z'), currency: 'EUR', rate: (c) => (c === 'USD' ? 0.9 : null) });
@@ -35,7 +34,7 @@ test('sends only final spends on the chosen cards, since the start date', () => 
   assert.equal(spends[0].merchant, 'Lidl 102, Riga');
   assert.equal(spends[0].category, 'Grocery Stores and Supermarkets');
   // The other card isn't even mentioned.
-  assert.deepEqual(skipped.map((s) => s.id), ['pending', 'refund']);
+  assert.deepEqual(skipped.map((s) => s.id), ['pending']);
 });
 
 test('the inspection view hides values but keeps field names', () => {
@@ -43,4 +42,20 @@ test('the inspection view hides values but keeps field names', () => {
   assert.equal(r['card.pan'], '••••••••••••4242');
   assert.equal(r['merchantData.merchant_name'], 'text(8)');
   assert.equal(r.status, 'COMPLETED');
+});
+
+test('sends settled refunds and cancellations so Numa Shared can take the money back', () => {
+  const rows = [
+    tx({ id: 'r1', isRefund: true, status: 'REFUND', detailedStatus: 'REFUND', userStatus: 'CLEARED', statusTag: 'SETTLED',
+      transactionAmount: -4.67, merchantData: { merchant_id: 'm-1', merchant_name: 'Shop', merchant_city: 'Riga' } }),
+    tx({ id: 'r2', isRefund: true, status: 'REFUND', detailedStatus: 'REFUND', userStatus: 'PENDING', statusTag: 'PENDING', transactionAmount: -1 }),
+    tx({ id: 'c1', isRefund: true, status: 'CANCELLED', detailedStatus: 'CANCELLED', userStatus: 'CANCELLED', statusTag: 'CANCELED', transactionAmount: 616.78 }),
+    tx({ id: 'd1', status: 'DECLINED', detailedStatus: 'DECLINED' }),
+  ];
+  const { spends, skipped } = spendsFrom(rows, { cards: ['4242'], since: Date.parse('2026-10-01T00:00:00Z'), currency: 'EUR' });
+  assert.deepEqual(spends.map((s) => [s.id, s.kind, s.amount, s.merchantKey]), [
+    ['etherfi:r1', 'refund', '4.67', 'm-1'],
+    ['etherfi:c1', 'cancel', '616.78', undefined],
+  ]);
+  assert.deepEqual(skipped.map((s) => [s.id, s.why]), [['r2', 'refund not final yet'], ['d1', 'not final yet']]);
 });

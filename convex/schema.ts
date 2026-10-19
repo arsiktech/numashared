@@ -137,6 +137,11 @@ export default defineSchema({
     eventId: v.string(),
     card: v.string(),
     addedAt: v.number(),
+    // Absent for a spend. A refund or cancellation keeps the event it wrote ("" when it had none).
+    kind: v.optional(v.union(v.literal("refund"), v.literal("cancel"))),
+    merchantKey: v.optional(v.string()),
+    occurredAtMillis: v.optional(v.number()),
+    cancelledAt: v.optional(v.number()),
   }).index("by_pot_spend", ["potId", "spendId"]),
 
   appConfiguration: defineTable({
