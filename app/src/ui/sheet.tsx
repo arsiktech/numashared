@@ -1,9 +1,11 @@
 // Sheets. On phones a sheet grows as a circle from the control that opened it (the orb) and folds
-// back into it on close; dragging the grabber down slides it away. On a desk the Add sheet becomes a
+// back into it on close; dragging it down anywhere (or pulling down a list inside it that is already
+// at its top) slides it away. On a desk the Add sheet becomes a
 // popover that grows from the same orb. Reduce Motion replaces both with a short fade.
-import { createContext, Fragment, useCallback, useContext, useEffect, useRef, useState, type ReactNode } from 'react';
-import { BackHandler, PanResponder, Platform, StyleSheet, View, type StyleProp, type ViewStyle } from 'react-native';
-import Animated, { Easing, runOnJS, useAnimatedStyle, useSharedValue, withTiming, interpolate } from 'react-native-reanimated';
+import { createContext, Fragment, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import { BackHandler, Platform, ScrollView, StyleSheet, View, type ScrollViewProps, type StyleProp, type ViewStyle } from 'react-native';
+import { Gesture, GestureDetector, type NativeGesture } from 'react-native-gesture-handler';
+import Animated, { Easing, runOnJS, useAnimatedStyle, useSharedValue, withSpring, withTiming, interpolate, type SharedValue } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Svg, { Defs, RadialGradient, Rect, Stop } from 'react-native-svg';
 import type { Origin } from '@/store/ui';
@@ -11,9 +13,24 @@ import { useTheme } from './theme';
 import { haptic } from './primitives';
 import { alpha, isWeb } from './tokens';
 
-type SheetCtx = { close: (how?: 'down' | 'done') => void };
+type SheetCtx = { close: (how?: 'down' | 'done') => void; scroll?: { native: NativeGesture; y: SharedValue<number> } };
 const Ctx = createContext<SheetCtx>({ close: () => {} });
 export const useSheet = () => useContext(Ctx);
+
+/**
+ * A vertical list inside a sheet. Scrolled to its top, pulling it further down drags the whole sheet
+ * instead, as in iOS sheets. Outside a sheet it is a plain ScrollView.
+ */
+export function SheetScrollView(props: ScrollViewProps) {
+  const { scroll } = useSheet();
+  if (!scroll) return <ScrollView {...props} />;
+  return (
+    <GestureDetector gesture={scroll.native}>
+      <ScrollView {...props} bounces={false} scrollEventThrottle={16}
+        onScroll={(e) => { scroll.y.value = e.nativeEvent.contentOffset.y; props.onScroll?.(e); }} />
+    </GestureDetector>
+  );
+}
 
 export { saveGuard } from './saveGuard';
 
@@ -80,17 +97,30 @@ export function Sheet({ origin, onClosed, children, background, height = 'full',
     return () => window.removeEventListener('keydown', onKey);
   }, [close]);
 
-  const pan = useRef(PanResponder.create({
-    onMoveShouldSetPanResponder: (_e, g) => g.dy > 6 && Math.abs(g.dy) > Math.abs(g.dx),
-    onPanResponderMove: (_e, g) => { drag.value = Math.max(0, g.dy); },
-    onPanResponderRelease: (_e, g) => {
-      if (g.dy > 110 || g.vy > 1.2) closeRef.current('down');
-      else drag.value = withTiming(0, { duration: 200 });
-    },
-  })).current;
-  const closeRef = useRef(close); closeRef.current = close;
+  // Drag down anywhere on the sheet. Taps and sideways swipes (chips, the split bar) stay with the
+  // content: the drag only starts after 10 pt downward. A list inside hands over once at its top.
+  const closeDown = useCallback(() => close('down'), [close]);
+  const scrollY = useSharedValue(0);
+  const fromTop = useSharedValue(0);
+  const native = useMemo(() => Gesture.Native(), []);
+  const pan = useMemo(() => Gesture.Pan()
+    .enabled(!popover)
+    .activeOffsetY(10)
+    .failOffsetY(-10)
+    .failOffsetX([-14, 14])
+    .simultaneousWithExternalGesture(native)
+    .onBegin(() => { fromTop.value = -1; })
+    .onUpdate((e) => {
+      if (scrollY.value > 0.5) { fromTop.value = -1; return; }
+      if (fromTop.value < 0) fromTop.value = e.translationY;
+      drag.value = Math.max(0, e.translationY - fromTop.value);
+    })
+    .onEnd((e) => {
+      if (drag.value > 110 || (drag.value > 20 && e.velocityY > 900)) runOnJS(closeDown)();
+      else drag.value = withSpring(0, { damping: 22, stiffness: 260 });
+    }), [popover, native, closeDown, drag, scrollY, fromTop]);
 
-  const scrimStyle = useAnimatedStyle(() => ({ opacity: p.value }));
+  const scrimStyle = useAnimatedStyle(() => ({ opacity: p.value * (1 - Math.min(1, drag.value / Math.max(H, 1))) }));
   const panelDrag = useAnimatedStyle(() => ({ transform: [{ translateY: drag.value }] }));
   const fadeIn = useAnimatedStyle(() => (bloom ? {} : { opacity: p.value, transform: [{ translateY: (1 - p.value) * 24 }] }));
 
@@ -118,21 +148,22 @@ export function Sheet({ origin, onClosed, children, background, height = 'full',
       // its content. Equal insets plus auto margins already center it under the max width.
       maxWidth: isWeb ? 560 : undefined, marginHorizontal: 'auto' as never };
 
+  const ctx = useMemo<SheetCtx>(() => ({ close, scroll: popover ? undefined : { native, y: scrollY } }), [close, popover, native, scrollY]);
   const panel = (
     // While it closes the sheet takes no more input, so a second tap can't act twice.
-    <Animated.View style={[panelStyle, panelDrag, fadeIn]} accessibilityViewIsModal accessibilityLabel={label}
-      pointerEvents={phase === 'closing' ? 'none' : 'auto'}>
-      <Animated.View style={[{ flex: height === 'full' ? 1 : undefined }, content]}>
-        <Ctx.Provider value={{ close }}>
-          <View {...pan.panHandlers}>
+    <GestureDetector gesture={pan}>
+      <Animated.View style={[panelStyle, panelDrag, fadeIn]} accessibilityViewIsModal accessibilityLabel={label}
+        pointerEvents={phase === 'closing' ? 'none' : 'auto'}>
+        <Animated.View style={[{ flex: height === 'full' ? 1 : undefined }, content]}>
+          <Ctx.Provider value={ctx}>
             <View style={{ height: popover ? 6 : 14, alignItems: 'center', justifyContent: 'center', opacity: popover ? 0 : 1 }}>
               <View style={{ width: 38, height: 5, borderRadius: 3, backgroundColor: alpha(background && background !== c.bg ? '#000000' : c.ink, 0.22) }} />
             </View>
-          </View>
-          {children}
-        </Ctx.Provider>
+            {children}
+          </Ctx.Provider>
+        </Animated.View>
       </Animated.View>
-    </Animated.View>
+    </GestureDetector>
   );
 
   return (
