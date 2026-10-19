@@ -2,15 +2,16 @@
 // left, the history thread in the middle and the selected record on the right.
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { FlatList, ScrollView, StyleSheet, View } from 'react-native';
-import Animated, { Extrapolation, interpolate, runOnJS, useAnimatedScrollHandler, useAnimatedStyle, useSharedValue } from 'react-native-reanimated';
+import { Gesture, GestureDetector } from 'react-native-gesture-handler';
+import Animated, { Extrapolation, interpolate, runOnJS, useAnimatedStyle, useSharedValue, withSpring } from 'react-native-reanimated';
 import { Redirect, useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { markSeen, useStore } from '@/store/store';
 import { openSheet } from '@/store/ui';
-import { Check, ChevUp, Search } from '@/ui/icons';
+import { Check, ChevDown, Search } from '@/ui/icons';
 import { Press, T } from '@/ui/primitives';
 import { useTheme } from '@/ui/theme';
-import { fonts, isWeb } from '@/ui/tokens';
+import { fonts } from '@/ui/tokens';
 import { money, nameOf, useHousehold } from '@/features/hooks';
 import { Bands } from '@/features/home/bands';
 import { OrbButton, RecordRow } from '@/features/records';
@@ -47,104 +48,138 @@ function rows(records: LedgerRecord[]): Row[] {
   return out;
 }
 
-// The bands stay put. The list below is one endless history that slides up over them; once its top
-// reaches the status bar it becomes History, with a bar to get back and a small orb to keep adding.
+// The bands never move. The history is a card over them, like a sheet in Maps: drag it up and it
+// snaps to the top as History (its list then scrolls); pull the list down from its top, or tap
+// Balances, and it settles back over the bands. The card moves with the finger, so nothing chases
+// the scroll position frame by frame.
 function PhoneHome({ freshIds }: { freshIds: Set<string> }) {
   const { h, ledger, hide } = useHousehold();
   const { c, height: H } = useTheme();
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const list = useRef<FlatList<Row>>(null);
-  const y = useSharedValue(0);
   const [bandsH, setBandsH] = useState(0);
   const [docked, setDocked] = useState(false);
-  const dockedSV = useSharedValue(false);
-  const dock = Math.max(1, bandsH - 26 - insets.top);
+  // The card's offset from its docked place (just below the status bar). Resting: over the bands.
+  const rest = Math.max(0, (bandsH || H * 0.55) - 26 - insets.top);
+  const t = useSharedValue(rest);
+  const restSV = useSharedValue(rest);
+  const scrollY = useSharedValue(0);
+  const start = useSharedValue(0);
+  const base = useSharedValue(-1);
+  const dockedRef = useRef(false);
+  dockedRef.current = docked;
+  useEffect(() => {
+    // Follow the bands' height (it changes with names and balances) while resting.
+    restSV.value = rest;
+    if (!dockedRef.current) t.value = rest;
+  }, [rest, restSV, t]);
   const data = useMemo(() => (ledger ? rows(ledger.records) : []), [ledger]);
-  const onScroll = useAnimatedScrollHandler((e) => {
-    y.value = e.contentOffset.y;
-    const now = e.contentOffset.y >= dock - 4;
-    if (now !== dockedSV.value) { dockedSV.value = now; runOnJS(setDocked)(now); }
+
+  const settle = (to: 'top' | 'rest') => {
+    'worklet';
+    const target = to === 'top' ? 0 : restSV.value;
+    t.value = withSpring(target, { damping: 26, stiffness: 240, overshootClamping: true });
+    runOnJS(setDocked)(to === 'top');
+  };
+  const settleNow = (to: 'top' | 'rest') => {
+    t.value = withSpring(to === 'top' ? 0 : restSV.value, { damping: 26, stiffness: 240, overshootClamping: true });
+    setDocked(to === 'top');
+  };
+  const native = useMemo(() => Gesture.Native(), []);
+  const pan = useMemo(() => Gesture.Pan()
+    .activeOffsetY([-8, 8])
+    .failOffsetX([-16, 16])
+    .simultaneousWithExternalGesture(native)
+    .onBegin(() => { start.value = t.value; base.value = -1; })
+    .onUpdate((e) => {
+      // Docked with the list scrolled, or dragging up while docked: the list scrolls instead.
+      if (start.value <= 0.5 && (scrollY.value > 0.5 || e.translationY < 0)) { base.value = -1; return; }
+      if (base.value < 0) base.value = e.translationY;
+      const next = start.value + e.translationY - base.value;
+      const over = next - restSV.value;
+      t.value = over > 0 ? restSV.value + over * 0.25 : Math.max(0, next);
+    })
+    .onEnd((e) => {
+      if (base.value < 0) return;
+      const fling = e.velocityY < -600 ? 'top' : e.velocityY > 600 ? 'rest' : null;
+      settle(fling ?? (t.value < restSV.value / 2 ? 'top' : 'rest'));
+    }), [native, start, base, t, scrollY, restSV]);
+
+  const card = useAnimatedStyle(() => ({ transform: [{ translateY: t.value }] }));
+  const cap = useAnimatedStyle(() => ({ opacity: interpolate(t.value, [36, 0], [0, 1], Extrapolation.CLAMP) }));
+  const corners = useAnimatedStyle(() => {
+    const r = interpolate(t.value, [36, 0], [26, 0], Extrapolation.CLAMP);
+    return { borderTopLeftRadius: r, borderTopRightRadius: r };
   });
-  // Counter-scroll the bands so they never move, even when the list is pulled down past its top.
-  // Once the list has docked they are covered, so they stop there and scroll away.
-  const pinned = useAnimatedStyle(() => ({ transform: [{ translateY: Math.min(y.value, dock) }] }));
-  const bar = useAnimatedStyle(() => ({ opacity: interpolate(y.value, [dock - 36, dock], [0, 1], Extrapolation.CLAMP) }));
-  const fold = useAnimatedStyle(() => ({ opacity: interpolate(y.value, [dock - 36, dock - 6], [1, 0], Extrapolation.CLAMP) }));
   if (!h || !ledger) return null;
   const freshRecord = new Set(h.events.filter((e) => freshIds.has(e.id)).map((e) => ('recordId' in e ? e.recordId : '')));
   const search = () => { requestHistorySearch(true); router.push('/history'); };
+  const back = () => { list.current?.scrollToOffset({ offset: 0, animated: false }); scrollY.value = 0; settleNow('rest'); };
 
   return (
     <View style={{ flex: 1, backgroundColor: c.bg }}>
-      <Animated.FlatList
-        ref={list}
-        data={data}
-        keyExtractor={(row) => row.key}
-        onScroll={onScroll}
-        scrollEventThrottle={16}
-        showsVerticalScrollIndicator={docked}
-        initialNumToRender={14}
-        windowSize={11}
-        contentContainerStyle={{ flexGrow: 1 }}
-        ListHeaderComponent={(
-          <>
-            <Animated.View style={pinned} onLayout={(e) => setBandsH(e.nativeEvent.layout.height)}>
-              <Bands h={h} balances={ledger.balances} hide={hide} tail={isWeb ? undefined : H} />
-            </Animated.View>
-            <Animated.View style={[{ marginTop: -26, backgroundColor: c.bg, borderTopLeftRadius: 26, borderTopRightRadius: 26, paddingHorizontal: 22, paddingTop: 14 }]}>
-              <Animated.View style={[{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', height: 44 }, fold]}>
-                <T accessibilityRole="header" style={{ fontFamily: fonts.bold, fontSize: 20 }}>Latest</T>
+      <View onLayout={(e) => setBandsH(e.nativeEvent.layout.height)}>
+        <Bands h={h} balances={ledger.balances} hide={hide} />
+      </View>
+
+      <View pointerEvents="box-none" style={StyleSheet.absoluteFill}>
+        {/* Behind the status bar once docked, so rows never show through it. */}
+        <Animated.View pointerEvents="none" style={[{ position: 'absolute', left: 0, right: 0, top: 0, height: insets.top, backgroundColor: c.bg }, cap]} />
+        <GestureDetector gesture={pan}>
+          <Animated.View style={[{ position: 'absolute', left: 0, right: 0, top: insets.top, height: H - insets.top, backgroundColor: c.bg, overflow: 'hidden' }, corners, card]}>
+            <View style={{ paddingHorizontal: 22, paddingTop: 14 }}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', height: 44 }}>
+                {docked ? (
+                  <Press accessibilityRole="button" accessibilityLabel="Back to balances" onPress={back}
+                    style={{ height: 44, flexDirection: 'row', alignItems: 'center', gap: 4, marginLeft: -4 }}>
+                    <ChevDown size={18} color={c.ink} />
+                    <T style={{ fontSize: 16, fontFamily: fonts.medium }}>Balances</T>
+                  </Press>
+                ) : (
+                  <Press noScale accessibilityRole="button" accessibilityLabel="Latest. Open the whole history" onPress={() => settleNow('top')} style={{ height: 44, justifyContent: 'center' }}>
+                    <T accessibilityRole="header" style={{ fontFamily: fonts.bold, fontSize: 20 }}>Latest</T>
+                  </Press>
+                )}
+                {docked ? <T accessibilityRole="header" style={{ fontFamily: fonts.bold, fontSize: 17 }}>History</T> : null}
                 {ledger.records.length ? (
-                  <Press accessibilityRole="button" accessibilityLabel="Search history" onPress={search} style={{ height: 44, flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                  <Press accessibilityRole="button" accessibilityLabel="Search history" onPress={search} style={{ height: 44, minWidth: docked ? 92 : undefined, flexDirection: 'row', alignItems: 'center', justifyContent: 'flex-end', gap: 6 }}>
                     <Search size={18} color={c.ink} />
-                    <T style={{ fontSize: 16, fontFamily: fonts.medium }}>Search</T>
+                    {docked ? null : <T style={{ fontSize: 16, fontFamily: fonts.medium }}>Search</T>}
                   </Press>
                 ) : null}
-              </Animated.View>
+              </View>
               <SyncLine />
-            </Animated.View>
-          </>
-        )}
-        renderItem={({ item }) => (
-          <View style={{ backgroundColor: c.bg, paddingHorizontal: 22 }}>
-            {item.kind === 'day' ? (
-              <T style={{ fontFamily: fonts.semibold, fontSize: 13, color: c.ink2, paddingTop: 16, paddingBottom: 2 }}>{item.label}</T>
-            ) : (
-              <RecordRow h={h} r={item.r} hide={hide} fresh={freshRecord.has(item.r.id)} last={item.last}
-                onPress={() => openSheet({ type: 'detail', recordId: item.r.id })} />
-            )}
-          </View>
-        )}
-        ListEmptyComponent={<View style={{ backgroundColor: c.bg, paddingHorizontal: 22 }}><EmptyState /></View>}
-        ListFooterComponentStyle={{ flexGrow: 1, backgroundColor: c.bg }}
-        ListFooterComponent={(
-          <View style={{ flexGrow: 1, minHeight: insets.bottom + 120, alignItems: 'center', paddingTop: 22 }}>
-            {data.length > 12 ? <T style={{ fontSize: 13, color: c.ink3 }}>That’s everything in {h.name}</T> : null}
-            {/* A floor, so pulling past the end never shows the bands behind the list. */}
-            {isWeb ? null : <View pointerEvents="none" style={{ position: 'absolute', left: 0, right: 0, top: '100%', height: H, backgroundColor: c.bg }} />}
-          </View>
-        )}
-      />
-
-      {/* History bar: appears as the list reaches the top. */}
-      <Animated.View pointerEvents={docked ? 'box-none' : 'none'} style={[StyleSheet.absoluteFill, bar]}>
-        <View style={{ paddingTop: insets.top, backgroundColor: c.bg, borderBottomWidth: 1, borderBottomColor: c.hair }}>
-          <View style={{ height: 52, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 12 }}>
-            <Press accessibilityRole="button" accessibilityLabel="Back to balances" onPress={() => list.current?.scrollToOffset({ offset: 0, animated: true })}
-              style={{ height: 44, minWidth: 44, flexDirection: 'row', alignItems: 'center', gap: 4, paddingHorizontal: 8 }}>
-              <ChevUp size={18} color={c.ink} />
-              <T style={{ fontSize: 16, fontFamily: fonts.medium }}>Balances</T>
-            </Press>
-            <T accessibilityRole="header" style={{ fontFamily: fonts.bold, fontSize: 17 }}>History</T>
-            <Press accessibilityRole="button" accessibilityLabel="Search history" onPress={search}
-              style={{ height: 44, minWidth: 92, alignItems: 'flex-end', justifyContent: 'center', paddingHorizontal: 8 }}>
-              <Search size={20} color={c.ink} />
-            </Press>
-          </View>
-        </View>
+            </View>
+            <GestureDetector gesture={native}>
+              <FlatList
+                ref={list}
+                data={data}
+                keyExtractor={(row) => row.key}
+                scrollEnabled={docked}
+                bounces={false}
+                onScroll={(e) => { scrollY.value = e.nativeEvent.contentOffset.y; }}
+                scrollEventThrottle={16}
+                showsVerticalScrollIndicator={docked}
+                initialNumToRender={14}
+                windowSize={11}
+                contentContainerStyle={{ paddingHorizontal: 22, paddingBottom: insets.bottom + 110 }}
+                renderItem={({ item }) => (item.kind === 'day' ? (
+                  <T style={{ fontFamily: fonts.semibold, fontSize: 13, color: c.ink2, paddingTop: 16, paddingBottom: 2 }}>{item.label}</T>
+                ) : (
+                  <RecordRow h={h} r={item.r} hide={hide} fresh={freshRecord.has(item.r.id)} last={item.last}
+                    onPress={() => openSheet({ type: 'detail', recordId: item.r.id })} />
+                ))}
+                ListEmptyComponent={<EmptyState />}
+                ListFooterComponent={data.length > 12 ? (
+                  <T style={{ fontSize: 13, color: c.ink3, textAlign: 'center', paddingTop: 22 }}>That’s everything in {h.name}</T>
+                ) : null}
+              />
+            </GestureDetector>
+          </Animated.View>
+        </GestureDetector>
         {docked ? <OrbButton size={64} plus={24} style={{ position: 'absolute', right: 18, bottom: insets.bottom + 18 }} /> : null}
-      </Animated.View>
+      </View>
     </View>
   );
 }
