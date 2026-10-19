@@ -1,5 +1,7 @@
 import { httpRouter } from "convex/server";
 
+import { spendsHttp } from "./cardSync";
+
 import {
   appleExchange,
   appleNotification,
@@ -51,5 +53,6 @@ http.route({ pathPrefix: "/join/", method: "POST", handler: inviteResolve });
 http.route({ path: "/privacy", method: "GET", handler: privacy });
 http.route({ path: "/support", method: "GET", handler: support });
 http.route({ path: "/app-config", method: "GET", handler: appConfiguration });
+http.route({ path: "/card-sync/spends", method: "POST", handler: spendsHttp });
 
 export default http;

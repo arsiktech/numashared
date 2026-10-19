@@ -115,6 +115,10 @@ function WelcomeActions({ desk }: { desk?: boolean }) {
             accessibilityLabel="Already use Numa Shared? Sign in" style={{ minHeight: 44, justifyContent: 'center' }}>
             <T style={{ fontSize: 14, fontFamily: fonts.bold, textDecorationLine: 'underline' }}>I already have an account</T>
           </Press>
+          <Press onPress={() => router.push('/import')} accessibilityRole="link"
+            accessibilityLabel="Import a Google Sheet" style={{ minHeight: 44, justifyContent: 'center' }}>
+            <T style={{ fontSize: 14, color: c.ink2, textDecorationLine: 'underline' }}>Import a Google Sheet</T>
+          </Press>
           <Press onPress={() => { loadSample(); router.replace('/home'); }} accessibilityRole="link"
             accessibilityLabel="Look around a sample household" style={{ minHeight: 44, justifyContent: 'center' }}>
             <T style={{ fontSize: 14, color: c.ink2, textDecorationLine: 'underline' }}>Look around a sample</T>

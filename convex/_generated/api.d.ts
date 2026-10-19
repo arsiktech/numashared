@@ -11,6 +11,7 @@
 import type * as accountDeletion from "../accountDeletion.js";
 import type * as apns from "../apns.js";
 import type * as authSessions from "../authSessions.js";
+import type * as cardSync from "../cardSync.js";
 import type * as configuration from "../configuration.js";
 import type * as events from "../events.js";
 import type * as http from "../http.js";
@@ -51,6 +52,7 @@ declare const fullApi: ApiFromModules<{
   accountDeletion: typeof accountDeletion;
   apns: typeof apns;
   authSessions: typeof authSessions;
+  cardSync: typeof cardSync;
   configuration: typeof configuration;
   events: typeof events;
   http: typeof http;
