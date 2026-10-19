@@ -51,6 +51,7 @@ export function failureOf(error: unknown): Failure {
     }
     return null;
   };
+  if (error instanceof SyncError) return error.failure;
   const found = scan(error);
   if (found) return found;
   if (error instanceof MappingError) return { code: `CLIENT_${error.code.toUpperCase().replace(/-/g, '_')}`, retryable: false };

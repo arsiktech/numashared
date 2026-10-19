@@ -300,7 +300,7 @@ export function buildHousehold(input: {
   for (const e of expenses) {
     const payer = personOf.get(e.who)!;
     drafts.push({ at: e.at, event: {
-      id: newId('e'), at: e.at.getTime(), by: payer.id, kind: 'expenseAdded', recordId: newId('r'),
+      id: newId('e'), at: e.at.getTime(), by: you.id, kind: 'expenseAdded', recordId: newId('r'),
       content: {
         payerId: payer.id, amount: e.cents, date: iso(e.at), category: e.category,
         ...(e.title ? { title: e.title } : {}),
@@ -316,13 +316,13 @@ export function buildHousehold(input: {
     const amount = Math.abs(p.cents);
     if (p.cents > 0 && TRANSFER.test(p.note ?? '')) {
       drafts.push({ at: p.at, event: {
-        id: newId('e'), at: p.at.getTime(), by: firstOf(giver).id, kind: 'settlementRecorded', recordId: newId('r'),
+        id: newId('e'), at: p.at.getTime(), by: you.id, kind: 'settlementRecorded', recordId: newId('r'),
         content: { fromGroupId: giver.id, toGroupId: receiver.id, amount, date: iso(p.at), ...(p.note ? { note: p.note } : {}) },
       } });
     } else {
       // Paid by one group, entirely for the other.
       drafts.push({ at: p.at, event: {
-        id: newId('e'), at: p.at.getTime(), by: firstOf(giver).id, kind: 'expenseAdded', recordId: newId('r'),
+        id: newId('e'), at: p.at.getTime(), by: you.id, kind: 'expenseAdded', recordId: newId('r'),
         content: {
           payerId: firstOf(giver).id, amount, date: iso(p.at), category: 'other',
           title: clip(p.note && p.note.length <= 60 ? p.note : `For ${receiverLabel(receiver, people)}`, 120),

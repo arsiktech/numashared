@@ -79,6 +79,8 @@ describe('reading a shared-budget Google Sheet', () => {
     const kinds = h.events.map((e) => (e.kind === 'expenseAdded' && e.content.split.mode === 'exact' ? 'for-other' : e.kind));
     expect(kinds.filter((k) => k === 'settlementRecorded')).toHaveLength(1);
     expect(kinds.filter((k) => k === 'for-other')).toHaveLength(2);
+    // The person importing records every event: the server only accepts events from its uploader.
+    expect(new Set(h.events.map((e) => e.by))).toEqual(new Set([h.youId]));
     // Oldest first, so the server sees them in order.
     expect(h.events.map((e) => e.at)).toEqual([...h.events.map((e) => e.at)].sort((a, b) => a - b));
   });
