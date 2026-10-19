@@ -17,7 +17,8 @@
       "associatedDomains": [
         "applinks:adept-camel-457.convex.site"
       ],
-      "buildNumber": "14"
+      "buildNumber": "14",
+      "appleTeamId": "794UJ787LZ"
     },
     "android": {
       "package": "tech.arsik.numashared",
@@ -66,6 +67,10 @@
       "router": {},
       "eas": {
         "projectId": "9bd0be32-be67-4d8c-99b2-b63afbf22e36"
+      },
+      "googleSignIn": {
+        "iosClientId": "",
+        "webClientId": ""
       }
     },
     "owner": "arsiktech",
