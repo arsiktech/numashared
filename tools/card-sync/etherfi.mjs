@@ -34,6 +34,14 @@ export function isFinal(tx) {
 
 export const isRefund = (tx) => tx.isRefund === true || [tx.status, tx.detailedStatus].some((s) => typeof s === 'string' && /refund/i.test(s));
 
+/** Cancelled or reversed after the fact: the same transaction, which must not count any more. */
+export const isCancelled = (tx) => [tx.status, tx.detailedStatus, tx.userStatus].some((s) => typeof s === 'string' && /cancel|revers|void/i.test(s));
+
+/** Money that has actually come back to the card (not one still on its way). */
+export const isSettledRefund = (tx) => isRefund(tx) && !isCancelled(tx)
+  && [tx.userStatus, tx.statusTag].some((s) => typeof s === 'string' && /clear|settl|complet/i.test(s))
+  && ![tx.userStatus, tx.statusTag].some((s) => typeof s === 'string' && /pend|declin|fail/i.test(s));
+
 /**
  * The amount in the household's currency if the transaction carries it (the merchant's own
  * currency), else the billed amount and its currency for the caller to convert.
@@ -78,8 +86,10 @@ export function spendsFrom(transactions, { cards, since, currency, rate }) {
     const card = cardLast4(tx);
     if (card === null) { skipped.push({ id, why: 'no card number in the transaction' }); continue; }
     if (!cards.includes(card)) continue;                       // someone else's card: not even counted
-    if (isRefund(tx)) { skipped.push({ id, card, why: 'refund (add it by hand)', merchant: merchantOf(tx) }); continue; }
-    if (!isFinal(tx)) { skipped.push({ id, card, why: 'not final yet' }); continue; }
+    // The spend itself was cancelled or reversed: undo it if it was already sent.
+    const kind = isCancelled(tx) ? 'cancel' : isRefund(tx) ? 'refund' : 'spend';
+    if (kind === 'refund' && !isSettledRefund(tx)) { skipped.push({ id, card, why: 'refund not final yet' }); continue; }
+    if (kind === 'spend' && !isFinal(tx)) { skipped.push({ id, card, why: 'not final yet' }); continue; }
     const money = amountOf(tx, currency);
     if (!money) { skipped.push({ id, card, why: 'no amount' }); continue; }
     let amount = money.amount;
@@ -88,11 +98,14 @@ export function spendsFrom(transactions, { cards, since, currency, rate }) {
       if (!r) { skipped.push({ id, card, why: `no ${money.currency}→${currency} rate yet` }); continue; }
       amount = money.amount * r;
     }
+    const merchantKey = typeof tx.merchantData?.merchant_id === 'string' && tx.merchantData.merchant_id ? tx.merchantData.merchant_id : undefined;
     spends.push({
       id: `etherfi:${id}`, card, occurredAt: new Date(at).toISOString(), merchant: merchantOf(tx),
       amount: decimal(amount), currency, ...(categoryOf(tx) ? { category: categoryOf(tx) } : {}),
+      ...(kind !== 'spend' ? { kind } : {}), ...(merchantKey ? { merchantKey } : {}),
     });
   }
+
   return { spends, skipped };
 }
 

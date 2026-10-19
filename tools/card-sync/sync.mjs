@@ -129,8 +129,10 @@ async function main() {
     if (!res.ok) { console.error(`Numa Shared refused the spends (${res.status}): ${json.error ?? 'unknown error'}`); return 1; }
     added += json.outcomes.filter((o) => o.result === 'added').length;
     for (const o of json.outcomes.filter((x) => x.result === 'ignored')) console.log(`Not added ${o.id}: ${o.reason}`);
+    for (const o of json.outcomes.filter((x) => x.result === 'refunded' || x.result === 'voided')) console.log(`${o.result === 'voided' ? 'Removed' : 'Reduced'} the spend for ${o.id}`);
+    for (const o of json.outcomes.filter((x) => x.result === 'unmatched')) console.log(`NOTICE: refund ${o.id} needs a person: ${o.reason}`);
   }
-  for (const s of skipped.filter((x) => x.why !== 'not final yet')) console.log(`Skipped ${s.id}: ${s.why}${s.merchant ? ` (${s.merchant})` : ''}`);
+  for (const s of skipped.filter((x) => !/not final yet/.test(x.why))) console.log(`Skipped ${s.id}: ${s.why}${s.merchant ? ` (${s.merchant})` : ''}`);
   console.log(`${new Date().toISOString()} read ${rows.length}, sent ${spends.length}, added ${added}.`);
   return 0;
 }

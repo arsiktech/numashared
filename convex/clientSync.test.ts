@@ -743,6 +743,110 @@ describe("card sync", () => {
     expect(await ana.query("cardSync:status", { potId: id })).toBeNull();
   });
 
+  test("refunds take money back off the spend they belong to; cancellations void it", async () => {
+    const t = convexTest(schema, modules);
+    await fenceBuild11(t);
+    const ana = await signIn(t, "ana");
+    const phoneA = phone();
+    phoneA.put({ ...localHousehold(), events: [] });
+    const id = await startSync(ana, phoneA, "h_local");
+    await pull(ana, phoneA, id);
+    let a = phoneA.get(id)!;
+    const leoGroup = a.groups.find((g) => g.memberIds.length === 1)!.id;
+    const ownGroup = a.groups.find((g) => g.memberIds.includes(a.youId))!.id;
+    await ana.mutation("cardSync:link", { potId: id, keyHash: await sha256(KEY), timeZone: "Europe/Madrid",
+      cards: [{ last4: "4242", forUnitId: leoGroup, label: "Leo" }, { last4: "5555", forUnitId: leoGroup, label: "Leo 2" }] });
+    const spend = (id: string, merchant: string, amount: string, at: string, more: object = {}) =>
+      ({ id, card: "4242", occurredAt: at, merchant, amount, currency: "EUR", ...more });
+
+    expect((await (await post(t, KEY, [
+      spend("s-shoes", "Shoe Shop", "50.00", "2026-10-02T10:00:00Z", { merchantKey: "m-shoes" }),
+      spend("s-cafe", "Cafe", "4.00", "2026-10-02T11:00:00Z", { merchantKey: "m-cafe" }),
+      spend("s-hotel", "Hotel", "100.00", "2026-10-03T11:00:00Z", { merchantKey: "m-hotel" }),
+      // Stored before merchant ids existed: matched by its title.
+      spend("s-old", "Old Shop", "30.00", "2026-10-03T12:00:00Z"),
+    ])).json()).outcomes.map((o: { result: string }) => o.result)).toEqual(["added", "added", "added", "added"]);
+
+    const res = await post(t, KEY, [
+      // Partial refund: the shoes cost 50, 20 came back.
+      spend("r-shoes", "Shoe Shop", "20.00", "2026-10-05T10:00:00Z", { kind: "refund", merchantKey: "m-shoes" }),
+      // A second partial refund in the same request builds on the first.
+      spend("r-shoes-2", "Shoe Shop", "5.00", "2026-10-05T11:00:00Z", { kind: "refund", merchantKey: "m-shoes" }),
+      // Full refund: the cafe spend no longer counts.
+      spend("r-cafe", "Cafe", "4.00", "2026-10-05T12:00:00Z", { kind: "refund", merchantKey: "m-cafe" }),
+      // The card provider cancelled the hotel charge.
+      spend("s-hotel", "Hotel", "100.00", "2026-10-03T11:00:00Z", { kind: "cancel", merchantKey: "m-hotel" }),
+      // Matched by title for a spend stored without a merchant id.
+      spend("r-old", "Old Shop", "10.00", "2026-10-06T12:00:00Z", { kind: "refund", merchantKey: "m-old" }),
+      // Nothing to take it from: another merchant, an earlier date, or more than was spent.
+      spend("r-none", "Nowhere", "3.00", "2026-10-05T12:00:00Z", { kind: "refund", merchantKey: "m-nowhere" }),
+      spend("r-early", "Shoe Shop", "1.00", "2026-10-01T12:00:00Z", { kind: "refund", merchantKey: "m-shoes" }),
+      spend("r-big", "Old Shop", "99.00", "2026-10-06T12:00:00Z", { kind: "refund", merchantKey: "m-old" }),
+      // A cancellation of something never added is remembered, so it is never added later.
+      spend("s-never", "Gone", "8.00", "2026-10-04T12:00:00Z", { kind: "cancel" }),
+      { ...spend("r-other", "Shoe Shop", "1.00", "2026-10-05T12:00:00Z", { kind: "refund" }), card: "9999" },
+    ]);
+    expect(res.status).toBe(200);
+    expect((await res.json()).outcomes.map((o: { id: string; result: string }) => `${o.id} ${o.result}`)).toEqual([
+      "r-shoes refunded", "r-shoes-2 refunded", "r-cafe voided", "s-hotel voided", "r-old refunded",
+      "r-none unmatched", "r-early unmatched", "r-big unmatched", "s-never ignored", "r-other ignored",
+    ]);
+
+    // Every one of them is handled once, however often it is sent.
+    expect((await (await post(t, KEY, [
+      spend("r-shoes", "Shoe Shop", "20.00", "2026-10-05T10:00:00Z", { kind: "refund", merchantKey: "m-shoes" }),
+      spend("s-hotel", "Hotel", "100.00", "2026-10-03T11:00:00Z", { kind: "cancel" }),
+      spend("r-none", "Nowhere", "3.00", "2026-10-05T12:00:00Z", { kind: "refund" }),
+      spend("s-never", "Gone", "8.00", "2026-10-04T12:00:00Z"),
+      spend("s-hotel", "Hotel", "100.00", "2026-10-03T11:00:00Z"),
+    ])).json()).outcomes.map((o: { result: string }) => o.result)).toEqual(["duplicate", "duplicate", "duplicate", "duplicate", "duplicate"]);
+
+    await pull(ana, phoneA, id);
+    a = phoneA.get(id)!;
+    // 50 - 20 - 5 = 25 shoes, cafe and hotel gone, 30 - 10 = 20 old shop.
+    expect(balances(a)).toEqual({ [ownGroup]: 4500, [leoGroup]: -4500 });
+    const revised = a.events.filter((e) => e.kind === "expenseRevised");
+    expect(revised).toHaveLength(3);
+    const last = revised.find((e) => e.kind === "expenseRevised" && e.content.amount === 2500)!;
+    expect(last.kind === "expenseRevised" && last.content).toMatchObject({ title: "Shoe Shop", note: "Card •4242 Leo. €20.00 refund on 2026-10-05. €5.00 refund on 2026-10-05", date: "2026-10-02" });
+    expect(last.kind === "expenseRevised" && last.reason).toBe("Card refund");
+    expect(a.events.filter((e) => e.kind === "recordVoided").map((e) => e.kind === "recordVoided" && e.reason).sort())
+      .toEqual(["Cancelled by the card provider (Hotel)", "Refunded in full by Cafe"]);
+    expect(await ana.query("cardSync:status", { potId: id })).toMatchObject({ added: 4n });
+  });
+
+  test("a refund works from the expense as people edited it, not as the card first sent it", async () => {
+    const t = convexTest(schema, modules);
+    await fenceBuild11(t);
+    const ana = await signIn(t, "ana");
+    const phoneA = phone();
+    phoneA.put({ ...localHousehold(), events: [] });
+    const id = await startSync(ana, phoneA, "h_local");
+    await pull(ana, phoneA, id);
+    const leoGroup = phoneA.get(id)!.groups.find((g) => g.memberIds.length === 1)!.id;
+    await ana.mutation("cardSync:link", { potId: id, keyHash: await sha256(KEY), timeZone: "Europe/Madrid",
+      cards: [{ last4: "4242", forUnitId: leoGroup, label: "Leo" }] });
+    await post(t, KEY, [{ id: "s-1", card: "4242", occurredAt: "2026-10-02T10:00:00Z", merchant: "Shop", amount: "10.00", currency: "EUR", merchantKey: "m" }]);
+    await pull(ana, phoneA, id);
+    const first = phoneA.get(id)!.events.find((e) => e.kind === "expenseAdded")!;
+    if (first.kind !== "expenseAdded") throw new Error("expected an expense");
+    // Ana corrects it on her phone: only 3.00 was really for Leo, and she renames it.
+    append(phoneA, id, {
+      id: "01890f5e-7b00-7000-8000-00000000c501", at: Date.now() - 20_000, by: phoneA.get(id)!.youId, kind: "expenseRevised",
+      recordId: first.recordId, basis: { kind: "parent", parentEventId: first.id }, content: { ...first.content, amount: 300, title: "Shop (Leo's part)" },
+    });
+    expect(await flush(ana, phoneA, id)).toBe("done");
+
+    const send = async (rid: string, amount: string) => (await (await post(t, KEY, [{ id: rid, card: "4242", occurredAt: "2026-10-03T10:00:00Z",
+      merchant: "Shop", amount, currency: "EUR", kind: "refund", merchantKey: "m" }])).json()).outcomes[0].result;
+    // More than is left after her edit: left for a person to handle.
+    expect(await send("r-1", "5.00")).toBe("unmatched");
+    expect(await send("r-2", "1.00")).toBe("refunded");
+    await pull(ana, phoneA, id);
+    const record = reduce(phoneA.get(id)!).byId[first.recordId];
+    expect(record.expense).toMatchObject({ amount: 200, title: "Shop (Leo's part)" });
+  });
+
   test("a member who isn't the owner can't link cards", async () => {
     const t = convexTest(schema, modules);
     const ana = await signIn(t, "ana");
