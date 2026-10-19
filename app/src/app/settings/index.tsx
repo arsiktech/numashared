@@ -219,34 +219,47 @@ function LeaveRow({ last }: { last?: boolean }) {
   const { c } = useTheme();
   const router = useRouter();
   const [confirm, setConfirm] = useState(false);
+  const [busy, setBusy] = useState(false);
   if (!h) return null;
   const shared = !!h.sync && !h.sync.setup;
-  const leave = async () => {
-    if (shared) {
-      try { await online.leave(h); } catch (e) {
-        const code = failureOf(e).code;
-        showToast(code === 'SOLE_ACTIVE_MEMBER' ? 'You’re the only one here. Invite someone first, or keep it.' : explainFailure(code));
-        return;
-      }
-    } else leaveHousehold(h.id);
+  // A shared household nobody else has joined can be deleted outright (made by mistake);
+  // once someone has joined, you can only leave it, because its history is theirs too.
+  const alone = !h.people.some((p) => p.id !== h.youId && p.joined);
+  const mode: 'delete-local' | 'delete-shared' | 'leave' = !shared ? 'delete-local' : alone && h.sync!.role === 'owner' ? 'delete-shared' : 'leave';
+  const label = mode === 'leave' ? `Leave ${h.name}` : `Delete ${h.name}`;
+  const sub = mode === 'leave' ? 'Your history stays for the others' : mode === 'delete-shared' ? 'Nobody else has joined yet' : 'Removes it from this device';
+  const question = mode === 'leave'
+    ? `Leave ${h.name}? Everything you added stays in its history for the others, and your balance stays visible to them. You can’t add anything after leaving.`
+    : mode === 'delete-shared'
+      ? `Delete ${h.name} for good? Nobody else has joined, so nobody loses anything. Invite codes you sent stop working.`
+      : `Delete ${h.name}? It isn’t shared, so this phone has the only copy and its history is gone for good.`;
+  const go = async () => {
+    setBusy(true);
+    try {
+      if (mode === 'leave') await online.leave(h);
+      else if (mode === 'delete-shared') await online.deleteHousehold(h);
+      else leaveHousehold(h.id);
+    } catch (e) {
+      const code = failureOf(e).code;
+      showToast(code === 'SOLE_ACTIVE_MEMBER' ? 'You’re the only one here. Invite someone first, or keep it.'
+        : code === 'HOUSEHOLD_HAS_MEMBERS' ? 'Someone has joined since, so you can leave it but not delete it.'
+          : explainFailure(code));
+      setBusy(false);
+      return;
+    }
     router.replace(getState().households.length ? '/home' : '/welcome');
   };
   return (
     <View>
-      <SRow label={`Leave ${h.name}`} danger chevron={false} icon={<VoidX size={22} color={c.bad} />} last={last && !confirm}
-        sub={confirm ? undefined : shared ? 'Your history stays for the others' : 'Removes it from this device'} onPress={() => setConfirm(!confirm)}
-        a11y={`Leave ${h.name}`} />
+      <SRow label={label} danger chevron={false} icon={<VoidX size={22} color={c.bad} />} last={last && !confirm}
+        sub={confirm ? undefined : sub} onPress={() => setConfirm(!confirm)} a11y={label} />
       {confirm ? (
         <View accessibilityLiveRegion="polite" style={{ paddingHorizontal: 16, paddingBottom: 16, gap: 12 }}>
-          <T style={{ fontSize: 14.5, lineHeight: 20, color: c.ink }}>
-            {shared
-              ? `Leave ${h.name}? Everything you added stays in its history for the others, and your balance stays visible to them. You can’t add anything after leaving.`
-              : `Leave ${h.name}? It isn’t shared, so this device has the only copy and its history is deleted for good.`}
-          </T>
+          <T style={{ fontSize: 14.5, lineHeight: 20, color: c.ink }}>{question}</T>
           <View style={{ flexDirection: 'row', gap: 10, flexWrap: 'wrap' }}>
-            <Press onPress={leave} accessibilityLabel={`Yes, leave ${h.name}`}
-              style={{ minHeight: 44, paddingHorizontal: 18, borderRadius: 22, backgroundColor: c.bad, justifyContent: 'center' }}>
-              <T style={{ fontFamily: fonts.semibold, fontSize: 16, color: '#FFFFFF' }}>{shared ? 'Leave' : 'Leave and delete'}</T>
+            <Press onPress={busy ? undefined : go} accessibilityLabel={`Yes, ${label.toLowerCase()}`}
+              style={{ minHeight: 44, paddingHorizontal: 18, borderRadius: 22, backgroundColor: c.bad, justifyContent: 'center', opacity: busy ? 0.6 : 1 }}>
+              <T style={{ fontFamily: fonts.semibold, fontSize: 16, color: '#FFFFFF' }}>{busy ? 'One moment…' : mode === 'leave' ? 'Leave' : 'Delete'}</T>
             </Press>
             <Press onPress={() => setConfirm(false)} accessibilityLabel="Cancel"
               style={{ minHeight: 44, paddingHorizontal: 18, borderRadius: 22, backgroundColor: c.chip, justifyContent: 'center' }}>

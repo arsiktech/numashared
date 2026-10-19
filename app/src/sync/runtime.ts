@@ -9,7 +9,7 @@ import { getState, putHousehold, removeHousehold, switchHousehold } from '../sto
 import { accessToken, currentSession, loadSession, signInWithApple, signInWithGoogle, signOutSession, subscribeSession } from './auth';
 import { CONVEX_URL, SITE_URL } from './config';
 import {
-  addPersonOnline, adoptPots, claimInvite, failureOf, flush, issueInvites, leaveOnline, promote, pull,
+  addPersonOnline, adoptPots, deleteHouseholdOnline, removePersonOnline, claimInvite, failureOf, flush, issueInvites, leaveOnline, promote, pull,
   regroupOnline, renameOnline, resolveInvite, resume, stageSync, SEND_DELAY_MS,
   type Access, type Backend, type InvitePreview, type PotSummary,
 } from './engine';
@@ -232,6 +232,8 @@ export const online = {
   rename: (h: Household, name: string) => within(renameOnline(backend, access, h.id, name)),
   regroup: (h: Household, arrangement: ID[][]) => within(regroupOnline(backend, access, h.id, arrangement)),
   leave: async (h: Household) => { await within(leaveOnline(backend, access, h.id)); removeHousehold(h.id); },
+  removePerson: (h: Household, personId: ID) => within(removePersonOnline(backend, access, h.id, personId)),
+  deleteHousehold: (h: Household) => within(deleteHouseholdOnline(backend, access, h.id), 30_000),
   invites: (h: Household) => within(issueInvites(backend, access, h.id)),
   retry: (h: Household) => { resume(access, h.id); return requestSync(); },
 };

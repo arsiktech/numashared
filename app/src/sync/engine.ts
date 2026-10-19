@@ -10,7 +10,8 @@ import { UNDO_WINDOW_MS } from '../core/undo';
 import type { Group, Household, ID, InviteInfo, LedgerEvent, Person, SyncMeta } from '../core/types';
 import { MAX_GROUP_SIZE } from '../core/types';
 import {
-  applyRoster, applyStructure, fromWire, MappingError, redact, stamp, toWire, type RosterEntry,
+  applyRoster, applyStructure, dropUnusedArchived, fromWire, isPersonReferenced, MappingError, redact, stamp, toWire,
+  type RosterEntry,
 } from './mapping';
 import { TERMINAL_EVENT_CODES } from './terminal';
 import { wireTimeZone } from './timezones';
@@ -411,7 +412,7 @@ export async function pull(backend: Backend, access: Access, householdId: ID, op
   // Keep anything the device added meanwhile (pull awaited the network).
   const latest = access.get(householdId)!;
   const extra = latest.events.filter((e) => e.seq === undefined && !next.events.some((x) => x.id === e.id));
-  access.put(settle({ ...next, events: [...next.events, ...extra], seen: latest.seen }));
+  access.put(dropUnusedArchived(settle({ ...next, events: [...next.events, ...extra], seen: latest.seen })));
 }
 
 // ---------- the account's households ----------
@@ -633,4 +634,37 @@ export async function leaveOnline(backend: Backend, access: Access, householdId:
     archiveEvent: structuralEvent(h, { kind: 'memberArchived', memberId: h.youId }, now),
     transferEventId: uuidv7(now),
   });
+}
+
+/**
+ * Removes someone added by mistake: they haven't joined and no record mentions them. A person in
+ * a shared group is first given a group of their own (allowed only before any money is recorded).
+ */
+export async function removePersonOnline(backend: Backend, access: Access, householdId: ID, personId: ID, now = Date.now()) {
+  // Check against the latest roster: someone may have joined since this phone last looked.
+  await pull(backend, access, householdId);
+  const h = access.get(householdId)!;
+  const person = h.people.find((p) => p.id === personId);
+  if (!person || person.id === h.youId || person.joined || isPersonReferenced(h, personId)) throw new SyncError({ code: 'PERSON_IN_USE', retryable: false });
+  const group = h.groups.find((g) => g.id === person.groupId);
+  if (group && group.memberIds.length > 1) {
+    await regroupOnline(backend, access, householdId, [
+      ...h.groups.map((g) => g.memberIds.filter((m) => m !== personId)).filter((m) => m.length > 0),
+      [personId],
+    ], now);
+  }
+  const latest = access.get(householdId)!;
+  await backend.mutation('members:archiveMember', {
+    potId: latest.id, event: structuralEvent(latest, { kind: 'memberArchived', memberId: personId }, now),
+  });
+  await pull(backend, access, householdId);
+}
+
+/** Deletes a shared household nobody else has joined, for everyone, invites included. */
+export async function deleteHouseholdOnline(backend: Backend, access: Access, householdId: ID) {
+  for (let i = 0; i < 25; i++) {
+    const res = await backend.mutation<{ deleted: boolean }>('pots:deleteHousehold', { potId: householdId });
+    if (res.deleted) { access.remove(householdId); return; }
+  }
+  throw new SyncError({ code: 'HOUSEHOLD_DELETE_INCOMPLETE', retryable: true });
 }

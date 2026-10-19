@@ -11,7 +11,7 @@ import type {
 } from '@/core/types';
 import { GROUP_COLORS, MAX_GROUP_SIZE, MAX_GROUPS } from '@/core/types';
 import { newId, inviteCode, todayISO } from './ids';
-import { stamp } from '../sync/mapping';
+import { isPersonReferenced, stamp } from '../sync/mapping';
 import { isSending } from '../sync/engine';
 
 export type Appearance = 'system' | 'light' | 'dark';
@@ -207,6 +207,35 @@ export function regroup(h: Household, groups: { memberIds: ID[] }[]): Household 
   });
   const people = h.people.map((p) => ({ ...p, groupId: next.find((g) => g.memberIds.includes(p.id))!.id }));
   return { ...h, groups: next, people };
+}
+
+/** Someone added by mistake can go while they haven't joined and no record mentions them. */
+export function canRemovePerson(h: Household, personId: ID): boolean {
+  const p = h.people.find((x) => x.id === personId);
+  if (!p || p.id === h.youId || p.joined || isPersonReferenced(h, personId)) return false;
+  const group = h.groups.find((g) => g.id === p.groupId);
+  // Leaving a shared group changes that group, which is only allowed before any money.
+  return !(group && group.memberIds.length > 1 && hasFinancialHistory(h));
+}
+
+/** Removes a person from a household that lives only on this device. */
+export function removePerson(id: ID, personId: ID) {
+  updateHousehold(id, (h) => {
+    if (!canRemovePerson(h, personId)) return h;
+    const groups = h.groups
+      .map((g) => {
+        if (!g.memberIds.includes(personId)) return g;
+        const memberIds = g.memberIds.filter((m) => m !== personId);
+        // A pair that becomes one person pays through that person's own unit again.
+        if (memberIds.length !== 1) return { ...g, memberIds };
+        const left = h.people.find((p) => p.id === memberIds[0]);
+        return { id: left?.unitId ?? g.id, color: g.color, memberIds };
+      })
+      .filter((g) => g.memberIds.length > 0);
+    const people = h.people.filter((p) => p.id !== personId)
+      .map((p) => ({ ...p, groupId: groups.find((g) => g.memberIds.includes(p.id))!.id }));
+    return { ...h, people, groups };
+  });
 }
 
 export function setGroupColor(id: ID, groupId: ID, color: Group['color']) {

@@ -4,12 +4,12 @@ import { useState } from 'react';
 import { View } from 'react-native';
 import { Redirect } from 'expo-router';
 import { GROUP_COLORS, MAX_GROUPS, type GroupColor, type ID } from '@/core/types';
-import { addPerson, hasFinancialHistory, setGroupColor, setGroups } from '@/store/store';
+import { addPerson, canRemovePerson, hasFinancialHistory, removePerson, setGroupColor, setGroups } from '@/store/store';
 import { showToast } from '@/store/ui';
 import { explainFailure } from '@/features/account/session';
 import { failureOf } from '@/sync/engine';
 import { online } from '@/sync/runtime';
-import { Lock } from '@/ui/icons';
+import { Close, Lock } from '@/ui/icons';
 import { haptic, Pill, Press, T } from '@/ui/primitives';
 import { useTheme } from '@/ui/theme';
 import { alpha, fonts } from '@/ui/tokens';
@@ -30,6 +30,8 @@ export default function PeopleScreen() {
   const [sel, setSel] = useState<ID | null>(null);
   const [adding, setAdding] = useState(false);
   const [newName, setNewName] = useState('');
+  const [removing, setRemoving] = useState<ID | null>(null);
+  const [busy, setBusy] = useState(false);
   const pillBg = usePillBg();
   if (!h) return <Redirect href="/welcome" />;
   const fixed = hasFinancialHistory(h);
@@ -49,6 +51,24 @@ export default function PeopleScreen() {
     }
     haptic.tick();
     setSel(null);
+  };
+
+  // Only the household's owner can remove people once it is shared.
+  const mayRemove = (pid: ID) => canRemovePerson(h, pid) && (!shared || h.sync!.role === 'owner');
+  const remove = async (pid: ID) => {
+    const name = nm(pid);
+    setBusy(true);
+    try {
+      if (shared) await online.removePerson(h, pid);
+      else removePerson(h.id, pid);
+      haptic.success();
+      showToast(`${name} removed`);
+    } catch (e) {
+      showToast(explainFailure(failureOf(e).code));
+    } finally {
+      setBusy(false);
+      setRemoving(null);
+    }
   };
 
   const add = async () => {
@@ -113,10 +133,32 @@ export default function PeopleScreen() {
                   </>
                 );
                 const style = { flexDirection: 'row' as const, alignItems: 'center' as const, gap: 12, minHeight: 64, borderTopWidth: 1, borderTopColor: alpha(t.ink, 0.1) };
-                return moving ? (
-                  <Press key={pid} noScale onPress={() => setSel(on ? null : pid)} accessibilityState={{ selected: on }}
-                    accessibilityLabel={on ? `${p.name}, selected` : `Move ${p.name}`} style={style}>{row}</Press>
-                ) : <View key={pid} accessible accessibilityLabel={`${p.name}${you ? ', you' : ''}, ${status}`} style={style}>{row}</View>;
+                if (moving) {
+                  return (
+                    <Press key={pid} noScale onPress={() => setSel(on ? null : pid)} accessibilityState={{ selected: on }}
+                      accessibilityLabel={on ? `${p.name}, selected` : `Move ${p.name}`} style={style}>{row}</Press>
+                  );
+                }
+                if (removing === pid) {
+                  return (
+                    <View key={pid} style={[style, { flexWrap: 'wrap', paddingVertical: 10 }]} accessibilityLiveRegion="polite">
+                      <T style={{ flex: 1, minWidth: 160, fontFamily: fonts.semibold, fontSize: 15, color: t.ink }}>Remove {p.name}?</T>
+                      <Pill small label={busy ? 'Removing…' : 'Remove'} onPress={busy ? undefined : () => remove(pid)} accessibilityLabel={`Yes, remove ${p.name}`} />
+                      <Pill small light label="Keep" onPress={() => setRemoving(null)} style={{ backgroundColor: alpha(t.ink, 0.09) }} accessibilityLabel={`Keep ${p.name}`} />
+                    </View>
+                  );
+                }
+                return (
+                  <View key={pid} style={style}>
+                    <View accessible accessibilityLabel={`${p.name}${you ? ', you' : ''}, ${status}`} style={{ flex: 1, flexDirection: 'row', alignItems: 'center', gap: 12 }}>{row}</View>
+                    {mayRemove(pid) ? (
+                      <Press onPress={() => setRemoving(pid)} accessibilityLabel={`Remove ${p.name}`}
+                        style={{ width: 44, height: 44, borderRadius: 22, alignItems: 'center', justifyContent: 'center', backgroundColor: alpha(t.ink, 0.09) }}>
+                        <Close size={18} color={t.ink} />
+                      </Press>
+                    ) : null}
+                  </View>
+                );
               })}
             </View>
           );
@@ -149,7 +191,7 @@ export default function PeopleScreen() {
             ? 'Groups are fixed now that money is recorded, so every past balance stays explainable. Someone new gets a group of their own.'
             : moving
               ? 'Tap a person, then tap the group they should join. You can move people until the first expense is added.'
-              : 'You can move people until the first expense is added. Someone new gets a group of their own.'}
+              : 'You can move people until the first expense is added. Someone new gets a group of their own. Added someone by mistake? Remove them with the cross while they haven’t joined.'}
         </SInfo>
       </View>
     </SettingsShell>

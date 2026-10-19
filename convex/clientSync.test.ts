@@ -9,6 +9,8 @@ import { reduce } from "../app/src/core/ledger";
 import type { Household, LedgerEvent } from "../app/src/core/types";
 import {
   addPersonOnline,
+  deleteHouseholdOnline,
+  removePersonOnline,
   claimInvite,
   flush,
   issueInvites,
@@ -303,5 +305,50 @@ describe("app sync engine against the backend", () => {
     expect(after.sync!.rejected?.map((r) => r.code)).toEqual(["TEXT_FIELD_REQUIRED_REASON"]);
     expect(after.events.find((e) => e.id === "01890f5e-7b00-7000-8000-00000000d002")?.seq).toBeGreaterThan(0);
     expect(after.events.some((e) => e.id === "01890f5e-7b00-7000-8000-00000000d001")).toBe(false);
+  });
+  test("people and households made by mistake can be removed while nobody relies on them", async () => {
+    const t = convexTest(schema, modules);
+    const ana = await signIn(t, "ana");
+    const leo = await signIn(t, "leo");
+    const phoneA = phone();
+    phoneA.put({ ...localHousehold(), events: [] });
+    const id = await startSync(ana, phoneA, "h_local");
+    await pull(ana, phoneA, id);
+    let a = phoneA.get(id)!;
+    const leoId = a.people.find((p) => p.name === "Leo")!.id;
+    const miaId = a.people.find((p) => p.name === "Mia")!.id;
+
+    // Leo, alone in his group, goes; Mia leaves the couple first, then goes too.
+    await removePersonOnline(ana, phoneA, id, leoId);
+    await removePersonOnline(ana, phoneA, id, miaId);
+    a = phoneA.get(id)!;
+    expect(a.people.map((p) => p.name)).toEqual(["Ana"]);
+    expect(a.groups).toHaveLength(1);
+    expect(a.groups[0].memberIds).toEqual([a.youId]);
+
+    // Nobody else ever joined, so the owner can delete it outright.
+    await deleteHouseholdOnline(ana, phoneA, id);
+    expect(phoneA.get(id)).toBeUndefined();
+    await expect(ana.query("pots:listMyPots", {})).resolves.toEqual([]);
+    await expect(t.run(async (ctx) => ({
+      events: (await ctx.db.query("events").collect()).length,
+      pots: (await ctx.db.query("pots").collect()).length,
+      invites: (await ctx.db.query("invites").collect()).length,
+    }))).resolves.toEqual({ events: 0, pots: 0, invites: 0 });
+
+    // Once someone has joined, deleting is refused (leaving still works).
+    const phoneB = phone();
+    phoneA.put({ ...localHousehold(), id: "h_second", events: [] });
+    const second = await startSync(ana, phoneA, "h_second");
+    await pull(ana, phoneA, second);
+    await issueInvites(ana, phoneA, second);
+    const leo2 = phoneA.get(second)!.people.find((p) => p.name === "Leo")!.id;
+    const code = phoneA.get(second)!.sync!.invites![leo2].code;
+    const preview = await resolveInvite("http://127.0.0.1:3211", code,
+      ((url: string, init?: RequestInit) => t.fetch(new URL(url).pathname, init)) as typeof fetch);
+    if (preview.status !== "active") throw new Error("invite not active");
+    await claimInvite(leo, phoneB, preview);
+    await expect(deleteHouseholdOnline(ana, phoneA, second)).rejects.toThrow("HOUSEHOLD_HAS_MEMBERS");
+    await expect(removePersonOnline(ana, phoneA, second, leo2)).rejects.toThrow();
   });
 });

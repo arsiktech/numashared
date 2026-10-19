@@ -413,3 +413,34 @@ export function applyRoster(people: Person[], roster: RosterEntry[]): Person[] {
     return { ...p, name, joined: r.state === 'active', archived: r.state === 'archived' || p.archived };
   });
 }
+
+// ---------- people nobody has used ----------
+
+/** Whether any record mentions this person, or the group they pay through alone. */
+export function isPersonReferenced(h: Household, personId: ID): boolean {
+  const person = h.people.find((p) => p.id === personId);
+  const group = person && h.groups.find((g) => g.id === person.groupId);
+  const soloGroup = group && group.memberIds.length === 1 ? group.id : undefined;
+  return h.events.some((e) => {
+    if (e.by === personId) return true;
+    if (e.kind === 'expenseAdded' || e.kind === 'expenseRevised') {
+      const c = e.content;
+      if (c.payerId === personId) return true;
+      if (!soloGroup) return false;
+      return c.split.mode === 'equal' ? c.split.groupIds.includes(soloGroup) : soloGroup in c.split.shares;
+    }
+    if (e.kind === 'settlementRecorded') return e.content.fromGroupId === soloGroup || e.content.toGroupId === soloGroup;
+    if (e.kind === 'openingBalanceSet') return e.content.entries.some((x) => x.fromGroupId === soloGroup || x.toGroupId === soloGroup);
+    return false;
+  });
+}
+
+/** Removed people that no record mentions disappear from the household (and their own group). */
+export function dropUnusedArchived(h: Household): Household {
+  const gone = h.people.filter((p) => p.archived && p.id !== h.youId && !isPersonReferenced(h, p.id)).map((p) => p.id);
+  if (!gone.length) return h;
+  const groups = h.groups
+    .map((g) => ({ ...g, memberIds: g.memberIds.filter((m) => !gone.includes(m)) }))
+    .filter((g) => g.memberIds.length > 0);
+  return { ...h, people: h.people.filter((p) => !gone.includes(p.id)), groups };
+}

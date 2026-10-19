@@ -2,6 +2,7 @@ import { v } from "convex/values";
 
 import type { Doc } from "./_generated/dataModel";
 import { mutation, query } from "./_generated/server";
+import { sweepPot } from "./accountDeletion";
 import { appendPromotedPrerequisite, changeBudgetGroupsForMember } from "./members";
 import { loadBudgetGroupTopology } from "./lib/budgetGroupTopology";
 import { appendEventsToPot } from "./lib/appendEvents";
@@ -285,5 +286,36 @@ export const listMyPots = query({
       });
     }
     return result.sort((left, right) => left.potId.localeCompare(right.potId));
+  },
+});
+
+/**
+ * Deletes a household that nobody else has joined, for a household made by mistake. Only the
+ * owner can, and only while no other account has ever been a member: once someone has joined,
+ * their history is theirs too, so the owner can leave but not delete. Large households are
+ * removed over several calls; the call answers `deleted: false` until the last one.
+ */
+export const deleteHousehold = mutation({
+  args: { potId: v.string() },
+  handler: async (ctx, args) => {
+    requireApprovedWriteTarget();
+    const { account } = await requireSession(ctx);
+    const pot = await ctx.db
+      .query("pots")
+      .withIndex("by_pot_id", (index) => index.eq("potId", args.potId))
+      .unique();
+    if (!pot) return { deleted: true };
+    const membership = await requireActiveMembership(ctx, args.potId, account._id);
+    if (membership.role !== "owner") fail("NOT_OWNER");
+    const members = await ctx.db
+      .query("potMembers")
+      .withIndex("by_pot_account", (index) => index.eq("potId", args.potId))
+      .take(65);
+    if (members.some((member) => member.accountId !== account._id)) fail("HOUSEHOLD_HAS_MEMBERS");
+    for (let pass = 0; pass < 40; pass += 1) {
+      if (!await ctx.db.get(pot._id)) return { deleted: true };
+      await sweepPot(ctx, pot);
+    }
+    return { deleted: await ctx.db.get(pot._id) === null };
   },
 });

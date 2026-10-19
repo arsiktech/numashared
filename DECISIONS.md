@@ -428,3 +428,8 @@ that stay in the private development repository.
 - Backend: `POST /auth/google/exchange` verifies Google ID tokens against `NUMA_SHARED_GOOGLE_CLIENT_IDS` and creates an ordinary session; Google accounts have no Apple authorization, which account deletion already handles.
 - Owner actions: create the Google OAuth clients (iOS for `tech.arsik.numashared`, Android with the signing certificate fingerprint, and a web client), set `NUMA_SHARED_GOOGLE_CLIENT_IDS` on production, and build with the client IDs in `app/.env`.
 
+## 2026-10-19 — Undoing a mistaken household or person
+
+- Decision (owner report): someone added by mistake can be removed while they haven't joined and no record mentions them (owner only once shared; the server archives them and the app hides them). A shared household nobody else has ever joined can be deleted by its owner (`pots:deleteHousehold`, reusing account deletion's per-pot sweep); once anyone has joined, the owner can only leave.
+- Why: a household or person created by accident otherwise stays forever, and the last member could not even leave.
+
