@@ -16,7 +16,8 @@
       "usesAppleSignIn": true,
       "associatedDomains": [
         "applinks:adept-camel-457.convex.site"
-      ]
+      ],
+      "buildNumber": "14"
     },
     "android": {
       "package": "tech.arsik.numashared",
@@ -26,7 +27,8 @@
         "backgroundImage": "./assets/images/android-icon-background.png",
         "monochromeImage": "./assets/images/android-icon-monochrome.png"
       },
-      "predictiveBackGestureEnabled": true
+      "predictiveBackGestureEnabled": true,
+      "versionCode": 14
     },
     "web": {
       "output": "single",
