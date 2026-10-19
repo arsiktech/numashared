@@ -455,7 +455,7 @@ function AddBody({ h, spec, draft, set, t, pop }: {
         {sentence}
         <View style={{ marginTop: 12 }}>{slot}</View>
       </View>
-      <View style={{ flex: 1, minHeight: 0, overflow: 'hidden', paddingHorizontal: 12, paddingTop: 8 }} onLayout={(e) => setMidH(e.nativeEvent.layout.height)}>
+      <View style={{ flex: 1, minHeight: 0, overflow: 'hidden', justifyContent: panel === 'category' || panel === 'newcat' ? 'flex-start' : 'flex-end', paddingHorizontal: 12, paddingTop: 8 }} onLayout={(e) => setMidH(e.nativeEvent.layout.height)}>
         {panel === 'category' ? <View style={{ paddingHorizontal: 10, paddingTop: 6 }}>{grid}</View>
           : panel === 'newcat' ? <View style={{ paddingHorizontal: 10, paddingTop: 6 }}>{newField}</View>
           : <Keypad onKey={(k) => onKey(k as Key)} color={t.ink} height={keyHeight(screenH, midH)} allowDot={currencyDigits(cur) > 0} />}

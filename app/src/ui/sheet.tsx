@@ -5,13 +5,19 @@
 import { createContext, Fragment, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { BackHandler, Platform, ScrollView, StyleSheet, View, type ScrollViewProps, type StyleProp, type ViewStyle } from 'react-native';
 import { Gesture, GestureDetector, type NativeGesture } from 'react-native-gesture-handler';
-import Animated, { Easing, runOnJS, useAnimatedStyle, useSharedValue, withSpring, withTiming, interpolate, type SharedValue } from 'react-native-reanimated';
+import Animated, { Easing, makeMutable, runOnJS, useAnimatedReaction, useAnimatedStyle, useSharedValue, withSpring, withTiming, interpolate, type SharedValue } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Svg, { Defs, RadialGradient, Rect, Stop } from 'react-native-svg';
 import type { Origin } from '@/store/ui';
 import { useTheme } from './theme';
 import { haptic } from './primitives';
 import { alpha, isWeb } from './tokens';
+
+/**
+ * How far a phone sheet covers the screen, 0 to 1. The app shell shrinks the screen behind by it,
+ * as iOS does, so the sheet reads as a card on top rather than the screen going dark.
+ */
+export const sheetBackdrop = makeMutable(0);
 
 type SheetCtx = { close: (how?: 'down' | 'done') => void; scroll?: { native: NativeGesture; y: SharedValue<number> } };
 const Ctx = createContext<SheetCtx>({ close: () => {} });
@@ -120,6 +126,11 @@ export function Sheet({ origin, onClosed, children, background, height = 'full',
       else drag.value = withSpring(0, { damping: 22, stiffness: 260 });
     }), [popover, native, closeDown, drag, scrollY, fromTop]);
 
+  const stacked = !isWeb && !popover && height === 'full';
+  useAnimatedReaction(() => (stacked ? p.value * (1 - Math.min(1, drag.value / Math.max(H, 1))) : -1), (v) => {
+    if (v >= 0) sheetBackdrop.value = v;
+  });
+  useEffect(() => () => { if (stacked) sheetBackdrop.value = withTiming(0, { duration: 180 }); }, [stacked]);
   const scrimStyle = useAnimatedStyle(() => ({ opacity: p.value * (1 - Math.min(1, drag.value / Math.max(H, 1))) }));
   const panelDrag = useAnimatedStyle(() => ({ transform: [{ translateY: drag.value }] }));
   const fadeIn = useAnimatedStyle(() => (bloom ? {} : { opacity: p.value, transform: [{ translateY: (1 - p.value) * 24 }] }));
@@ -138,7 +149,8 @@ export function Sheet({ origin, onClosed, children, background, height = 'full',
   const wash = useAnimatedStyle(() => ({ opacity: phase === 'closing' ? interpolate(p.value, [0, 1], [1, 0]) : interpolate(p.value, [0, 0.3, 1], [1, 1, 0]) }));
   const content = useAnimatedStyle(() => ({ opacity: bloom ? interpolate(p.value, [0, 0.25, 1], [0.2, 0.3, 1]) : 1 }));
 
-  const top = height === 'full' ? Math.max(insets.top - 22, 10) + (isWeb ? 12 : 0) : undefined;
+  // Below the status bar and Dynamic Island, leaving a strip of the shrunken screen visible.
+  const top = height === 'full' ? (isWeb ? Math.max(insets.top - 22, 10) + 12 : insets.top + 10) : undefined;
 
   const panelStyle: StyleProp<ViewStyle> = popover && origin
     ? { position: 'absolute', width: 420, maxWidth: W - 24, left: Math.min(Math.max(16, origin.x - 300), W - 436), top: Math.max(16, Math.min(origin.y + origin.r + 12, H - 660)), borderRadius: 28, overflow: 'hidden',
@@ -168,7 +180,7 @@ export function Sheet({ origin, onClosed, children, background, height = 'full',
 
   return (
     <View style={StyleSheet.absoluteFill} pointerEvents="box-none">
-      <Animated.View style={[StyleSheet.absoluteFill, { backgroundColor: popover ? 'rgba(18,20,16,0.18)' : c.scrim }, scrimStyle]}>
+      <Animated.View style={[StyleSheet.absoluteFill, { backgroundColor: popover ? 'rgba(18,20,16,0.18)' : stacked ? 'rgba(0,0,0,0.22)' : c.scrim }, scrimStyle]}>
         <View style={StyleSheet.absoluteFill} onTouchEnd={() => close()} accessibilityLabel="Close" accessibilityRole="button" />
       </Animated.View>
       {bloom && phase !== 'open' ? (

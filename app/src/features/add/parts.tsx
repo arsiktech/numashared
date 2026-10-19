@@ -198,7 +198,8 @@ export function AfterRow({ left, lead, strong }: { left: string; lead: string; s
 
 /** Key height that fits the space left for the keypad: about 56 on an 844 pt phone. */
 export function keyHeight(screenH: number, space: number, rows = 4) {
-  const cap = Math.max(50, Math.min(62, Math.round(screenH * 0.066)));
+  // The keypad sits on the receipt like a phone's own: comfortable keys, never a gap beneath.
+  const cap = Math.max(50, Math.min(66, Math.round(screenH * 0.07)));
   if (!space) return cap;
   return Math.max(44, Math.min(cap, Math.floor((space - 8) / rows)));
 }

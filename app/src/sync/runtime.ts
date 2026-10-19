@@ -13,7 +13,7 @@ import { refreshContract } from './contract';
 import {
   base64url,
   addPersonOnline, adoptPots, deleteHouseholdOnline, removePersonOnline, claimInvite, failureOf, flush, issueInvites, leaveOnline, promote, pull,
-  regroupOnline, renameOnline, resolveInvite, resume, stageSync, SEND_DELAY_MS,
+  regroupOnline, renameOnline, resolveInvite, resume, retryReasons, stageSync, SEND_DELAY_MS,
   type Access, type Backend, type InvitePreview, type PotSummary,
 } from './engine';
 
@@ -24,6 +24,8 @@ export type SyncStatus = {
   connected: boolean;
   /** Something is on its way to the server. */
   busy: boolean;
+  /** Households whose uploads wait because this account sent its hourly maximum. */
+  throttled?: string;
   /** The last sync attempt failed for a reason worth showing (network trouble is not). */
   lastError?: string;
   /** Households fully pulled at least once since launch. */
@@ -122,7 +124,8 @@ async function syncOnce() {
         if (!f.retryable) setStatus({ lastError: f.code });
       }
     }
-    setStatus({ busy: false, ready: true, lastError: undefined });
+    const throttled = synced().filter((h) => retryReasons.get(h.id)?.endsWith('RATE_LIMITED')).map((h) => h.id).join(',');
+    setStatus({ busy: false, ready: true, lastError: undefined, throttled: throttled || undefined });
   } catch (e) {
     const f = failureOf(e);
     setStatus({ busy: false, lastError: f.retryable ? undefined : f.code });

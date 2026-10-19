@@ -323,6 +323,9 @@ export const isSending = (eventId: ID) => inFlight.has(eventId);
  * the first event still inside its window so the server sees events in the order they were made.
  * Returns when the queue is empty, waiting, or blocked.
  */
+/** Why the last flush of each household had to stop and retry later, until it next sends. */
+export const retryReasons = new Map<ID, string>();
+
 export async function flush(backend: Backend, access: Access, householdId: ID, now = () => Date.now()): Promise<'done' | 'waiting' | 'retry' | 'paused'> {
   for (;;) {
     const h = access.get(householdId);
@@ -340,12 +343,13 @@ export async function flush(backend: Backend, access: Access, householdId: ID, n
     try {
       const wire = toWire(access.get(householdId)!, h.id, h.sync.schema, stamped);
       const res = await backend.mutation<{ events: { eventId: string; sequence: bigint }[] }>('events:appendEvents', { potId: h.id, events: [wire] });
+      retryReasons.delete(householdId);
       const seq = Number(res.events[0].sequence);
       const latest = access.get(householdId)!;
       access.put({ ...latest, events: ordered(latest.events.map((e) => (e.id === next.id ? { ...e, seq } : e))) });
     } catch (error) {
       const f = failureOf(error);
-      if (f.retryable) return 'retry';
+      if (f.retryable) { retryReasons.set(householdId, f.code); return 'retry'; }
       const latest = access.get(householdId)!;
       if (TERMINAL_EVENT_CODES.has(f.code) || f.code.startsWith('CLIENT_')) {
         // This event can never be accepted: set it aside, and anything that depended on it.
