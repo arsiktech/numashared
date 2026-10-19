@@ -11,6 +11,7 @@
     <key>com.apple.developer.associated-domains</key>
     <array>
       <string>applinks:adept-camel-457.convex.site</string>
+      <string>applinks:shared.numaworth.com</string>
     </array>
   </dict>
 </plist>

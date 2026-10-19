@@ -212,8 +212,8 @@ function within<T>(p: Promise<T>, ms = 15_000): Promise<T> {
 export class NeedsSignIn extends Error { constructor() { super('NEEDS_SIGN_IN'); } }
 
 /** Sign in (Apple or Google), then bring in this account's households. Returns how many arrived. */
-export async function signIn(provider: 'apple' | 'google' = 'apple'): Promise<number> {
-  if (provider === 'google') await signInWithGoogle(); else await signInWithApple();
+export async function signIn(provider: 'apple' | 'google' = 'apple', webIdToken?: string): Promise<number> {
+  if (provider === 'google') await signInWithGoogle(webIdToken); else await signInWithApple();
   connect();
   const before = getState().households.length;
   await requestSync();

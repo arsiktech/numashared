@@ -25,6 +25,7 @@ import type * as lib_appleIdentity from "../lib/appleIdentity.js";
 import type * as lib_authConfig from "../lib/authConfig.js";
 import type * as lib_budgetGroupTopology from "../lib/budgetGroupTopology.js";
 import type * as lib_clientContract from "../lib/clientContract.js";
+import type * as lib_cors from "../lib/cors.js";
 import type * as lib_deployment from "../lib/deployment.js";
 import type * as lib_environment from "../lib/environment.js";
 import type * as lib_eventValidation from "../lib/eventValidation.js";
@@ -73,6 +74,7 @@ declare const fullApi: ApiFromModules<{
   "lib/authConfig": typeof lib_authConfig;
   "lib/budgetGroupTopology": typeof lib_budgetGroupTopology;
   "lib/clientContract": typeof lib_clientContract;
+  "lib/cors": typeof lib_cors;
   "lib/deployment": typeof lib_deployment;
   "lib/environment": typeof lib_environment;
   "lib/eventValidation": typeof lib_eventValidation;

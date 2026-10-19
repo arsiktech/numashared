@@ -433,3 +433,10 @@ that stay in the private development repository.
 - Decision (owner report): someone added by mistake can be removed while they haven't joined and no record mentions them (owner only once shared; the server archives them and the app hides them). A shared household nobody else has ever joined can be deleted by its owner (`pots:deleteHousehold`, reusing account deletion's per-pot sweep); once anyone has joined, the owner can only leave.
 - Why: a household or person created by accident otherwise stays forever, and the last member could not even leave.
 
+
+## 2026-10-19 — shared.numaworth.com returns as the branded front door
+
+- Decision: shared.numaworth.com serves the web app under `/app` and the backend's public pages (home, privacy, support, invite pages, apple-app-site-association) through a Cloudflare Worker (`tools/web-host`). Requests that change something (sign-in, invite checks, the invite page's form) are 307-redirected to `https://adept-camel-457.convex.site`, which stays the origin of record. The app adds `applinks:shared.numaworth.com` so branded invite links can open it.
+- Why: invited people without the iPhone app had nowhere to go: the App Store listing does not exist yet, the web app was not hosted and could not sign in, and the invite link showed the raw backend host. The owner chose the branded domain and a TestFlight public link for iPhones.
+- Boundary: the backend sends CORS headers only to origins in `NUMA_SHARED_WEB_ORIGINS`. Rate limits keep seeing each person's own IP because nothing that is rate-limited is proxied.
+- Supersedes the 2026-08-23 rejection of a Cloudflare layer for public pages; the direct Convex origin remains valid and keeps working.

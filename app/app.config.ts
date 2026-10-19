@@ -13,6 +13,8 @@ export default ({ config }: ConfigContext): ExpoConfig => {
     ...config,
     name: 'Numa Shared',
     slug: 'numa-shared',
+    // The web export is served under a path (shared.numaworth.com/app); native builds ignore it.
+    experiments: { ...config.experiments, ...(process.env.EXPO_WEB_BASE_URL ? { baseUrl: process.env.EXPO_WEB_BASE_URL } : {}) },
     plugins: [
       ...(config.plugins ?? []),
       // Google Sign-In needs its URL scheme at build time, so it is added only when configured.

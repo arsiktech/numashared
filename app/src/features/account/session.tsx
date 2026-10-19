@@ -5,9 +5,11 @@ import Svg, { Path } from 'react-native-svg';
 import { View } from 'react-native';
 import { appleSignInSupported, AuthError, currentSession, googleSignInAvailable, subscribeSession } from '@/sync/auth';
 import { signIn } from '@/sync/runtime';
+import { GoogleWebButton } from './googleWeb';
 import { showToast } from '@/store/ui';
 import { Apple } from '@/ui/icons';
 import { CTA, haptic } from '@/ui/primitives';
+import { isWeb } from '@/ui/tokens';
 
 export function useSession() {
   return useSyncExternalStore(subscribeSession, currentSession, currentSession);
@@ -54,10 +56,10 @@ export function SignInButtons({ verb, onSignedIn, disabled }: {
 }) {
   const { apple, google } = useSignInOptions();
   const [busy, setBusy] = useState<'apple' | 'google' | null>(null);
-  const run = async (provider: 'apple' | 'google') => {
+  const run = async (provider: 'apple' | 'google', webIdToken?: string) => {
     setBusy(provider);
     try {
-      const arrived = await signIn(provider);
+      const arrived = await signIn(provider, webIdToken);
       haptic.success();
       onSignedIn?.(arrived);
     } catch (e) {
@@ -74,7 +76,9 @@ export function SignInButtons({ verb, onSignedIn, disabled }: {
         <CTA variant="apple" label={busy === 'apple' ? 'Signing in…' : `Continue with Apple${tail}`} disabled={!!busy || disabled}
           icon={<Apple size={20} color="#FFFFFF" />} onPress={() => run('apple')} />
       ) : null}
-      {google ? (
+      {google && isWeb ? (
+        <GoogleWebButton disabled={!!busy || disabled} onCredential={(idToken) => { void run('google', idToken); }} />
+      ) : google ? (
         <CTA variant="google" label={busy === 'google' ? 'Signing in…' : `Continue with Google${tail}`} disabled={!!busy || disabled}
           icon={<GoogleG size={20} />} onPress={() => run('google')} />
       ) : null}

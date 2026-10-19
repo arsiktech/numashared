@@ -15,7 +15,8 @@
       },
       "usesAppleSignIn": true,
       "associatedDomains": [
-        "applinks:adept-camel-457.convex.site"
+        "applinks:adept-camel-457.convex.site",
+        "applinks:shared.numaworth.com"
       ],
       "buildNumber": "14",
       "appleTeamId": "794UJ787LZ"
