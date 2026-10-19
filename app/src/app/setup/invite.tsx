@@ -19,6 +19,7 @@ import { showToast } from '@/store/ui';
 import { SITE_URL } from '@/sync/config';
 import { failureOf } from '@/sync/engine';
 import { online, turnOnSync, useSyncStatus } from '@/sync/runtime';
+import { groupLimitWords } from '@/sync/contract';
 
 export default function Invite() {
   const { h } = useHousehold();
@@ -40,7 +41,7 @@ function ShareFirst({ h }: { h: Household }) {
     try { await turnOnSync(h.id); } catch (e) {
       const code = failureOf(e).code;
       showToast((e as Error).message === 'group-too-large'
-        ? 'A group can be up to six people. Change the groups in People and groups first.'
+        ? `A group can be up to ${groupLimitWords()} people. Change the groups in People and groups first.`
         : explainFailure(code));
     } finally { setBusy(false); }
   };

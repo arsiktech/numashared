@@ -70,10 +70,10 @@ export function Bands({ h, balances, hide, compact }: { h: Household; balances: 
       ) : others.length === 1 ? (
         <TwoGroupBand h={h} g={others[0]} balances={balances} nameSize={nameSize} square={square} />
       ) : others.map((g, i) => (
-        <CompactBand key={g.id} h={h} g={g} first={i === 0} balances={balances} transfers={transfers} mine={mine} last={i === others.length - 1} />
+        <CompactBand key={g.id} h={h} g={g} hide={hide} first={i === 0} balances={balances} transfers={transfers} mine={mine} last={i === others.length - 1} />
       ))}
 
-      <Press accessibilityLabel={square ? 'All square. See the balance' : `${nameOf(h, mine)} ${bal < 0 ? 'owe' : 'get back'} ${money(h, Math.abs(bal))}. See why`}
+      <Press accessibilityLabel={square ? 'All square. See the balance' : `${nameOf(h, mine)} ${bal < 0 ? 'owe' : 'get back'} ${money(h, Math.abs(bal), hide)}. See why`}
         onPress={() => openSheet({ type: 'plan' })}
         style={{ position: 'absolute', left: 20, top: ticketTop, height: 78, paddingHorizontal: 20, borderRadius: 39, backgroundColor: c.dark ? c.card : '#FBFAF6',
           flexDirection: 'row', alignItems: 'center', gap: 12, maxWidth: (compact ? 360 : width) - 132,
@@ -123,8 +123,8 @@ function TwoGroupBand({ h, g, balances, nameSize, square }: { h: Household; g: G
   );
 }
 
-function CompactBand({ h, g, first, last, balances, transfers, mine }: {
-  h: Household; g: Group; first: boolean; last: boolean; balances: Record<ID, number>;
+function CompactBand({ h, g, hide, first, last, balances, transfers, mine }: {
+  h: Household; g: Group; hide: boolean; first: boolean; last: boolean; balances: Record<ID, number>;
   transfers: { fromGroupId: ID; toGroupId: ID; amount: number }[]; mine: Group;
 }) {
   const { tone, c } = useTheme();
@@ -133,7 +133,7 @@ function CompactBand({ h, g, first, last, balances, transfers, mine }: {
   const iOwe = transfers.find((x) => x.fromGroupId === mine.id && x.toGroupId === g.id);
   const own = balances[g.id] ?? 0;
   const single = g.memberIds.length === 1;
-  const overall = own === 0 ? 'square' : own < 0 ? `${single ? 'owes' : 'owe'} ${money(h, -own)}` : `${single ? 'gets' : 'get'} back ${money(h, own)}`;
+  const overall = own === 0 ? 'square' : own < 0 ? `${single ? 'owes' : 'owe'} ${money(h, -own, hide)}` : `${single ? 'gets' : 'get'} back ${money(h, own, hide)}`;
   return (
     <View style={{ backgroundColor: t.band, paddingTop: first ? 50 : 16, paddingBottom: last ? 44 : 16, paddingHorizontal: 22 }}>
       <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
@@ -145,10 +145,10 @@ function CompactBand({ h, g, first, last, balances, transfers, mine }: {
           </View>
         </View>
         {iOwe ? (
-          <Pill small label={`Pay ${money(h, iOwe.amount)}`} accessibilityLabel={`Record paying ${nameOf(h, g)} ${money(h, iOwe.amount)}`}
+          <Pill small label={`Pay ${money(h, iOwe.amount, hide)}`} accessibilityLabel={`Record paying ${nameOf(h, g)} ${money(h, iOwe.amount, hide)}`}
             onPress={() => openSheet({ type: 'repay', fromGroupId: mine.id, toGroupId: g.id, amount: iOwe.amount })} />
         ) : owesMe ? (
-          <Pill small label={`${nameOf(h, g)} paid you`} accessibilityLabel={`Record ${nameOf(h, g)} paying you ${money(h, owesMe.amount)}`}
+          <Pill small label={`${nameOf(h, g)} paid you`} accessibilityLabel={`Record ${nameOf(h, g)} paying you ${money(h, owesMe.amount, hide)}`}
             onPress={() => openSheet({ type: 'repay', fromGroupId: g.id, toGroupId: mine.id, amount: owesMe.amount })} />
         ) : (
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, height: 44 }}>

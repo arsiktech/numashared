@@ -1,7 +1,9 @@
 // Export CSV: pick the household and range, see what's included and a preview of the first lines,
 // then share the file (native) or download it (web).
 import { useMemo, useState } from 'react';
-import { Platform, Share, View } from 'react-native';
+import { Platform, View } from 'react-native';
+import { File, Paths } from 'expo-file-system';
+import * as Sharing from 'expo-sharing';
 import { Redirect } from 'expo-router';
 import { useStore } from '@/store/store';
 import { showToast } from '@/store/ui';
@@ -16,6 +18,13 @@ import { buildCsv, csvFileName, recordsInRange, type Range } from '@/features/se
 
 const INCLUDED = ['Every expense and repayment', 'Every edit, with old and new values', 'Voids and their reasons', 'Who added what'];
 const mono = Platform.select({ ios: 'Menlo', android: 'monospace', default: 'ui-monospace, Menlo, Consolas, monospace' });
+
+/** "numa-shared-home.csv" becomes "numa-shared-home-2026-10-19.csv" (local date). */
+function datedName(name: string, now = new Date()) {
+  const pad = (n: number) => String(n).padStart(2, '0');
+  const day = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`;
+  return name.replace(/\.csv$/, `-${day}.csv`);
+}
 
 export default function ExportScreen() {
   const { h: active } = useHousehold();
@@ -35,7 +44,7 @@ export default function ExportScreen() {
 
   const run = async () => {
     if (!count) return;
-    const name = csvFileName(h);
+    const name = datedName(csvFileName(h));
     if (isWeb) {
       const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' });
       const url = URL.createObjectURL(blob);
@@ -50,7 +59,11 @@ export default function ExportScreen() {
       return;
     }
     try {
-      await Share.share({ message: csv, title: name });
+      if (!(await Sharing.isAvailableAsync())) throw new Error('sharing unavailable');
+      const file = new File(Paths.cache, name);
+      file.create({ overwrite: true });
+      file.write(csv);
+      await Sharing.shareAsync(file.uri, { mimeType: 'text/csv', UTI: 'public.comma-separated-values-text', dialogTitle: name });
       haptic.success();
     } catch {
       showToast('Couldn’t open sharing on this device.');

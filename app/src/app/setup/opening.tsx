@@ -65,10 +65,10 @@ export default function Opening() {
     haptic.tick();
   };
 
-  const save = () => {
+  const save = async () => {
     if (!toG || cents <= 0) return;
     try {
-      setOpeningBalance(h, [{ fromGroupId: fromId, toGroupId: toG.id, amount: cents }]);
+      await setOpeningBalance(h, [{ fromGroupId: fromId, toGroupId: toG.id, amount: cents }]);
       haptic.success();
       finish();
     } catch (e) {

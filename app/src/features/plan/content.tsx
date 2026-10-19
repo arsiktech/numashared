@@ -80,7 +80,7 @@ export function PlanContent() {
                 {[...transfers].sort((a, b) => Number(b.fromGroupId === mine.id || b.toGroupId === mine.id) - Number(a.fromGroupId === mine.id || a.toGroupId === mine.id)).map((t) => <Move key={`${t.fromGroupId}-${t.toGroupId}`} h={h} t={t} mine={mine} hide={hide} onRecord={() => record(t)} />)}
               </View>
               <T style={{ fontFamily: fonts.semibold, fontSize: 12.5, lineHeight: 18, color: c.ink2, marginTop: 16 }}>
-                Worked out from today’s balances and updated whenever anything changes. Paying someone else directly is fine too: Numa keeps every balance right either way.
+                Worked out from today’s balances and updated whenever anything changes. Paying someone else directly is fine too: Numa Shared keeps every balance right either way.
               </T>
             </View>
           ) : (

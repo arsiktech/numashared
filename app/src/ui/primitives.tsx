@@ -152,11 +152,12 @@ export function TChip({ label, amount, on, onPress, tone, small, leading, access
 }) {
   return (
     <Press onPress={onPress} accessibilityRole="button" accessibilityState={{ selected: !!on }}
-      accessibilityLabel={accessibilityLabel ?? (amount ? `${label}, ${amount}` : label)}
-      style={[s.tchip, { height: small ? 32 : 36, paddingHorizontal: small ? 12 : 14, backgroundColor: on ? tone.ink : alpha(tone.ink, 0.09) }]}>
-      {leading}
-      <T style={{ fontFamily: fonts.semibold, fontSize: small ? 14 : 14.5, color: on ? tone.band : tone.ink }}>{label}</T>
-      {amount ? <T style={{ fontFamily: fonts.medium, fontSize: 14.5, color: on ? tone.band : tone.ink, opacity: 0.72 }}>{amount}</T> : null}
+      accessibilityLabel={accessibilityLabel ?? (amount ? `${label}, ${amount}` : label)} style={s.target}>
+      <View style={[s.tchip, { height: small ? 32 : 36, paddingHorizontal: small ? 12 : 14, backgroundColor: on ? tone.ink : alpha(tone.ink, 0.09) }]}>
+        {leading}
+        <T style={{ fontFamily: fonts.semibold, fontSize: small ? 14 : 14.5, color: on ? tone.band : tone.ink }}>{label}</T>
+        {amount ? <T style={{ fontFamily: fonts.medium, fontSize: 14.5, color: on ? tone.band : tone.ink, opacity: 0.72 }}>{amount}</T> : null}
+      </View>
     </Press>
   );
 }
@@ -165,10 +166,11 @@ export function TChip({ label, amount, on, onPress, tone, small, leading, access
 export function Chip({ label, on, onPress, leading, square }: { label: string; on?: boolean; onPress?: () => void; leading?: ReactNode; square?: boolean }) {
   const { c } = useTheme();
   return (
-    <Press onPress={onPress} accessibilityState={{ selected: !!on }} accessibilityLabel={label}
-      style={[s.chip, { borderRadius: square ? 8 : 18, backgroundColor: on ? c.ink : c.chip }]}>
-      {leading}
-      <T style={{ fontFamily: fonts.semibold, fontSize: 14.5, color: on ? c.bg : c.ink }}>{label}</T>
+    <Press onPress={onPress} accessibilityState={{ selected: !!on }} accessibilityLabel={label} style={s.target}>
+      <View style={[s.chip, { borderRadius: square ? 8 : 18, backgroundColor: on ? c.ink : c.chip }]}>
+        {leading}
+        <T style={{ fontFamily: fonts.semibold, fontSize: 14.5, color: on ? c.bg : c.ink }}>{label}</T>
+      </View>
     </Press>
   );
 }
@@ -227,17 +229,19 @@ export function Toggle({ value, onChange, label, android }: { value: boolean; on
   const { c } = useTheme();
   if (android) {
     return (
-      <Press noScale accessibilityRole="switch" accessibilityState={{ checked: value }} accessibilityLabel={label} onPress={() => onChange(!value)}
-        style={{ width: 52, height: 32, borderRadius: 16, backgroundColor: value ? c.ink : c.chip2, borderWidth: value ? 0 : 2, borderColor: c.ink3, justifyContent: 'center' }}>
-        <View style={{ position: 'absolute', left: value ? 24 : 6, width: value ? 24 : 16, height: value ? 24 : 16, borderRadius: 12, backgroundColor: value ? c.bg : c.ink3 }} />
+      <Press noScale accessibilityRole="switch" accessibilityState={{ checked: value }} accessibilityLabel={label} onPress={() => onChange(!value)} style={s.target}>
+        <View style={{ width: 52, height: 32, borderRadius: 16, backgroundColor: value ? c.ink : c.chip2, borderWidth: value ? 0 : 2, borderColor: c.ink3, justifyContent: 'center' }}>
+          <View style={{ position: 'absolute', left: value ? 24 : 6, width: value ? 24 : 16, height: value ? 24 : 16, borderRadius: 12, backgroundColor: value ? c.bg : c.ink3 }} />
+        </View>
       </Press>
     );
   }
   return (
-    <Press noScale accessibilityRole="switch" accessibilityState={{ checked: value }} accessibilityLabel={label} onPress={() => { haptic.tick(); onChange(!value); }}
-      style={{ width: 51, height: 31, borderRadius: 16, backgroundColor: value ? c.good : c.chip2, justifyContent: 'center' }}>
-      <View style={{ position: 'absolute', left: value ? 22 : 2, width: 27, height: 27, borderRadius: 14, backgroundColor: '#FFFFFF',
-        shadowColor: '#000', shadowOpacity: 0.2, shadowRadius: 2, shadowOffset: { width: 0, height: 2 }, elevation: 2 }} />
+    <Press noScale accessibilityRole="switch" accessibilityState={{ checked: value }} accessibilityLabel={label} onPress={() => { haptic.tick(); onChange(!value); }} style={s.target}>
+      <View style={{ width: 51, height: 31, borderRadius: 16, backgroundColor: value ? c.good : c.chip2, justifyContent: 'center' }}>
+        <View style={{ position: 'absolute', left: value ? 22 : 2, width: 27, height: 27, borderRadius: 14, backgroundColor: '#FFFFFF',
+          shadowColor: '#000', shadowOpacity: 0.2, shadowRadius: 2, shadowOffset: { width: 0, height: 2 }, elevation: 2 }} />
+      </View>
     </Press>
   );
 }
@@ -280,6 +284,8 @@ export const s = StyleSheet.create({
   ctaAddShadow: { shadowColor: '#C8401F', shadowOpacity: 0.26, shadowRadius: 9, shadowOffset: { width: 0, height: 8 }, elevation: 4 },
   iconBtn: { width: 44, height: 44, borderRadius: 22, alignItems: 'center', justifyContent: 'center' },
   textBtn: { minHeight: 44, minWidth: 44, paddingHorizontal: 6, flexDirection: 'row', alignItems: 'center', gap: 4 },
+  // A 44 x 44 pt touch target around a smaller visual control.
+  target: { minHeight: 44, minWidth: 44, justifyContent: 'center', alignItems: 'center' },
   tchip: { flexDirection: 'row', alignItems: 'center', gap: 6, borderRadius: 18 },
   chip: { height: 36, paddingHorizontal: 14, flexDirection: 'row', alignItems: 'center', gap: 6 },
 });

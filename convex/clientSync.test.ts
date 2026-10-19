@@ -21,10 +21,12 @@ import {
   type Backend,
 } from "../app/src/sync/engine";
 import { isUuidv7 } from "../app/src/sync/uuid";
+import { toWire } from "../app/src/sync/mapping";
 import terminalCodes from "../contracts/event-terminal-codes.json";
 import { TERMINAL_EVENT_CODES } from "../app/src/sync/terminal";
 import { KNOWN_TIME_ZONES } from "../app/src/sync/timezones";
 import { MAX_GROUP_SIZE } from "../app/src/core/types";
+import { EXTENDED_CONTRACT, LEGACY_CONTRACT, setContract } from "../app/src/sync/contract";
 import { maximumBudgetGroupSize } from "./lib/budgetGroupTopology";
 import { ios18TimeZoneIdentifiers } from "./lib/ios18TimeZoneIdentifiers";
 import schema from "./schema";
@@ -41,9 +43,17 @@ beforeEach(() => {
   vi.stubEnv("NUMA_SHARED_SESSION_AUDIENCE", "tech.arsik.numashared");
 });
 
-afterEach(() => vi.unstubAllEnvs());
+afterEach(() => { vi.unstubAllEnvs(); setContract(LEGACY_CONTRACT); });
 
 type T = ReturnType<typeof convexTest>;
+
+/** Production stops serving Swift build 11, which opens the wider contract on both ends. */
+async function fenceBuild11(t: T) {
+  await t.run(async (ctx) => {
+    await ctx.db.insert("appConfiguration", { key: "global", minimumSupportedBuild: 12, updatedAt: 1 });
+  });
+  setContract(EXTENDED_CONTRACT);
+}
 
 async function signIn(t: T, name: string): Promise<Backend> {
   await t.run(async (ctx) => {
@@ -140,6 +150,7 @@ describe("app sync engine against the backend", () => {
 
   test("a household with a group of three shares and syncs", async () => {
     const t = convexTest(schema, modules);
+    await fenceBuild11(t);
     const ana = await signIn(t, "ana");
     const phoneA = phone();
     const local = localHousehold();
@@ -168,6 +179,7 @@ describe("app sync engine against the backend", () => {
 
   test("two phones create, invite, join, record and always agree", async () => {
     const t = convexTest(schema, modules);
+    await fenceBuild11(t);
     const ana = await signIn(t, "ana");
     const leo = await signIn(t, "leo");
     const phoneA = phone();
@@ -278,6 +290,72 @@ describe("app sync engine against the backend", () => {
     expect(a.sync!.invites![zoe].issued).toBe(true);
     await pull(leo, phoneB, id);
     expect(phoneB.get(id)!.people.some((p) => p.id === zoe)).toBe(true);
+  });
+
+  test("until Swift build 11 is fenced out, both ends keep its text and group-size contract", async () => {
+    const t = convexTest(schema, modules);
+    const ana = await signIn(t, "ana");
+    const leo = await signIn(t, "leo");
+    const phoneA = phone();
+    const phoneB = phone();
+
+    // The app won't share a group of three while build 11 can still read the household.
+    const local = localHousehold();
+    phoneA.put({
+      ...local,
+      id: "h_family",
+      people: local.people.map((p) => (p.id === "p_leo" ? { ...p, groupId: "g_couple" } : p)),
+      groups: [{ id: "g_couple", color: "citrus", memberIds: ["p_you", "p_mia", "p_leo"] }],
+      events: [],
+    });
+    await expect(startSync(ana, phoneA, "h_family")).rejects.toThrow("group-too-large");
+
+    // Notes, edit reasons and repayment details stay on the phone; the rest syncs.
+    phoneA.put(localHousehold());
+    const id = await startSync(ana, phoneA, "h_local");
+    await pull(ana, phoneA, id);
+    let a = phoneA.get(id)!;
+    const first = a.events[0];
+    append(phoneA, id, {
+      id: "01890f5e-7b00-7000-8000-00000000e001", at: Date.now() - 20_000, by: a.youId, kind: "expenseRevised",
+      recordId: first.recordId, basis: { kind: "parent", parentEventId: first.id }, reason: "Forgot the milk",
+      content: { ...(first.kind === "expenseAdded" ? first.content : ({} as never)), amount: 9_300, note: "Milk too" },
+    });
+    const ab = balances(phoneA.get(id)!);
+    append(phoneA, id, {
+      id: "01890f5e-7b00-7000-8000-00000000e002", at: Date.now() - 15_000, by: a.youId, kind: "settlementRecorded",
+      recordId: "01890f5e-7b00-7000-8000-00000000e003",
+      content: {
+        fromGroupId: Object.entries(ab).find(([, v]) => v < 0)![0], toGroupId: Object.entries(ab).find(([, v]) => v > 0)![0],
+        amount: 1_000, date: "2026-10-02", method: "bank", note: "Half now",
+      },
+    });
+    expect(await flush(ana, phoneA, id)).toBe("done");
+    a = phoneA.get(id)!;
+    expect(a.sync!.rejected ?? []).toEqual([]);
+
+    await issueInvites(ana, phoneA, id);
+    const leoId = a.people.find((p) => p.name === "Leo")!.id;
+    const code = phoneA.get(id)!.sync!.invites![leoId].code;
+    const fetchFromSite = ((url: string, init?: RequestInit) => t.fetch(new URL(url).pathname + new URL(url).search, init)) as typeof fetch;
+    const preview = await resolveInvite("http://127.0.0.1:3211", code, fetchFromSite);
+    if (preview.status !== "active") throw new Error(preview.status);
+    await claimInvite(leo, phoneB, preview);
+    const b = phoneB.get(id)!;
+    expect(balances(b)).toEqual(balances(phoneA.get(id)!));
+    for (const e of b.events) {
+      if (e.kind === "expenseAdded" || e.kind === "expenseRevised") expect(e.content.note).toBeUndefined();
+      if (e.kind === "expenseRevised") expect(e.reason).toBeUndefined();
+      if (e.kind === "settlementRecorded") expect(e.content).not.toHaveProperty("method");
+      if (e.kind === "settlementRecorded") expect(e.content.note).toBeUndefined();
+    }
+    expect(b.events.map((e) => e.kind)).toEqual(["expenseAdded", "expenseRevised", "settlementRecorded"]);
+
+    // The server refuses the wider contract from any client, not just this one.
+    const wire = toWire(phoneA.get(id)!, id, phoneA.get(id)!.sync!.schema, {
+      ...first, id: "01890f5e-7b00-7000-8000-00000000e004", recordId: "01890f5e-7b00-7000-8000-00000000e005", seq: undefined,
+    } as LedgerEvent, EXTENDED_CONTRACT);
+    await expect(ana.mutation("events:appendEvents", { potId: id, events: [wire] })).rejects.toThrow("TEXT_FIELD_NOT_ALLOWED_NOTE");
   });
 
   test("an event the server can never accept is set aside, the rest still syncs", async () => {

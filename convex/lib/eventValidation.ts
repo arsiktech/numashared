@@ -227,9 +227,12 @@ export function validateConfiguration(configuration: PotConfigurationInput): voi
 export function validateEvent(
   event: EventInput,
   configuration: PotConfigurationInput,
-  options: { allowLegacyAuthoredText?: boolean } = {},
+  options: { allowLegacyAuthoredText?: boolean; extendedText?: boolean } = {},
 ): void {
   const allowLegacyAuthoredText = options.allowLegacyAuthoredText === true;
+  // Notes, edit reasons and repayment details are readable only by builds after Swift build 11
+  // (see lib/clientContract.ts).
+  const extended = options.extendedText === true;
   validateUUIDv7(event.eventId, "INVALID_EVENT_ID");
   assert(event.potId === configuration.potId, "EVENT_POT_MISMATCH");
   validateUUIDv7(event.actorMemberId, "INVALID_ACTOR_MEMBER_ID");
@@ -249,7 +252,8 @@ export function validateEvent(
       validateRecord(event.payload.recordId);
       validateExpense(event.payload.content, configuration);
       validateManifestAndText(
-        event, ["title"], ["title", "category", "note"], allowLegacyAuthoredText,
+        event, ["title"], extended ? ["title", "category", "note"] : ["title", "category"],
+        allowLegacyAuthoredText,
       );
       return;
     case "expenseRevised":
@@ -258,7 +262,8 @@ export function validateEvent(
       if (event.payload.content.kind === "expense") {
         validateExpense(event.payload.content, configuration);
         validateManifestAndText(
-          event, ["title"], ["title", "category", "note", "reason"], allowLegacyAuthoredText,
+          event, ["title"], extended ? ["title", "category", "note", "reason"] : ["title", "category"],
+          allowLegacyAuthoredText,
         );
       } else {
         validateOpeningBalance(event.payload.content.entries, configuration);
@@ -297,7 +302,7 @@ export function validateEvent(
       // category carries the optional payment method (for example "bank"), note the
       // optional free-text description of how the money moved.
       validateManifestAndText(
-        event, ["title"], ["title", "category", "note"], allowLegacyAuthoredText,
+        event, ["title"], extended ? ["title", "category", "note"] : ["title"], allowLegacyAuthoredText,
       );
       return;
     case "settlementFlagged":

@@ -13,6 +13,7 @@ import type {
   PaymentMethod, Person, SettlementContent, Split,
 } from '../core/types';
 import { GROUP_COLORS } from '../core/types';
+import { getContract, type ClientContract } from './contract';
 import { wireTimeZone } from './timezones';
 import {
   authored, isPresent, type ListedEvent, type TextField, type WireAllocation, type WireEvent,
@@ -101,12 +102,11 @@ function expenseToWire(h: Household, c: ExpenseContent, schema: number): WireExp
   };
 }
 
-function expenseText(c: ExpenseContent, extra: Partial<Record<TextField, string | undefined>> = {}) {
+function expenseText(c: ExpenseContent, contract: ClientContract, extra: Partial<Record<TextField, string | undefined>> = {}) {
   return authored({
     title: isPresent(c.title) ? c.title : categoryLabel(c.category),
     category: c.category,
-    note: c.note,
-    ...extra,
+    ...(contract.extendedText ? { note: c.note, ...extra } : {}),
   });
 }
 
@@ -140,14 +140,18 @@ export function openingFromWire(entries: WireOpeningEntry[]): OpeningEntry[] {
   return out;
 }
 
-export function toWire(h: Household, potId: ID, schema: number, input: LedgerEvent): WireEvent {
+/**
+ * One local event as the server stores it. Under the old contract (see contract.ts) notes, edit
+ * reasons and repayment details stay on this phone: Swift build 11 can't read them.
+ */
+export function toWire(h: Household, potId: ID, schema: number, input: LedgerEvent, contract = getContract()): WireEvent {
   const e = stamp(input);
   let payload: WirePayload;
   let text: ReturnType<typeof authored>;
   switch (e.kind) {
     case 'expenseAdded':
       payload = { kind: 'expenseAdded', recordId: e.recordId, content: expenseToWire(h, e.content, schema) };
-      text = expenseText(e.content);
+      text = expenseText(e.content, contract);
       break;
     case 'expenseRevised':
       if (!e.basis) throw new MappingError('missing-basis');
@@ -155,7 +159,7 @@ export function toWire(h: Household, potId: ID, schema: number, input: LedgerEve
         kind: 'expenseRevised', recordId: e.recordId, basis: e.basis,
         content: { kind: 'expense', ...expenseToWire(h, e.content, schema) },
       };
-      text = expenseText(e.content, { reason: e.reason });
+      text = expenseText(e.content, contract, { reason: e.reason });
       break;
     case 'settlementRecorded':
       payload = {
@@ -167,7 +171,9 @@ export function toWire(h: Household, potId: ID, schema: number, input: LedgerEve
           ...(e.content.reversalOf ? { reversalOfRecordId: e.content.reversalOf } : {}),
         },
       };
-      text = authored({ title: SETTLEMENT_TITLE, category: e.content.method, note: e.content.note });
+      text = authored(contract.extendedText
+        ? { title: SETTLEMENT_TITLE, category: e.content.method, note: e.content.note }
+        : { title: SETTLEMENT_TITLE });
       break;
     case 'settlementFlagged':
       payload = { kind: 'settlementFlagged', recordId: e.recordId };

@@ -118,8 +118,24 @@ test("owner configures an unclaimed couple atomically without assigning accounts
     event: { ...groupEvent(12), actorMemberId: partnerId } })).rejects.toThrow("ACTOR_MISMATCH");
 });
 
+test("groups stay at one or two people until Swift build 11 is fenced out", async () => {
+  const f = await fixture();
+  await f.activate();
+  const household = { ...couple, orderedMemberIds: [ownerId, partnerId, neighborId] };
+  await expect(f.owner.mutation(change, { potId, expectedTopologyRevision: 4n, event: groupEvent(11, [household]) }))
+    .rejects.toThrow("INVALID_BUDGET_GROUP");
+  await f.t.run(async (ctx) => {
+    await ctx.db.insert("appConfiguration", { key: "global", minimumSupportedBuild: 11, updatedAt: 1 });
+  });
+  await expect(f.owner.mutation(change, { potId, expectedTopologyRevision: 4n, event: groupEvent(11, [household]) }))
+    .rejects.toThrow("INVALID_BUDGET_GROUP");
+});
+
 test("a group of more than two people pays and is charged as one unit", async () => {
   const f = await fixture();
+  await f.t.run(async (ctx) => {
+    await ctx.db.insert("appConfiguration", { key: "global", minimumSupportedBuild: 12, updatedAt: 1 });
+  });
   await f.activate();
   const household = { ...couple, orderedMemberIds: [ownerId, partnerId, neighborId] };
   await f.owner.mutation(change, { potId, expectedTopologyRevision: 4n, event: groupEvent(11, [household]) });

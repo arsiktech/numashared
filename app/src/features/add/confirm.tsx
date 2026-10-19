@@ -25,7 +25,7 @@ export const quotedTitle = (r: LedgerRecord) => `“${recordTitle(r)}”`;
 export function ConfirmBody({ title, sub, reasons, explain, action, onConfirm, needsReason, otherPlaceholder }: {
   title: string; sub: string; reasons: string[]; explain: ReactNode; action: string;
   /** Returns an error message to show, or nothing when it worked. */
-  onConfirm: (reason: string | undefined) => string | void;
+  onConfirm: (reason: string | undefined) => Promise<string | void> | string | void;
   needsReason: boolean; otherPlaceholder: string;
 }) {
   const { c } = useTheme();
@@ -37,10 +37,12 @@ export function ConfirmBody({ title, sub, reasons, explain, action, onConfirm, n
   const finalReason = reason === 'Other' ? other.trim() || undefined : reason ?? undefined;
   const ready = !needsReason || !!finalReason;
 
-  const confirm = () => {
-    if (!ready) { haptic.warn(); return; }
-    const err = onConfirm(finalReason);
-    if (err) { haptic.warn(); setError(err); return; }
+  const [busy, setBusy] = useState(false);
+  const confirm = async () => {
+    if (!ready || busy) { if (!ready) haptic.warn(); return; }
+    setBusy(true);
+    const err = await onConfirm(finalReason);
+    if (err) { setBusy(false); haptic.warn(); setError(err); return; }
     haptic.medium();
     close();
   };

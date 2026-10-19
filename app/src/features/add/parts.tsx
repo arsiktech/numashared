@@ -214,7 +214,7 @@ type KeyHandlers = { onKey?: (k: Key) => void; onEnter?: () => void; onTab?: () 
 
 /**
  * On the web, digits typed on a physical keyboard go into the amount, Backspace deletes, Enter
- * saves and Tab moves to the note. Text fields keep their own keys.
+ * saves, and Tab with nothing focused yet moves to the note. Text fields keep their own keys.
  */
 export function useWebKeys(enabled: boolean, handlers: KeyHandlers) {
   const ref = useRef(handlers);
@@ -233,7 +233,13 @@ export function useWebKeys(enabled: boolean, handlers: KeyHandlers) {
       const editable = !!t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.isContentEditable);
       const h = ref.current;
       if (editable) return;
-      if (e.key === 'Tab' && h.onTab) { e.preventDefault(); h.onTab(); return; }
+      // Only the first Tab, while nothing has focus yet, jumps to the note. After that Tab and
+      // Shift+Tab move through the controls as usual.
+      if (e.key === 'Tab' && h.onTab) {
+        const nothingFocused = !t || t === document.body || t === document.documentElement;
+        if (nothingFocused && !e.shiftKey) { e.preventDefault(); h.onTab(); }
+        return;
+      }
       if (/^[0-9]$/.test(e.key) && h.onKey) { e.preventDefault(); h.onKey(e.key as Key); return; }
       if ((e.key === '.' || e.key === ',') && h.onKey) { e.preventDefault(); h.onKey('.'); return; }
       if (e.key === 'Backspace' && h.onKey) { e.preventDefault(); h.onKey('back'); return; }

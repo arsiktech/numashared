@@ -15,6 +15,8 @@ type SheetCtx = { close: (how?: 'down' | 'done') => void };
 const Ctx = createContext<SheetCtx>({ close: () => {} });
 export const useSheet = () => useContext(Ctx);
 
+export { saveGuard } from './saveGuard';
+
 export function Sheet({ origin, onClosed, children, background, height = 'full', popover, washTo, label }: {
   origin?: Origin; onClosed: () => void; children: ReactNode; background?: string;
   /** 'full' covers the screen below the status area; 'auto' hugs its content at the bottom. */
@@ -117,7 +119,9 @@ export function Sheet({ origin, onClosed, children, background, height = 'full',
       maxWidth: isWeb ? 560 : undefined, marginHorizontal: 'auto' as never };
 
   const panel = (
-    <Animated.View style={[panelStyle, panelDrag, fadeIn]} accessibilityViewIsModal accessibilityLabel={label}>
+    // While it closes the sheet takes no more input, so a second tap can't act twice.
+    <Animated.View style={[panelStyle, panelDrag, fadeIn]} accessibilityViewIsModal accessibilityLabel={label}
+      pointerEvents={phase === 'closing' ? 'none' : 'auto'}>
       <Animated.View style={[{ flex: height === 'full' ? 1 : undefined }, content]}>
         <Ctx.Provider value={{ close }}>
           <View {...pan.panHandlers}>

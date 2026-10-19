@@ -8,6 +8,7 @@ import type { Household, ID } from '../core/types';
 import { getState, putHousehold, removeHousehold, switchHousehold } from '../store/store';
 import { accessToken, currentSession, loadSession, signInWithApple, signInWithGoogle, signOutSession, subscribeSession } from './auth';
 import { CONVEX_URL, SITE_URL } from './config';
+import { refreshContract } from './contract';
 import {
   addPersonOnline, adoptPots, deleteHouseholdOnline, removePersonOnline, claimInvite, failureOf, flush, issueInvites, leaveOnline, promote, pull,
   regroupOnline, renameOnline, resolveInvite, resume, stageSync, SEND_DELAY_MS,
@@ -94,6 +95,7 @@ export function requestSync(): Promise<void> {
 async function syncOnce() {
   setStatus({ busy: true });
   try {
+    await refreshContract(SITE_URL);
     const pots = latestPots ?? await backend.query<PotSummary[]>('pots:listMyPots', {});
     latestPots = null;
     await adoptPots(backend, access, pots);

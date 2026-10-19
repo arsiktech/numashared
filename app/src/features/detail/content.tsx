@@ -37,9 +37,9 @@ export function RecordDetail({ recordId, variant, onClose }: { recordId: ID; var
   const panel = variant === 'panel';
   // Edit and Void replace the detail sheet on a phone; on a desk the pane stays and a sheet opens.
   const go = (spec: SheetSpec) => (panel ? openSheet(spec) : replaceSheet(spec));
-  const restore = () => {
+  const restore = async () => {
     try {
-      restoreRecord(h, r.id, `Restored “${recordTitle(r)}”`);
+      await restoreRecord(h, r.id, `Restored “${recordTitle(r)}”`);
       showToast(`Restored “${recordTitle(r)}”`);
     } catch (e) {
       showToast(e instanceof SaveError ? e.message : 'Couldn’t restore it. Try again.');
@@ -283,7 +283,7 @@ function firstRevisionWithNote(r: LedgerRecord): ID | undefined {
 
 // ---------- timeline ----------
 
-type Row = { key: string; kind: 'added' | 'seen' | 'edited' | 'voided' | 'restored' | 'flagged'; head: string; meta: ReactNode[] };
+type Row = { key: string; kind: 'added' | 'seen' | 'edited' | 'voided' | 'restored' | 'flagged'; head: string; meta: ReactNode[]; spoken?: string[] };
 
 function Timeline({ h, r, hide, panel }: { h: Household; r: LedgerRecord; hide: boolean; panel: boolean }) {
   const { c } = useTheme();
@@ -296,7 +296,7 @@ function Timeline({ h, r, hide, panel }: { h: Household; r: LedgerRecord; hide: 
         <View style={{ position: 'absolute', left: 7, top: 8, bottom: 8, width: 2, backgroundColor: c.hair }} />
         {rows.map((row, i) => (
           <View key={row.key} style={{ paddingBottom: i === rows.length - 1 ? 4 : 18 }} accessible
-            accessibilityLabel={[row.head, ...row.meta.filter((m) => typeof m === 'string')].join(', ')}>
+            accessibilityLabel={speak([row.head, ...(row.spoken ?? row.meta.filter((m): m is string => typeof m === 'string'))])}>
             <View style={{ position: 'absolute', left: -24, top: 4, width: 12, height: 12, borderRadius: 6,
               backgroundColor: row.kind === 'seen' ? c.hair : c.bg, borderWidth: row.kind === 'seen' ? 0 : 2.5, borderColor: ring[row.kind] }} />
             <T style={{ fontFamily: fonts.semibold, fontSize: 15 }}>{row.head}</T>
@@ -339,8 +339,10 @@ function timelineRows(h: Household, r: LedgerRecord, hide: boolean, panel: boole
       }
       case 'edited': {
         const parts: ReactNode[] = [];
+        const said: string[] = [];
         for (const ch of t.changes) {
           if (ch.field === 'amount') {
+            if (!hide) said[parts.length] = `Amount ${ch.from} → ${ch.to}`;
             parts.push(hide ? 'Amount changed' : (
               <T key="a" style={{ fontSize: 13.5, color: ink2 }}><T style={{ fontSize: 13.5, color: ink2, textDecorationLine: 'line-through' }}>{ch.from}</T> → {ch.to}</T>
             ));
@@ -351,10 +353,11 @@ function timelineRows(h: Household, r: LedgerRecord, hide: boolean, panel: boole
           else if (ch.field === 'title') parts.push(`Name “${ch.from || 'none'}” → “${ch.to || 'none'}”`);
           else parts.push(`${ch.from} → ${ch.to}`);
         }
-        if (t.reason) parts.push(`“${t.reason}”`);
+        parts.forEach((p, k) => { if (typeof p === 'string') said[k] = p; });
+        if (t.reason) { parts.push(`“${t.reason}”`); said.push(`reason: “${t.reason}”`); }
         const line = joinNodes(parts);
         rows.push({ key: t.eventId, kind: 'edited', head: `Edited by ${personName(h, t.by)}`,
-          meta: panel ? [line, time] : [joinNodes([line, time])] });
+          meta: panel ? [line, time] : [joinNodes([line, time])], spoken: [...said, time] });
         break;
       }
       case 'voided':
@@ -369,6 +372,11 @@ function timelineRows(h: Household, r: LedgerRecord, hide: boolean, panel: boole
     }
   }
   return rows;
+}
+
+/** One spoken line for a timeline row: arrows read as "to", dots as pauses. */
+function speak(parts: string[]) {
+  return parts.join(', ').replace(/ → /g, ' to ').replace(/ · /g, ', ');
 }
 
 function joinNodes(parts: ReactNode[]): ReactNode {

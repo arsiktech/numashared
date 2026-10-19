@@ -24,9 +24,9 @@ export function VoidSheet({ spec, onClosed }: SheetProps<'void'>) {
         reasons={['Duplicate', 'Wrong amount', 'Not shared', 'Other']}
         explain="It stays in history, crossed out, and stops counting. Everyone sees it was voided. You can restore it."
         action={`Void ${money(h, amount)}`}
-        onConfirm={(reason) => {
+        onConfirm={async (reason) => {
           try {
-            voidRecord(h, r.id, reason ?? 'Other', `${r.kind === 'expense' ? quotedTitle(r) : r.kind === 'settlement' ? 'Repayment' : 'Opening balance'} voided`);
+            await voidRecord(h, r.id, reason ?? 'Other', `${r.kind === 'expense' ? quotedTitle(r) : r.kind === 'settlement' ? 'Repayment' : 'Opening balance'} voided`);
           } catch (e) {
             return e instanceof Error ? e.message : 'Try again in a moment.';
           }

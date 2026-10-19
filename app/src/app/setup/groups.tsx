@@ -13,7 +13,8 @@ import { useTheme } from '@/ui/theme';
 import { alpha, fonts } from '@/ui/tokens';
 import { useHousehold } from '@/features/hooks';
 import { Screen, ScreenHeader } from '@/features/onboarding/chrome';
-import { MAX_GROUP_SIZE, movePerson, type Arrangement } from '@/features/onboarding/model';
+import { maxGroupSize, movePerson, type Arrangement } from '@/features/onboarding/model';
+import { groupLimitWords } from '@/sync/contract';
 import { explainFailure } from '@/features/account/session';
 import { currentSession } from '@/sync/auth';
 import { failureOf } from '@/sync/engine';
@@ -37,8 +38,8 @@ export default function Groups() {
     if (target === 'new') {
       const from = arr.find((g) => g.includes(pid));
       if (from && from.length === 1) { showToast(`${nm(pid)} already ${pid === h.youId ? 'have' : 'has'} a group of their own`); return; }
-    } else if (arr[target].length >= MAX_GROUP_SIZE && !arr[target].includes(pid)) {
-      showToast('A group is up to six people who pay as one');
+    } else if (arr[target].length >= maxGroupSize() && !arr[target].includes(pid)) {
+      showToast(`A group is up to ${groupLimitWords()} people who pay as one`);
       return;
     }
     setArr(movePerson(arr, pid, target));

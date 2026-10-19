@@ -9,6 +9,7 @@ import { showToast } from '@/store/ui';
 import { explainFailure } from '@/features/account/session';
 import { failureOf } from '@/sync/engine';
 import { online } from '@/sync/runtime';
+import { groupLimitWords } from '@/sync/contract';
 import { Close, Lock } from '@/ui/icons';
 import { haptic, Pill, Press, T } from '@/ui/primitives';
 import { useTheme } from '@/ui/theme';
@@ -43,7 +44,7 @@ export default function PeopleScreen() {
     if (!sel) return;
     const before = h.groups.map((g) => g.memberIds);
     const next = movePerson(before, sel, index);
-    if (next === before) { showToast('A group is up to six people who pay as one'); return; }
+    if (next === before) { showToast(`A group is up to ${groupLimitWords()} people who pay as one`); return; }
     if (shared) {
       try { await online.regroup(h, next); } catch (e) { showToast(explainFailure(failureOf(e).code)); return; }
     } else {

@@ -9,8 +9,10 @@ import type {
   Category, ExpenseContent, Household, ID, LedgerEvent, OpeningEntry, PaymentMethod, Person, Group,
   SettlementContent, Split,
 } from '@/core/types';
-import { GROUP_COLORS, MAX_GROUP_SIZE, MAX_GROUPS } from '@/core/types';
+import { GROUP_COLORS, MAX_GROUPS } from '@/core/types';
+import { maxGroupSize } from '../sync/contract';
 import { newId, inviteCode, todayISO } from './ids';
+import { showToast } from './ui';
 import { isPersonReferenced, stamp } from '../sync/mapping';
 import { isSending } from '../sync/engine';
 
@@ -52,13 +54,30 @@ function emit() {
   schedulePersist();
 }
 
+// Writes go through one queue, in order, so an older snapshot can never land after a newer one.
+let writeQueue: Promise<void> = Promise.resolve();
 let persistTimer: ReturnType<typeof setTimeout> | null = null;
+
+const snapshot = () => {
+  const { recent: _recent, failNextSave: _f, ...rest } = state;
+  return JSON.stringify(rest);
+};
+
+/** Writes the current state to the device now; resolves once it is on disk. */
+function persistNow(): Promise<void> {
+  if (persistTimer) { clearTimeout(persistTimer); persistTimer = null; }
+  const data = snapshot();
+  const write = writeQueue.catch(() => {}).then(() => AsyncStorage.setItem(STORAGE_KEY, data));
+  writeQueue = write;
+  return write;
+}
+
+/** Background changes (preferences, sync, seen marks) are batched; a failure is still shown. */
 function schedulePersist() {
   if (!hydrated) return;
   if (persistTimer) clearTimeout(persistTimer);
   persistTimer = setTimeout(() => {
-    const { recent: _recent, failNextSave: _f, ...rest } = state;
-    AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(rest)).catch(() => {});
+    persistNow().catch(() => showToast('Couldn’t save on this phone. Free up some space, then try again.'));
   }, 150);
 }
 
@@ -183,13 +202,13 @@ export function setGroups(id: ID, groups: { memberIds: ID[] }[]) {
 }
 
 /**
- * The household with people arranged into `groups` (one to six people each). A one-person group is
+ * The household with people arranged into `groups` (one to `maxGroupSize()` people each). A one-person group is
  * keyed by that person's settlement unit; a shared group keeps its ids while it holds the same people.
  */
 export function regroup(h: Household, groups: { memberIds: ID[] }[]): Household {
   if (hasFinancialHistory(h)) throw new Error('Groups are fixed once money is recorded.');
   const kept = groups.filter((g) => g.memberIds.length).slice(0, MAX_GROUPS);
-  if (kept.some((g) => g.memberIds.length > MAX_GROUP_SIZE)) throw new Error(`A group is up to ${MAX_GROUP_SIZE} people.`);
+  if (kept.some((g) => g.memberIds.length > maxGroupSize())) throw new Error(`A group is up to ${maxGroupSize()} people.`);
   const used = new Set<Group['color']>();
   const prior = kept.map((g) => h.groups.find((old) => old.memberIds.includes(g.memberIds[0])));
   const next: Group[] = kept.map((g, i) => {
@@ -266,7 +285,12 @@ export function addPerson(id: ID, name: string): ID | null {
 
 export class SaveError extends Error {}
 
-function append(householdId: ID, event: LedgerEvent, label: string) {
+/**
+ * Appends a validated event and resolves only once it is written to the device. If the write
+ * fails, the event is taken back out and a SaveError is thrown, so nothing is ever reported as
+ * saved that a restart would lose.
+ */
+async function append(householdId: ID, event: LedgerEvent, label: string): Promise<ID> {
   if (state.failNextSave) {
     set({ ...state, failNextSave: false });
     throw new SaveError('Couldn’t save just now.');
@@ -274,12 +298,16 @@ function append(householdId: ID, event: LedgerEvent, label: string) {
   const h = state.households.find((x) => x.id === householdId);
   if (!h) throw new SaveError('Household not found.');
   validateEvent(h, event);
-  const next: Household = { ...h, events: [...h.events, stamp(event)] };
-  set({
-    ...state,
-    households: state.households.map((x) => (x.id === householdId ? next : x)),
-    recent: [...state.recent.slice(-9), { eventId: event.id, householdId, at: event.at, label }],
-  });
+  const stamped = stamp(event);
+  set({ ...state, households: state.households.map((x) => (x.id === householdId ? { ...x, events: [...x.events, stamped] } : x)) });
+  try {
+    await persistNow();
+  } catch {
+    set({ ...state, households: state.households.map((x) => (x.id === householdId ? { ...x, events: x.events.filter((e) => e.id !== event.id) } : x)) });
+    throw new SaveError('Couldn’t save on this phone. Free up some space, then try again.');
+  }
+  // Only now is it saved: show it in the undo lane.
+  set({ ...state, recent: [...state.recent.slice(-9), { eventId: event.id, householdId, at: event.at, label }] });
   return event.id;
 }
 
@@ -331,6 +359,8 @@ export function undo(eventId: ID): boolean {
     households: state.households.map((x) => (x.id === h.id ? next : x)),
     recent: state.recent.filter((x) => x.eventId !== eventId),
   });
+  // An undo must stick even if the app closes right away.
+  persistNow().catch(() => showToast('Couldn’t save on this phone. Free up some space, then try again.'));
   return true;
 }
 

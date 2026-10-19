@@ -22,9 +22,9 @@ export function FlagSheet({ spec, onClosed }: SheetProps<'flag'>) {
         reasons={['Wrong amount', 'Never arrived', 'Duplicate', 'Other']}
         explain="A flagged repayment is fixed by a linked correction. Both stay in history."
         action="Flag repayment"
-        onConfirm={(reason) => {
+        onConfirm={async (reason) => {
           try {
-            flagSettlement(h, r.id, reason);
+            await flagSettlement(h, r.id, reason);
           } catch (e) {
             return e instanceof Error ? e.message : 'Try again in a moment.';
           }

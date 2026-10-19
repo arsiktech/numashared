@@ -1,5 +1,5 @@
 // Record a repayment: "You + Sam paid Alex + Jo €40.00" on the paying group's color, with quick
-// amounts, how it was paid, a note, and a receipt that says what is left. Numa never moves money.
+// amounts, how it was paid, a note, and a receipt that says what is left. Numa Shared never moves money.
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { TextInput, View, type TextStyle } from 'react-native';
 import { applyKey, currencyDigits, isPlural, formatMoney, inputFromCents, parseInput, planSettlement, type Key } from '@/core';
@@ -10,7 +10,7 @@ import { todayISO } from '@/store/ids';
 import { Warn } from '@/ui/icons';
 import { BigAmount, Keypad, Word } from '@/ui/money-ui';
 import { Banner, BannerText, CTA, haptic, T, TChip } from '@/ui/primitives';
-import { Sheet, useSheet } from '@/ui/sheet';
+import { saveGuard, Sheet, useSheet } from '@/ui/sheet';
 import { useTheme } from '@/ui/theme';
 import { fonts, isWeb, type GroupTone } from '@/ui/tokens';
 import { nameOf, useHousehold } from '@/features/hooks';
@@ -19,6 +19,7 @@ import {
   AfterRow, amountSize, ChipRow, DateRow, GroupAvatar, keyHeight, NoteLine, PersonDot, Receipt, ReceiptHead, SheetTop, useWebKeys,
 } from '@/features/add/parts';
 import type { SheetProps } from './host';
+import { useContract } from '@/sync/contract';
 
 type Spec = Extract<OpenSheet, { type: 'repay' }>;
 
@@ -73,6 +74,9 @@ function RepayBody({ h, spec, groups, setGroups, t }: {
   const { close } = useSheet();
   const isTop = useUI((u) => u.sheets[u.sheets.length - 1]?.key === spec.key);
   const cur = h.currency;
+  // How it was paid reaches other people only once every member can read it (sync/contract.ts).
+  const contract = useContract();
+  const details = !h.sync || contract.extendedText;
   const money = (v: number) => formatMoney(v, cur);
   const from = h.groups.find((g) => g.id === groups.from)!;
   const to = h.groups.find((g) => g.id === groups.to)!;
@@ -92,7 +96,7 @@ function RepayBody({ h, spec, groups, setGroups, t }: {
   const [error, setError] = useState<string | null>(null);
   const [midH, setMidH] = useState(0);
   const noteRef = useRef<TextInput>(null);
-  const saving = useRef(false);
+  const saving = saveGuard(spec.key);
 
   const amount = parseInput(input, cur) ?? 0;
   const content: SettlementContent = {
@@ -126,12 +130,12 @@ function RepayBody({ h, spec, groups, setGroups, t }: {
     setPanel(null);
   };
 
-  const save = () => {
+  const save = async () => {
     if (saving.current) return;
     if (!canSave) { haptic.warn(); return; }
     saving.current = true;
     try {
-      recordSettlement(h, content, `Repayment recorded · ${money(amount)}`);
+      await recordSettlement(h, content, `Repayment recorded · ${money(amount)}`);
     } catch (e) {
       saving.current = false;
       haptic.warn();
@@ -152,9 +156,9 @@ function RepayBody({ h, spec, groups, setGroups, t }: {
 
   // ---------- wording ----------
 
-  let headText = 'Numa only records it.';
-  if (owed > 0 && amount > 0 && amount < owed) headText = `Part of ${money(owed)}. Numa only records it.`;
-  else if (owed > 0 && amount > owed) headText = `More than the ${money(owed)} owed. Numa only records it.`;
+  let headText = 'Numa Shared only records it.';
+  if (owed > 0 && amount > 0 && amount < owed) headText = `Part of ${money(owed)}. Numa Shared only records it.`;
+  else if (owed > 0 && amount > owed) headText = `More than the ${money(owed)} owed. Numa Shared only records it.`;
 
   let line: Line = { lead: '', strong: '' };
   let afterLeft = 'After this';
@@ -233,6 +237,7 @@ function RepayBody({ h, spec, groups, setGroups, t }: {
           <BigAmount cents={amount} currency={cur} size={amtSize} color={t.ink} caret={!noteEditing} typed={input} />
         </View>
         {slot ? <View style={{ marginTop: 10 }}>{slot}</View> : null}
+        {details ? <>
         <View style={{ flexDirection: 'row', alignItems: 'baseline', gap: 6, marginTop: 12, marginBottom: 6 }}>
           <T style={{ fontFamily: fonts.semibold, fontSize: 13, color: t.ink }}>How did you pay?</T>
           <T style={{ fontSize: 13, color: t.ink, opacity: 0.7 }}>optional</T>
@@ -244,6 +249,7 @@ function RepayBody({ h, spec, groups, setGroups, t }: {
         </ChipRow>
         <NoteLine tone={t} value={note} onChange={setNote} editing={noteEditing} setEditing={setNoteEditing} inputRef={noteRef}
           style={{ marginTop: 10 }} onSubmit={isWeb ? save : undefined} />
+        </> : null}
       </View>
       <View style={{ flex: 1, minHeight: 0, overflow: 'hidden', paddingHorizontal: 12, paddingTop: 6 }} onLayout={(e) => setMidH(e.nativeEvent.layout.height)}>
         <Keypad onKey={(k) => onKey(k as Key)} color={t.ink} height={keyHeight(screenH * 0.9, midH)} allowDot={currencyDigits(cur) > 0} />

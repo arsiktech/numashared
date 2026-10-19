@@ -2,7 +2,7 @@
 // and a paper receipt with the split, what it changes, and the orange Add button. The same sheet
 // edits an expense (dark "Save changes") and, on a desk, becomes a popover without a keypad.
 import { useEffect, useMemo, useRef, useState, type Dispatch, type ReactNode, type SetStateAction } from 'react';
-import { TextInput, View, type TextStyle } from 'react-native';
+import { ScrollView, TextInput, View, type TextStyle } from 'react-native';
 import { applyKey, categoryLabel, currencyDigits, formatMoney, inputFromCents, parseInput, type Key } from '@/core';
 import type { Category, ExpenseContent, Household, ID, LedgerEvent } from '@/core/types';
 import { addExpense, groupOfPerson, ledgerOf, reviseExpense, SaveError, yourGroup } from '@/store/store';
@@ -11,7 +11,8 @@ import { todayISO } from '@/store/ids';
 import { CategoryIcon, Plus, Warn } from '@/ui/icons';
 import { BigAmount, Keypad, SplitBar, Word, type SplitSegment } from '@/ui/money-ui';
 import { Avatar, Banner, BannerText, CTA, haptic, Press, T, TChip } from '@/ui/primitives';
-import { Sheet, useSheet } from '@/ui/sheet';
+import { saveGuard, Sheet, useSheet } from '@/ui/sheet';
+import { isShortSheet, SHORT_KEY_HEIGHT } from '@/features/add/layout';
 import { useTheme } from '@/ui/theme';
 import { alpha, fonts, isWeb, type GroupTone } from '@/ui/tokens';
 import { initials, nameOf, personName, useHousehold } from '@/features/hooks';
@@ -23,6 +24,7 @@ import {
   AfterRow, amountSize, ChipRow, DateRow, Kbd, keyHeight, NoteLine, PersonDot, Receipt, ReceiptHead, SheetTop, useWebKeys,
 } from '@/features/add/parts';
 import type { SheetProps } from './host';
+import { useContract } from '@/sync/contract';
 
 type Draft = {
   payerId: ID;
@@ -65,6 +67,7 @@ function initialDraft(h: Household, spec: Extract<OpenSheet, { type: 'add' }>): 
   return { payerId, input: '', category, catChosen, title, note: '', date: todayISO(), split: equalDraft(), sugKey: null, reason: null };
 }
 
+
 export function AddSheet({ spec, onClosed }: SheetProps<'add'>) {
   const { h } = useHousehold();
   useEffect(() => { if (!h) onClosed(); }, [h, onClosed]);
@@ -97,6 +100,9 @@ function AddBody({ h, spec, draft, set, t, pop }: {
   const original = spec.editRecordId ? ledger.byId[spec.editRecordId]?.expense : undefined;
   const edit = !!original;
   const cur = h.currency;
+  // Notes and edit reasons reach other people only once every member can read them (sync/contract.ts).
+  const contract = useContract();
+  const details = !h.sync || contract.extendedText;
   const amount = parseInput(draft.input, cur) ?? 0;
   const money = (v: number) => formatMoney(v, cur);
 
@@ -107,7 +113,7 @@ function AddBody({ h, spec, draft, set, t, pop }: {
   const [newCat, setNewCat] = useState('');
   const [midH, setMidH] = useState(0);
   const noteRef = useRef<TextInput>(null);
-  const saving = useRef(false);
+  const saving = saveGuard(spec.key);
 
   const suggestions = useMemo(() => suggestionsFor(ledger), [ledger]);
   const mine = yourGroup(h);
@@ -162,13 +168,13 @@ function AddBody({ h, spec, draft, set, t, pop }: {
     set((d) => ({ ...d, input: applyKey(d.sugKey && k !== 'back' ? '' : d.input, k, cur), sugKey: null }));
   };
 
-  const save = () => {
+  const save = async () => {
     if (saving.current) return;
     if (!canSave) { haptic.warn(); return; }
     saving.current = true;
     try {
-      if (original && spec.editRecordId) reviseExpense(h, spec.editRecordId, content, draft.reason ?? undefined, `${what} edited · ${money(amount)}`);
-      else addExpense(h, content, `${what} added · ${money(amount)}`);
+      if (original && spec.editRecordId) await reviseExpense(h, spec.editRecordId, content, draft.reason ?? undefined, `${what} edited · ${money(amount)}`);
+      else await addExpense(h, content, `${what} added · ${money(amount)}`);
     } catch (e) {
       saving.current = false;
       haptic.warn();
@@ -395,14 +401,14 @@ function AddBody({ h, spec, draft, set, t, pop }: {
     else if (panel === 'payer') row = peopleRow;
     else if (panel === 'category') row = grid;
     else if (panel === 'newcat') row = newField;
-    else if (edit) row = reasonRow;
+    else if (edit && details) row = reasonRow;
     else if (suggestions.length) row = suggestionRow;
     return (
       <View>
         {head}
         <View style={{ paddingHorizontal: 24, paddingTop: 6 }}>
           {sentence}
-          <View style={{ marginTop: 10 }}>{noteLine}</View>
+          {details ? <View style={{ marginTop: 10 }}>{noteLine}</View> : null}
           {row ? <View style={{ marginTop: 12 }}>{row}</View> : null}
         </View>
         {receipt}
@@ -413,10 +419,34 @@ function AddBody({ h, spec, draft, set, t, pop }: {
   let slot: ReactNode;
   if (panel === 'date') slot = dateRow;
   else if (panel === 'payer') slot = peopleRow;
-  else if (catOpen || noteEditing) slot = noteLine;
-  else if (edit) slot = reasonRow;
+  else if (details && (catOpen || noteEditing)) slot = noteLine;
+  else if (edit && details) slot = reasonRow;
   else if (showSuggestions) slot = suggestionRow;
-  else slot = noteLine;
+  else slot = details ? noteLine : null;
+
+  const keypadArea = panel === 'category' ? <View style={{ paddingHorizontal: 10, paddingTop: 6 }}>{grid}</View>
+    : panel === 'newcat' ? <View style={{ paddingHorizontal: 10, paddingTop: 6 }}>{newField}</View>
+    : null;
+
+  // Short screens (a phone in landscape): everything scrolls, with a keypad of fixed height, so
+  // the keypad and Save are never cut off.
+  if (isShortSheet(screenH)) {
+    return (
+      <View style={{ flex: 1 }}>
+        {head}
+        <ScrollView style={{ flex: 1 }} contentContainerStyle={{ paddingBottom: 12 }} keyboardShouldPersistTaps="handled">
+          <View style={{ paddingHorizontal: 22, paddingTop: 6 }}>
+            {sentence}
+            <View style={{ marginTop: 12 }}>{slot}</View>
+          </View>
+          <View style={{ paddingHorizontal: 12, paddingTop: 8 }}>
+            {keypadArea ?? <Keypad onKey={(k) => onKey(k as Key)} color={t.ink} height={SHORT_KEY_HEIGHT} allowDot={currencyDigits(cur) > 0} />}
+          </View>
+          {receipt}
+        </ScrollView>
+      </View>
+    );
+  }
 
   return (
     <View style={{ flex: 1 }}>

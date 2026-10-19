@@ -3,6 +3,7 @@ import type { MutationCtx } from "../_generated/server";
 import type { EventInput, PotConfigurationInput, TextField } from "./eventValidation";
 import { canonicalValue, validateEvent } from "./eventValidation";
 import { fail } from "./access";
+import { loadClientContract } from "./clientContract";
 import {
   consumeAccountWriteQuota,
   eventWriteLimitPerHour,
@@ -104,6 +105,7 @@ export async function appendEventsToPot(
   },
 ) {
   if (args.events.length > 100) fail("EVENT_BATCH_TOO_LARGE");
+  const contract = await loadClientContract(ctx);
   const authorizedLegacyEventIds = args.authorizedLegacyEventIds ?? new Set<string>();
   const incomingEventIds = new Set(args.events.map((event) => event.eventId));
   for (const eventId of authorizedLegacyEventIds) {
@@ -241,8 +243,10 @@ export async function appendEventsToPot(
       .withIndex("by_event_id", (query) => query.eq("eventId", event.eventId))
       .unique();
     if (existing) {
+      // A replay only proves the receipt: the stored event was admitted under the contract of its day.
       validateEvent(event, configuration, {
         allowLegacyAuthoredText: existing.legacyAuthoredText === true,
+        extendedText: true,
       });
       requireP2EventKind(event);
       const incomingShape = eventComparisonShape(event);
@@ -279,6 +283,7 @@ export async function appendEventsToPot(
 
     validateEvent(event, configuration, {
       allowLegacyAuthoredText: authorizedLegacyEventIds.has(event.eventId),
+      extendedText: contract.extendedText,
     });
     requireP2EventKind(event);
 

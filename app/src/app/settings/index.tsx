@@ -17,6 +17,7 @@ import { explainFailure, SignInButtons, useSession, useSignInOptions } from '@/f
 import { showToast } from '@/store/ui';
 import { failureOf } from '@/sync/engine';
 import { online, registerPush, signOutEverywhere, turnOnSync } from '@/sync/runtime';
+import { groupLimitWords } from '@/sync/contract';
 import { Apple, CloudOff } from '@/ui/icons';
 import { Kbd } from '@/features/web/kbd';
 
@@ -189,7 +190,7 @@ function AccountGroup() {
   const share = async () => {
     setBusy(true);
     try { await turnOnSync(h.id); showToast(`${h.name} is shared. Invite people from Invite people.`); }
-    catch (e) { showToast((e as Error).message === 'group-too-large' ? 'A group can be up to six people. Change the groups first.' : explainFailure(failureOf(e).code)); }
+    catch (e) { showToast((e as Error).message === 'group-too-large' ? `A group can be up to ${groupLimitWords()} people. Change the groups first.` : explainFailure(failureOf(e).code)); }
     finally { setBusy(false); }
   };
   return (

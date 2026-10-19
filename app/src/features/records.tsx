@@ -2,7 +2,7 @@
 import { useRef } from 'react';
 import { View, type StyleProp, type ViewStyle } from 'react-native';
 import type { Household, LedgerRecord } from '@/core/types';
-import { groupOfPerson } from '@/store/store';
+import { groupOfPerson, yourGroup } from '@/store/store';
 import { openSheet, type Origin, type SheetSpec } from '@/store/ui';
 import { CategoryIcon, Repay, House } from '@/ui/icons';
 import { Badge, OrbView, Press, T } from '@/ui/primitives';
@@ -40,7 +40,7 @@ export function RecordRow({ h, r, hide, fresh, last, onPress }: {
   const edited = r.revisions.length > 1;
   const note = r.kind === 'expense' && r.expense!.note && !r.voided ? r.expense!.note : null;
   return (
-    <Press noScale onPress={onPress} accessibilityLabel={`${title}, ${money(h, amount, hide)}, ${sub}, ${effectLine(h, r)}${edited ? ', edited' : ''}`}
+    <Press noScale onPress={onPress} accessibilityLabel={`${r.kind === 'settlement' ? settlementTitle(h, r) : title}, ${money(h, amount, hide)}, ${note ? `“${note}”, ` : ''}${sub}, ${effectText(h, r, hide)}${edited ? ', edited' : ''}${r.flagged ? ', flagged' : ''}`}
       style={{ flexDirection: 'row', alignItems: 'center', gap: 12, minHeight: 64, paddingVertical: 8,
         borderBottomWidth: last ? 0 : 1, borderBottomColor: c.hair, backgroundColor: fresh ? c.flash : 'transparent',
         marginHorizontal: fresh ? -22 : 0, paddingHorizontal: fresh ? 22 : 0 }}>
@@ -57,10 +57,17 @@ export function RecordRow({ h, r, hide, fresh, last, onPress }: {
       </View>
       <View style={{ alignItems: 'flex-end' }}>
         <T style={{ fontFamily: fonts.semibold, fontSize: 16, fontVariant: ['tabular-nums'], color: r.voided ? c.ink3 : c.ink, textDecorationLine: r.voided ? 'line-through' : 'none' }}>{money(h, amount, hide)}</T>
-        <T style={{ fontSize: 13, color: c.ink2, marginTop: 2 }}>{hide ? ' ' : effectLine(h, r)}</T>
+        <T style={{ fontSize: 13, color: c.ink2, marginTop: 2 }}>{effectText(h, r, hide)}</T>
       </View>
     </Press>
   );
+}
+
+/** The effect line. With amounts hidden it keeps the direction and drops the amount. */
+export function effectText(h: Household, r: LedgerRecord, hide?: boolean) {
+  const e = r.voided || r.kind === 'settlement' ? 0 : r.effect[yourGroup(h).id] ?? 0;
+  if (!hide || e === 0) return effectLine(h, r);
+  return e > 0 ? 'you’re owed' : 'you owe';
 }
 
 function lastBy(r: LedgerRecord, type: 'voided') {

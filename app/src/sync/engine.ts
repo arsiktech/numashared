@@ -8,7 +8,7 @@ import { LedgerError, reduce } from '../core/ledger';
 import { currencyDigits } from '../core/money';
 import { UNDO_WINDOW_MS } from '../core/undo';
 import type { Group, Household, ID, InviteInfo, LedgerEvent, Person, SyncMeta } from '../core/types';
-import { MAX_GROUP_SIZE } from '../core/types';
+import { maxGroupSize } from './contract';
 import {
   applyRoster, applyStructure, dropUnusedArchived, fromWire, isPersonReferenced, MappingError, redact, stamp, toWire,
   type RosterEntry,
@@ -79,7 +79,7 @@ export class PrepareError extends Error {
  * household unchanged when it already has them. References inside events are rewritten too.
  */
 export function prepareForSync(h: Household, now = Date.now()): Household {
-  if (h.groups.some((g) => g.memberIds.length > MAX_GROUP_SIZE)) throw new PrepareError('group-too-large');
+  if (h.groups.some((g) => g.memberIds.length > maxGroupSize())) throw new PrepareError('group-too-large');
   if (h.people.length > 64) throw new PrepareError('too-many-people');
   const map = new Map<string, string>();
   const id = (old: string) => {
@@ -609,10 +609,10 @@ export async function renameOnline(backend: Backend, access: Access, householdId
   await pull(backend, access, householdId);
 }
 
-/** Regroups people before any money is recorded. A group is one to six people. */
+/** Regroups people before any money is recorded. A group is one to `maxGroupSize()` people. */
 export async function regroupOnline(backend: Backend, access: Access, householdId: ID, arrangement: ID[][], now = Date.now()) {
   const h = access.get(householdId)!;
-  if (arrangement.some((g) => g.length > MAX_GROUP_SIZE)) throw new PrepareError('group-too-large');
+  if (arrangement.some((g) => g.length > maxGroupSize())) throw new PrepareError('group-too-large');
   const topology = await backend.query<{ revision: bigint }>('members:getBudgetGroupTopology', { potId: h.id });
   const groups: WireSettlementGroup[] = arrangement.filter((m) => m.length > 1).map((members) => {
     const same = h.groups.find((g) => g.serverGroupId && g.memberIds.length === members.length && members.every((m) => g.memberIds.includes(m)));
