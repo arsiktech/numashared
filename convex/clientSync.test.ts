@@ -180,6 +180,26 @@ describe("app sync engine against the backend", () => {
     expect(balances(a)).toEqual({ [family.id]: 2_250, [zoeUnit]: -2_250 });
   });
 
+  test("events recorded on this phone in someone else's name still share and send", async () => {
+    // Sheet imports made by an earlier build named each payer as the recorder; the server only
+    // accepts events from the member sending them.
+    const t = convexTest(schema, modules);
+    const ana = await signIn(t, "ana");
+    const phoneA = phone();
+    const local = localHousehold();
+    phoneA.put({ ...local, events: local.events.map((e) => ({ ...e, by: "p_mia" })) });
+    const id = await startSync(ana, phoneA, "h_local");
+    const h = phoneA.get(id)!;
+    expect(h.events.every((e) => e.by === h.youId && e.seq)).toBe(true);
+    const mia = h.people.find((p) => p.name === "Mia")!.id;
+    const at = Date.now() - 60_000;
+    append(phoneA, id, { id: "e_2", at, by: mia, kind: "settlementRecorded", recordId: "r_2",
+      content: { fromGroupId: h.groups[1].id, toGroupId: h.groups[0].id, amount: 1_000, date: new Date(at).toISOString().slice(0, 10) } });
+    expect(await flush(ana, phoneA, id, later)).toBe("done");
+    const after = phoneA.get(id)!;
+    expect(after.events.every((e) => e.by === after.youId && e.seq)).toBe(true);
+  });
+
   test("two phones create, invite, join, record and always agree", async () => {
     const t = convexTest(schema, modules);
     await fenceBuild11(t);

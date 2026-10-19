@@ -195,9 +195,14 @@ export async function startSync(backend: Backend, access: Access, householdId: I
 }
 
 export async function promote(backend: Backend, access: Access, householdId: ID): Promise<void> {
-  const h = access.get(householdId);
-  const setup = h?.sync?.setup;
-  if (!h || !setup) return;
+  const before = access.get(householdId);
+  if (!before?.sync?.setup) return;
+  // Everything in a household being shared was recorded on this phone (see flush).
+  if (before.events.some((e) => e.by !== before.youId)) {
+    access.put({ ...before, events: before.events.map((e) => (e.by === before.youId ? e : { ...e, by: before.youId })) });
+  }
+  const h = access.get(householdId)!;
+  const setup = h.sync!.setup!;
   const order = peopleOrder(h);
   const you = order[0];
   const events: WireEvent[] = [
@@ -326,7 +331,10 @@ export async function flush(backend: Backend, access: Access, householdId: ID, n
     const next = h.events.find((e) => e.seq === undefined);
     if (!next) return 'done';
     if (now() - next.at < SEND_DELAY_MS) return 'waiting';
-    const stamped = stamp(next);
+    // Anything still waiting to send was recorded on this phone, so it is ours. Sheet imports made
+    // before this rule named each payer as the recorder, which the server refuses.
+    const own = next.by === h.youId ? next : { ...next, by: h.youId };
+    const stamped = stamp(own);
     if (stamped !== next) access.put({ ...h, events: h.events.map((e) => (e.id === next.id ? stamped : e)) });
     inFlight.add(next.id);
     try {
