@@ -6,7 +6,8 @@ import { AppState, Platform } from 'react-native';
 import { useSyncExternalStore } from 'react';
 import type { Household, ID } from '../core/types';
 import { claimParked, forgetAccount, getState, putHousehold, removeHousehold, showAccount, switchHousehold } from '../store/store';
-import { accessToken, currentSession, loadSession, signInWithApple, signInWithGoogle, signOutSession, subscribeSession } from './auth';
+import { previewDeletion, runDeletion, type DeletionDeps, type DeletionPreview } from './accountDeletion';
+import { accessToken, currentSession, forgetSession, loadSession, post, readDeletion, writeDeletion, signInWithApple, signInWithGoogle, signOutSession, subscribeSession } from './auth';
 import { CONVEX_URL, SITE_URL } from './config';
 import { refreshContract } from './contract';
 import {
@@ -176,7 +177,7 @@ export function startSyncRuntime() {
     if (s) connect(); else disconnect();
   };
   subscribeSession(follow);
-  void loadSession().then(follow);
+  void loadSession().then(follow).then(resumeAccountDeletion);
   AppState.addEventListener('change', (s) => { if (s === 'active') void requestSync(); });
   if (Platform.OS === 'ios') {
     // Tapping a notification opens the household it is about.
@@ -261,6 +262,36 @@ export async function signOutEverywhere(): Promise<void> {
   disconnect();
   if (accountId) forgetAccount(accountId);
   for (const h of synced()) removeHousehold(h.id);
+}
+
+// ---------- account deletion ----------
+
+const deletion: DeletionDeps = {
+  post,
+  read: readDeletion,
+  write: writeDeletion,
+  session: () => currentSession(),
+  purgeLocal: async (accountId) => {
+    disconnect();
+    forgetAccount(accountId);
+    await forgetSession();
+  },
+};
+
+/** What deleting the account would do to each household. */
+export function accountDeletionPreview(): Promise<DeletionPreview> {
+  return within(previewDeletion(deletion), 20_000);
+}
+
+/** Deletes the account on the server, then its households and session on this phone. */
+export async function deleteAccount(): Promise<void> {
+  try { await unregisterPush(); } catch { /* the server removes push tokens too */ }
+  await runDeletion(deletion);
+}
+
+/** A deletion interrupted by a crash or lost connection finishes on the next launch. */
+async function resumeAccountDeletion() {
+  if (await readDeletion()) await runDeletion(deletion).catch(() => { /* tried again next launch */ });
 }
 
 /** Changes in shared households that haven't reached the server yet. */

@@ -23,6 +23,8 @@ import {
 } from "../app/src/sync/engine";
 import { isUuidv7 } from "../app/src/sync/uuid";
 import { toWire } from "../app/src/sync/mapping";
+import { runDeletion, type PendingDeletion } from "../app/src/sync/accountDeletion";
+import { hashRefreshToken } from "./lib/sessionTokens";
 import terminalCodes from "../contracts/event-terminal-codes.json";
 import { TERMINAL_EVENT_CODES } from "../app/src/sync/terminal";
 import { KNOWN_TIME_ZONES } from "../app/src/sync/timezones";
@@ -446,6 +448,48 @@ describe("app sync engine against the backend", () => {
     expect(after.sync!.paused?.code).toBe("UNREADABLE_EVENT");
     expect(after.events.some((e) => e.id === "01890f5e-7b00-7000-8000-00000000f102")).toBe(false);
     expect(await flush(ana, phoneA, id)).toBe("paused");
+  });
+
+  test("deleting the account from the app erases it on the server and its households on the phone", async () => {
+    vi.stubEnv("NUMA_SHARED_AUTH_KEY_ID", "client-sync");
+    vi.stubEnv("NUMA_SHARED_AUTH_PRIVATE_KEY_PKCS8_PEM", "unused: deletion signs nothing");
+    const t = convexTest(schema, modules);
+    const ana = await signIn(t, "ana");
+    const phoneA = phone();
+    phoneA.put(localHousehold());
+    const id = await startSync(ana, phoneA, "h_local");
+    // The app holds a real refresh token for this session.
+    const refreshToken = "client-sync-refresh-token-for-ana-0000000000000000";
+    const refreshTokenHash = await hashRefreshToken(refreshToken, "client-sync-test-token-hash-secret-32-bytes");
+    await t.run(async (ctx) => {
+      const row = await ctx.db.query("sessions").filter((q) => q.eq(q.field("sessionId"), "session-ana-0000001")).unique();
+      await ctx.db.patch(row!._id, { refreshTokenHash });
+    });
+    const post = async <T,>(path: string, body: unknown): Promise<T> => {
+      const res = await t.fetch(path, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
+      const json = await res.json();
+      if (!res.ok) throw new Error(JSON.stringify(json));
+      return json as T;
+    };
+    const preview = await post<{ pots: Array<{ potId: string; outcome: string }> }>("/auth/account/deletion-preview", { refreshToken });
+    expect(preview.pots).toEqual([expect.objectContaining({ potId: id, outcome: "deleted" })]);
+
+    let saved: PendingDeletion | null = null;
+    await runDeletion({
+      post,
+      read: async () => saved,
+      write: async (p) => { saved = p; },
+      session: () => ({ accountId: "account-ana", refreshToken }),
+      purgeLocal: async () => { phoneA.remove(id); },
+    });
+    expect(phoneA.get(id)).toBeUndefined();
+    expect(saved).toBeNull();
+    const left = await t.run(async (ctx) => ({
+      accounts: await ctx.db.query("accounts").collect(),
+      pots: await ctx.db.query("pots").collect(),
+    }));
+    expect(left.accounts).toEqual([]);
+    expect(left.pots).toEqual([]);
   });
 
   test("people and households made by mistake can be removed while nobody relies on them", async () => {

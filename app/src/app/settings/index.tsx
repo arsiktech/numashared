@@ -181,6 +181,7 @@ function DataGroup() {
 
 function AccountGroup() {
   const { c } = useTheme();
+  const router = useRouter();
   const desk = useDesk();
   const { h } = useHousehold();
   const session = useSession();
@@ -210,6 +211,10 @@ function AccountGroup() {
         </View>
       ) : null}
       <SRow label="Sign out" icon={<View />} chevron={false} onPress={() => openSheet({ type: 'signout' })} last={desk} />
+      {session ? (
+        <SRow label="Delete account" sub="Deletes your account and its shared households here" icon={<View />}
+          onPress={() => router.push('/settings/delete-account')} />
+      ) : null}
       {!desk ? <LeaveRow last /> : null}
     </SGroup>
   );

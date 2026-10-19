@@ -7,6 +7,7 @@ import * as SecureStore from 'expo-secure-store';
 import { Platform } from 'react-native';
 import { GOOGLE_IOS_CLIENT_ID, GOOGLE_WEB_CLIENT_ID, SITE_URL } from './config';
 import { base64url } from './engine';
+import type { PendingDeletion } from './accountDeletion';
 
 export type Session = {
   accountId: string;
@@ -89,7 +90,7 @@ function setSession(next: Session | null): Promise<void> {
 
 type TokenResponse = { accessToken: string; accessTokenExpiresInSeconds: number; refreshToken: string; refreshExpiresAt: number; accountId: string };
 
-async function post<T>(path: string, body: unknown): Promise<T> {
+export async function post<T>(path: string, body: unknown): Promise<T> {
   let res: Response;
   try {
     res = await fetch(`${SITE_URL}${path}`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
@@ -232,6 +233,35 @@ export async function accessToken(forceRefresh = false): Promise<string | null> 
     refreshingGeneration = started;
   }
   return refreshing;
+}
+
+/** Forgets the session on this phone only (the server already ended it). */
+export function forgetSession(): Promise<void> {
+  return setSession(null);
+}
+
+// ---------- account deletion record ----------
+
+const DELETION_KEY = 'numa-shared.account-deletion.v1';
+
+export async function readDeletion(): Promise<PendingDeletion | null> {
+  try {
+    const raw = Platform.OS === 'web' ? globalThis.localStorage?.getItem(DELETION_KEY) ?? null : await SecureStore.getItemAsync(DELETION_KEY);
+    return raw ? JSON.parse(raw) as PendingDeletion : null;
+  } catch {
+    return null;
+  }
+}
+
+export async function writeDeletion(p: PendingDeletion | null): Promise<void> {
+  const raw = p ? JSON.stringify(p) : null;
+  if (Platform.OS === 'web') {
+    if (raw) globalThis.localStorage?.setItem(DELETION_KEY, raw);
+    else globalThis.localStorage?.removeItem(DELETION_KEY);
+    return;
+  }
+  if (raw) await SecureStore.setItemAsync(DELETION_KEY, raw, { keychainAccessible: SecureStore.AFTER_FIRST_UNLOCK });
+  else await SecureStore.deleteItemAsync(DELETION_KEY);
 }
 
 /** Ends the session on the server (best effort) and forgets it here. */
