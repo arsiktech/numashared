@@ -9,8 +9,9 @@ import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 
 const app = resolve(import.meta.dirname, '..');
-// Files that prebuild doesn't own: CocoaPods output (lock file, Pods, the workspace), the Xcode Cloud script, local machine config.
-const ignored = ['Podfile.lock', 'Pods', 'NumaShared.xcworkspace', 'ci_scripts', '.xcode.env.local', 'build'];
+// Files that prebuild doesn't own or git ignores: CocoaPods output (lock file, Pods, the
+// workspace), Xcode's per-user state, the Xcode Cloud script, local machine config.
+const ignored = ['Podfile.lock', 'Pods', 'NumaShared.xcworkspace', 'project.xcworkspace', 'xcuserdata', 'ci_scripts', '.xcode.env.local', 'build'];
 
 const scratch = mkdtempSync(join(tmpdir(), 'numa-native-sync-'));
 try {
