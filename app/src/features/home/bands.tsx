@@ -15,8 +15,13 @@ import { alpha, fonts, isAndroid } from '@/ui/tokens';
 import { OrbButton } from '../records';
 import { money, nameOf, standingWords } from '../hooks';
 
-/** `tail` extends the lowest band's color that far below, for a list that slides up over the bands. */
-export function Bands({ h, balances, hide, compact, tail }: { h: Household; balances: Record<ID, number>; hide: boolean; compact?: boolean; tail?: number }) {
+/**
+ * `tail` extends the lowest band's color that far below, for a list that slides up over the bands.
+ * `onOrb` reports where the orb's lower edge sits, for the history's detent there.
+ */
+export function Bands({ h, balances, hide, compact, tail, onOrb }: {
+  h: Household; balances: Record<ID, number>; hide: boolean; compact?: boolean; tail?: number; onOrb?: (bottom: number) => void;
+}) {
   const { tone, c, width } = useTheme();
   const insets = useSafeAreaInsets();
   const router = useRouter();
@@ -103,6 +108,8 @@ export function Bands({ h, balances, hide, compact, tail }: { h: Household; bala
         )}
       </Press>
       <OrbButton size={compact ? 76 : 92} plus={compact ? 28 : 32} style={{ position: 'absolute', right: 20, top: ticketTop - (compact ? -1 : 7) }} />
+      {onOrb ? <View pointerEvents="none" onLayout={(e) => onOrb(e.nativeEvent.layout.y + e.nativeEvent.layout.height)}
+        style={{ position: 'absolute', right: 20, top: ticketTop - (compact ? -1 : 7), width: compact ? 76 : 92, height: compact ? 76 : 92 }} /> : null}
     </View>
   );
 }

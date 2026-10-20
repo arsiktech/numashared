@@ -1,22 +1,21 @@
 // Home. Phone: bands, ticket and orb, then the latest records. Desk: three panes, balance on the
 // left, the history thread in the middle and the selected record on the right.
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { FlatList, ScrollView, StyleSheet, View } from 'react-native';
+import { FlatList, ScrollView, StyleSheet, TextInput, View } from 'react-native';
 import Animated, { Extrapolation, interpolate, runOnJS, useAnimatedReaction, useAnimatedScrollHandler, useAnimatedStyle, useSharedValue } from 'react-native-reanimated';
 import { Redirect, useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { markSeen, useStore } from '@/store/store';
 import { openSheet } from '@/store/ui';
 import { Check, ChevDown, Search } from '@/ui/icons';
-import { Press, T } from '@/ui/primitives';
+import { haptic, Press, T } from '@/ui/primitives';
 import { useTheme } from '@/ui/theme';
 import { fonts, isWeb } from '@/ui/tokens';
 import { money, nameOf, useHousehold } from '@/features/hooks';
 import { Bands } from '@/features/home/bands';
 import { OrbButton, RecordRow } from '@/features/records';
 import type { LedgerRecord } from '@/core/types';
-import { dayLabel, sameDay } from '@/features/history/model';
-import { requestHistorySearch } from '@/features/history/search';
+import { dayLabel, matches, sameDay } from '@/features/history/model';
 import { SyncLine } from '@/features/home/syncline';
 import { HistoryThread } from '@/features/history/thread';
 import { RecordDetail } from '@/features/detail/content';
@@ -58,18 +57,29 @@ type Item = { kind: 'gap'; key: string } | { kind: 'head'; key: string } | Row;
 function PhoneHome({ freshIds }: { freshIds: Set<string> }) {
   const { h, ledger, hide } = useHousehold();
   const { c, height: H } = useTheme();
-  const router = useRouter();
   const insets = useSafeAreaInsets();
   const list = useRef<FlatList<Item>>(null);
   const [bandsH, setBandsH] = useState(0);
   const [docked, setDocked] = useState(false);
+  const [orbBottom, setOrbBottom] = useState(0);
+  const [query, setQuery] = useState<string | null>(null); // null: not searching
+  const field = useRef<TextInput>(null);
   // The list starts below the status bar; the bands behind it start at the very top.
   const gap = Math.max(0, (bandsH || H * 0.55) - 26 - insets.top);
   const y = useSharedValue(0);
   const onScroll = useAnimatedScrollHandler((e) => { y.value = e.contentOffset.y; });
-  const data = useMemo<Item[]>(() => (ledger ? [{ kind: 'gap', key: 'gap' }, { kind: 'head', key: 'head' }, ...rows(ledger.records)] : []), [ledger]);
+  const q = query?.trim() ?? '';
+  const data = useMemo<Item[]>(() => {
+    if (!ledger || !h) return [];
+    const shown = q ? ledger.records.filter((r) => matches(h, r, q)) : ledger.records;
+    return [{ kind: 'gap', key: 'gap' }, { kind: 'head', key: 'head' }, ...rows(shown)];
+  }, [ledger, h, q]);
   // History mode switches as the header reaches the top: a state change, not per-frame movement.
-  useAnimatedReaction(() => y.value >= gap - 1, (now, was) => { if (now !== was) runOnJS(setDocked)(now); }, [gap]);
+  // Docking clicks; the history touching the orb on the way up taps lightly first.
+  const dock = (now: boolean) => { setDocked(now); if (now) haptic.medium(); };
+  useAnimatedReaction(() => y.value >= gap - 1, (now, was) => { if (was !== null && now !== was) runOnJS(dock)(now); else if (was === null && now) runOnJS(setDocked)(true); }, [gap]);
+  const touchesOrb = orbBottom > 0 ? insets.top + gap - orbBottom : -1;
+  useAnimatedReaction(() => touchesOrb > 0 && y.value >= touchesOrb, (now, was) => { if (now && was === false) runOnJS(haptic.tap)(); }, [touchesOrb]);
   const touchCopy = useAnimatedStyle(() => ({ transform: [{ translateY: Math.max(y.value, -400) }] }));
   const corners = useAnimatedStyle(() => {
     const r = interpolate(y.value, [gap - 30, gap], [26, 0], Extrapolation.CLAMP);
@@ -77,8 +87,11 @@ function PhoneHome({ freshIds }: { freshIds: Set<string> }) {
   });
   if (!h || !ledger) return null;
   const freshRecord = new Set(h.events.filter((e) => freshIds.has(e.id)).map((e) => ('recordId' in e ? e.recordId : '')));
-  const search = () => { requestHistorySearch(true); router.push('/history'); };
   const bands = <Bands h={h} balances={ledger.balances} hide={hide} />;
+  const closeSearch = () => setQuery(null);
+  const searching = query !== null;
+  useEffect(() => { if (!searching) return; const t = setTimeout(() => field.current?.focus(), 60); return () => clearTimeout(t); }, [searching]);
+  useEffect(() => { if (query !== null) list.current?.scrollToOffset({ offset: gap, animated: false }); }, [q, query !== null, gap]);
 
   return (
     <View style={{ flex: 1, backgroundColor: c.bg }}>
@@ -86,7 +99,8 @@ function PhoneHome({ freshIds }: { freshIds: Set<string> }) {
       <View accessibilityElementsHidden importantForAccessibility="no-hide-descendants" aria-hidden pointerEvents="none"
         ref={(node) => { if (isWeb && node) (node as unknown as HTMLElement).setAttribute('inert', ''); }}
         onLayout={(e) => setBandsH(e.nativeEvent.layout.height)}>
-        {bands}
+        {/* The lowest band's color runs on below, so pulling the history down shows no seam. */}
+        <Bands h={h} balances={ledger.balances} hide={hide} tail={H} onOrb={setOrbBottom} />
       </View>
 
       <Animated.FlatList
@@ -98,37 +112,45 @@ function PhoneHome({ freshIds }: { freshIds: Set<string> }) {
         onScroll={onScroll}
         scrollEventThrottle={16}
         showsVerticalScrollIndicator={false}
+        keyboardShouldPersistTaps="handled"
+        keyboardDismissMode="on-drag"
+        // Two resting places, the balances and the docked history: let go between them and it
+        // settles on the nearer one, so getting past the orb takes a deliberate push.
+        snapToOffsets={gap > 0 && query === null ? [0, gap] : undefined}
+        snapToEnd={false}
         initialNumToRender={16}
         windowSize={11}
         renderItem={({ item }) => {
           if (item.kind === 'gap') {
             return (
               <View style={{ height: gap }}>
-                <Animated.View style={[{ position: 'absolute', left: 0, right: 0, top: -insets.top, opacity: 0 }, touchCopy]}>{bands}</Animated.View>
+                {/* Nearly, not fully, transparent: iOS ignores touches on a view below 1% opacity. */}
+                <Animated.View style={[{ position: 'absolute', left: 0, right: 0, top: -insets.top, opacity: 0.02 }, touchCopy]}>{bands}</Animated.View>
               </View>
             );
           }
           if (item.kind === 'head') {
             return (
               <Animated.View style={[{ backgroundColor: c.bg, paddingHorizontal: 22, paddingTop: 14, overflow: 'hidden' }, corners]}>
-                <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', height: 44 }}>
-                  {docked ? (
-                    <Press accessibilityRole="button" accessibilityLabel="Back to balances" onPress={() => { list.current?.scrollToOffset({ offset: 0, animated: true }); setDocked(false); }}
-                      style={{ height: 44, flexDirection: 'row', alignItems: 'center', gap: 4, marginLeft: -4 }}>
-                      <ChevDown size={18} color={c.ink} />
-                      <T style={{ fontSize: 16, fontFamily: fonts.medium }}>Balances</T>
-                    </Press>
-                  ) : (
-                    <T accessibilityRole="header" style={{ fontFamily: fonts.bold, fontSize: 20 }}>Latest</T>
-                  )}
-                  {docked ? <T accessibilityRole="header" style={{ fontFamily: fonts.bold, fontSize: 17 }}>History</T> : null}
-                  {ledger.records.length ? (
-                    <Press accessibilityRole="button" accessibilityLabel="Search history" onPress={search} style={{ height: 44, minWidth: docked ? 92 : undefined, flexDirection: 'row', alignItems: 'center', justifyContent: 'flex-end', gap: 6 }}>
-                      <Search size={18} color={c.ink} />
-                      {docked ? null : <T style={{ fontSize: 16, fontFamily: fonts.medium }}>Search</T>}
-                    </Press>
-                  ) : null}
-                </View>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', height: 44 }}>
+                    {docked ? (
+                      <Press accessibilityRole="button" accessibilityLabel="Back to balances" onPress={() => { list.current?.scrollToOffset({ offset: 0, animated: true }); setDocked(false); }}
+                        style={{ height: 44, minWidth: 92, flexDirection: 'row', alignItems: 'center', gap: 4, marginLeft: -4 }}>
+                        <ChevDown size={18} color={c.ink} />
+                        <T style={{ fontSize: 16, fontFamily: fonts.medium }}>Balances</T>
+                      </Press>
+                    ) : (
+                      <T accessibilityRole="header" style={{ fontFamily: fonts.bold, fontSize: 20 }}>Latest</T>
+                    )}
+                    {docked ? <T accessibilityRole="header" style={{ fontFamily: fonts.bold, fontSize: 17 }}>History</T> : null}
+                    {/* Search belongs to the history, so it appears once the history is up. */}
+                    {docked && ledger.records.length ? (
+                      <Press accessibilityRole="button" accessibilityLabel="Search history" onPress={() => { haptic.tick(); setQuery(''); }}
+                        style={{ height: 44, minWidth: 92, flexDirection: 'row', alignItems: 'center', justifyContent: 'flex-end' }}>
+                        <Search size={20} color={c.ink} />
+                      </Press>
+                    ) : docked ? <View style={{ minWidth: 92 }} /> : null}
+                  </View>
                 <SyncLine />
               </Animated.View>
             );
@@ -153,6 +175,22 @@ function PhoneHome({ freshIds }: { freshIds: Set<string> }) {
           </View>
         )}
       />
+      {/* The search field sits above the list, so filtering the rows never takes its focus away. */}
+      {query !== null ? (
+        <View style={{ position: 'absolute', left: 0, right: 0, top: insets.top, paddingTop: 14, paddingHorizontal: 22, backgroundColor: c.bg }}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, height: 44 }}>
+            <View style={{ flex: 1, flexDirection: 'row', alignItems: 'center', gap: 8, height: 40, borderRadius: 20, backgroundColor: c.chip, paddingLeft: 12 }}>
+              <Search size={17} color={c.ink2} />
+              <TextInput ref={field} value={query} onChangeText={setQuery} autoFocus placeholder="Search history" placeholderTextColor={c.ink3}
+                accessibilityLabel="Search history" returnKeyType="search" autoCorrect={false} clearButtonMode="while-editing"
+                style={{ flex: 1, height: 40, fontFamily: fonts.medium, fontSize: 16, color: c.ink }} />
+            </View>
+            <Press accessibilityRole="button" accessibilityLabel="Close search" onPress={closeSearch} style={{ height: 44, justifyContent: 'center', paddingLeft: 4 }}>
+              <T style={{ fontSize: 16, fontFamily: fonts.medium }}>Cancel</T>
+            </Press>
+          </View>
+        </View>
+      ) : null}
       {docked ? <OrbButton size={64} plus={24} style={{ position: 'absolute', right: 18, bottom: insets.bottom + 18 }} /> : null}
     </View>
   );
