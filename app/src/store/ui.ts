@@ -27,24 +27,71 @@ export function useUI<T>(sel: (u: UI) => T): T {
   return useSyncExternalStore((l) => { listeners.add(l); return () => { listeners.delete(l); }; }, () => sel(ui), () => sel(ui));
 }
 
+// On the web, the browser's Back button closes an Add or Repay sheet instead of leaving the screen
+// and the draft behind. Opening one adds a history entry for the same address; Back takes it off.
+const web = typeof window !== 'undefined' && typeof window.history?.pushState === 'function' && typeof document !== 'undefined';
+const keepsDraft = (s: SheetSpec) => s.type === 'add' || s.type === 'repay';
+let held: number | null = null; // the sheet that owns the history entry
+let swallow = false; // our own history.back(), which the router must not see
+
+function hold(key: number) {
+  if (!web || held !== null) return;
+  held = key;
+  window.history.pushState({ ...(window.history.state ?? {}), numaSheet: key }, '');
+}
+
+function release() {
+  if (!web || held === null) return;
+  const key = held;
+  held = null;
+  if (window.history.state?.numaSheet === key) { swallow = true; window.history.back(); }
+}
+
+if (web) {
+  window.addEventListener('popstate', (e) => {
+    if (swallow) { swallow = false; e.stopImmediatePropagation(); return; }
+    if (held === null) return;
+    const at = ui.sheets.findIndex((s) => s.key === held);
+    held = null;
+    if (at < 0) return;
+    e.stopImmediatePropagation();
+    ui = { ...ui, sheets: ui.sheets.slice(0, at) };
+    emit();
+  });
+}
+
+let quietUntil = 0;
+/** Ignore sheet opens for a moment: the second click of a double click on Undo lands on what was under it. */
+export function quietOpens(ms: number) { quietUntil = Date.now() + ms; }
+
 export function openSheet(spec: SheetSpec, origin?: Origin) {
-  ui = { ...ui, sheets: [...ui.sheets, { ...spec, key: seq++, origin }] };
+  if (Date.now() < quietUntil) return;
+  const key = seq++;
+  ui = { ...ui, sheets: [...ui.sheets, { ...spec, key, origin }] };
+  if (keepsDraft(spec)) hold(key);
   emit();
 }
 
 /** Replace the top sheet (for example Detail -> Edit) without a close animation. */
 export function replaceSheet(spec: SheetSpec) {
   const top = ui.sheets[ui.sheets.length - 1];
-  ui = { ...ui, sheets: [...ui.sheets.slice(0, -1), { ...spec, key: seq++, origin: top?.origin }] };
+  const key = seq++;
+  ui = { ...ui, sheets: [...ui.sheets.slice(0, -1), { ...spec, key, origin: top?.origin }] };
+  if (top && held === top.key) {
+    if (keepsDraft(spec)) { held = key; window.history.replaceState({ ...(window.history.state ?? {}), numaSheet: key }, ''); }
+    else release();
+  } else if (keepsDraft(spec)) hold(key);
   emit();
 }
 
 export function closeSheet(key?: number) {
+  const gone = key === undefined ? ui.sheets[ui.sheets.length - 1]?.key : key;
   ui = { ...ui, sheets: key === undefined ? ui.sheets.slice(0, -1) : ui.sheets.filter((s) => s.key !== key) };
+  if (gone !== undefined && gone === held) release();
   emit();
 }
 
-export function closeAllSheets() { ui = { ...ui, sheets: [] }; emit(); }
+export function closeAllSheets() { ui = { ...ui, sheets: [] }; release(); emit(); }
 
 export function showToast(text: string) { ui = { ...ui, toast: { key: seq++, text } }; emit(); }
 export function clearToast() { ui = { ...ui, toast: null }; emit(); }

@@ -29,6 +29,7 @@ import {
   readPrivacyPageConfiguration,
   readSupportPageConfiguration,
   supportHTML,
+  termsHTML,
   type PublicInvitePreview,
 } from "./lib/webContent";
 
@@ -188,7 +189,7 @@ export const aasa = httpAction(async () => {
 export const marketing = httpAction(async () => {
   try {
     return new Response(
-      marketingHTML(readSupportPageConfiguration(process.env)),
+      marketingHTML(readSupportPageConfiguration(process.env), readInvitePageConfiguration(process.env).webAppURL),
       { status: 200, headers: marketingSecurityHeaders },
     );
   } catch {
@@ -331,6 +332,14 @@ export const privacy = httpAction(async () => {
 export const support = httpAction(async () => {
   try {
     return htmlResponse(supportHTML(readSupportPageConfiguration(process.env)));
+  } catch {
+    return unavailableResponse();
+  }
+});
+
+export const terms = httpAction(async () => {
+  try {
+    return htmlResponse(termsHTML(readPrivacyPageConfiguration(process.env), readSupportPageConfiguration(process.env)));
   } catch {
     return unavailableResponse();
   }

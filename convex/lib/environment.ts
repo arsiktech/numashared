@@ -16,6 +16,8 @@ export interface SessionSigningEnvironment {
 
 export interface IdentityEnvironment extends SessionSigningEnvironment {
   appleClientId: string;
+  appleWebClientId?: string;
+  appleWebRedirectURI?: string;
   appleTeamId: string;
   appleKeyId: string;
   applePrivateKeyPkcs8Pem: string;
@@ -83,9 +85,15 @@ export function readIdentityEnvironment(
   ) {
     throw new IdentityError("IDENTITY_CONFIGURATION_INVALID", 503);
   }
+  // Sign in with Apple on the web uses a Services ID grouped with the app's App ID, so the same
+  // person gets the same Apple subject in both. Optional: the web shows Apple only when it is set.
+  const appleWebClientId = env.SIWA_WEB_CLIENT_ID?.trim() || undefined;
+  const appleWebRedirectURI = env.SIWA_WEB_REDIRECT_URI?.trim() || undefined;
   return {
     ...session,
     appleClientId,
+    appleWebClientId,
+    appleWebRedirectURI,
     appleTeamId: required(env, "APPLE_TEAM_ID"),
     appleKeyId,
     applePrivateKeyPkcs8Pem,
@@ -140,6 +148,8 @@ export interface SessionSigningEnvironment {
 
 export interface IdentityEnvironment extends SessionSigningEnvironment {
   appleClientId: string;
+  appleWebClientId?: string;
+  appleWebRedirectURI?: string;
   appleTeamId: string;
   appleKeyId: string;
   applePrivateKeyPkcs8Pem: string;

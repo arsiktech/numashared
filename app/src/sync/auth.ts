@@ -5,7 +5,7 @@ import * as AppleAuthentication from 'expo-apple-authentication';
 import * as Crypto from 'expo-crypto';
 import * as SecureStore from 'expo-secure-store';
 import { Platform } from 'react-native';
-import { GOOGLE_IOS_CLIENT_ID, GOOGLE_WEB_CLIENT_ID, SITE_URL } from './config';
+import { APPLE_WEB_CLIENT_ID, APPLE_WEB_REDIRECT_URI, GOOGLE_IOS_CLIENT_ID, GOOGLE_WEB_CLIENT_ID, SITE_URL } from './config';
 import { base64url } from './engine';
 import type { PendingDeletion } from './accountDeletion';
 
@@ -115,6 +115,7 @@ const fromTokens = (t: TokenResponse): Session => ({
 });
 
 export async function appleSignInSupported(): Promise<boolean> {
+  if (Platform.OS === 'web') return !!APPLE_WEB_CLIENT_ID;
   if (Platform.OS !== "ios") return false;
   try { return await AppleAuthentication.isAvailableAsync(); } catch { return false; }
 }
@@ -124,6 +125,7 @@ export async function signInWithApple(): Promise<Session> {
   const raw = Crypto.getRandomBytes(32);
   const rawNonce = base64url(raw);
   const hashed = await Crypto.digestStringAsync(Crypto.CryptoDigestAlgorithm.SHA256, rawNonce, { encoding: Crypto.CryptoEncoding.HEX });
+  if (Platform.OS === 'web') return signInWithAppleOnWeb(rawNonce, hashed.toLowerCase());
   let credential: AppleAuthentication.AppleAuthenticationCredential;
   try {
     credential = await AppleAuthentication.signInAsync({
@@ -140,6 +142,50 @@ export async function signInWithApple(): Promise<Session> {
     authorizationCode: credential.authorizationCode,
     nonce: rawNonce,
   });
+  const next = fromTokens(tokens);
+  await setSession(next);
+  return next;
+}
+
+type AppleJS = {
+  auth: {
+    init: (o: { clientId: string; scope: string; redirectURI: string; usePopup: boolean; nonce: string; state?: string }) => void;
+    signIn: () => Promise<{ authorization?: { code?: string; id_token?: string } }>;
+  };
+};
+
+let appleScript: Promise<AppleJS> | null = null;
+function loadAppleJS(): Promise<AppleJS> {
+  const w = window as unknown as { AppleID?: AppleJS };
+  if (w.AppleID?.auth) return Promise.resolve(w.AppleID);
+  appleScript ??= new Promise((resolve, reject) => {
+    const s = document.createElement('script');
+    s.src = 'https://appleid.cdn-apple.com/appleauth/static/jsapi/appleid/1/en_US/appleid.auth.js';
+    s.async = true;
+    s.onload = () => (w.AppleID?.auth ? resolve(w.AppleID) : reject(new AuthError('APPLE_SIGN_IN_FAILED', true)));
+    s.onerror = () => { appleScript = null; reject(new AuthError('APPLE_SIGN_IN_FAILED', true)); };
+    document.head.appendChild(s);
+  });
+  return appleScript;
+}
+
+/** Apple's own sign-in window on the web, under the Services ID; the backend checks it the same way. */
+async function signInWithAppleOnWeb(rawNonce: string, hashedNonce: string): Promise<Session> {
+  if (!APPLE_WEB_CLIENT_ID) throw new AuthError('APPLE_SIGN_IN_FAILED', false);
+  const apple = await loadAppleJS();
+  apple.auth.init({ clientId: APPLE_WEB_CLIENT_ID, scope: 'email', redirectURI: APPLE_WEB_REDIRECT_URI, usePopup: true, nonce: hashedNonce });
+  let result: Awaited<ReturnType<AppleJS['auth']['signIn']>>;
+  try {
+    result = await apple.auth.signIn();
+  } catch (e) {
+    const code = (e as { error?: string }).error;
+    if (code === 'popup_closed_by_user' || code === 'user_cancelled_authorize') throw new AuthError('CANCELLED', false);
+    throw new AuthError('APPLE_SIGN_IN_FAILED', true);
+  }
+  const identityToken = result.authorization?.id_token;
+  const authorizationCode = result.authorization?.code;
+  if (!identityToken || !authorizationCode) throw new AuthError('APPLE_SIGN_IN_FAILED', true);
+  const tokens = await post<TokenResponse>('/auth/apple/exchange', { identityToken, authorizationCode, nonce: rawNonce, client: 'web' });
   const next = fromTokens(tokens);
   await setSession(next);
   return next;

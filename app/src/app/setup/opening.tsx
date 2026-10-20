@@ -127,7 +127,8 @@ export default function Opening() {
   ) : <CTA label="Start at zero" onPress={finish} />;
 
   return (
-    <Screen header={<ScreenHeader title="Already owe each other money?" />} footer={footer}>
+    <Screen header={<ScreenHeader title="Already owe each other money?"
+      onBack={first === '1' ? () => router.replace('/setup/groups?first=1') : undefined} />} footer={footer}>
       <View style={{ marginTop: 22 }}>
         <Segmented label="Opening balance" value={yes ? 'yes' : 'no'} onChange={(v) => setYes(v === 'yes')}
           options={[{ value: 'no', label: 'No, start at zero' }, { value: 'yes', label: 'Yes' }]} />

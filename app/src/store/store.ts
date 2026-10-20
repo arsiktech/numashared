@@ -106,6 +106,34 @@ export async function hydrate(): Promise<void> {
 
 export const isHydrated = () => hydrated;
 
+// On the web, two tabs share one saved state. When the other tab saves, take its version, so this
+// tab's next save can't write over what was added there. Changes this tab hasn't saved yet (a save
+// is pending) are kept: events are append-only, so the two lists are joined by id.
+if (typeof window !== 'undefined' && typeof window.addEventListener === 'function' && typeof document !== 'undefined') {
+  window.addEventListener('storage', (e) => {
+    if (e.key !== STORAGE_KEY || !e.newValue || !hydrated) return;
+    let saved: Partial<State>;
+    try { saved = JSON.parse(e.newValue) as Partial<State>; } catch { return; }
+    if (saved.version !== 1 || !Array.isArray(saved.households)) return;
+    const pending = persistTimer !== null;
+    const join = (theirs: Household): Household => {
+      const mine = state.households.find((h) => h.id === theirs.id);
+      if (!pending || !mine) return theirs;
+      const known = new Set(theirs.events.map((ev) => ev.id));
+      const extra = mine.events.filter((ev) => !known.has(ev.id));
+      return extra.length ? { ...theirs, events: [...theirs.events, ...extra] } : theirs;
+    };
+    const households = saved.households.map(join);
+    if (pending) households.push(...state.households.filter((h) => !saved.households!.some((x) => x.id === h.id)));
+    // Each tab keeps showing the household it was on, so a screen mid-setup isn't swapped out under it.
+    const activeId = households.some((h) => h.id === state.activeId) ? state.activeId : saved.activeId ?? null;
+    state = { ...initial, ...saved, households, activeId, recent: state.recent, failNextSave: false } as State;
+    for (const l of listeners) l();
+    if (pending) schedulePersist();
+    applyAccount();
+  });
+}
+
 // ---------- which account's households are shown ----------
 
 const UNKNOWN_ACCOUNT = '?';

@@ -4,6 +4,8 @@
 (function () {
   "use strict";
   var root = document.documentElement;
+  // A phone shorter than this can't fit the table above the text: it gets the plain page.
+  if (window.innerWidth <= 900 && window.innerHeight < 760) return;
   root.classList.add("live");
 
   var clamp = function (x, a, b) { return Math.min(b === undefined ? 1 : b, Math.max(a === undefined ? 0 : a, x)); };

@@ -1,6 +1,6 @@
 // Who shares money? People who pay as one share a group and a balance. Tap a person, then tap the
 // group they should join (the tap version of dragging them). Groups are fixed once money is recorded.
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { View } from 'react-native';
 import { Redirect, useLocalSearchParams, useRouter } from 'expo-router';
 import { groupName } from '@/core';
@@ -10,7 +10,7 @@ import { showToast } from '@/store/ui';
 import { Lock, Plus } from '@/ui/icons';
 import { Banner, BannerText, CTA, haptic, Press, T } from '@/ui/primitives';
 import { useTheme } from '@/ui/theme';
-import { alpha, fonts } from '@/ui/tokens';
+import { alpha, fonts, thisDevice } from '@/ui/tokens';
 import { useHousehold } from '@/features/hooks';
 import { Screen, ScreenHeader } from '@/features/onboarding/chrome';
 import { maxGroupSize, movePerson, type Arrangement } from '@/features/onboarding/model';
@@ -29,15 +29,22 @@ export default function Groups() {
   const [sel, setSel] = useState<ID | null>(null);
   const [pendingNew, setPendingNew] = useState(false);
   const [saving, setSaving] = useState(false);
+  // A double click on the previous screen's button lands here; don't let it confirm a step not yet seen.
+  const shownAt = useRef(0);
+  useEffect(() => { shownAt.current = Date.now(); }, []);
   if (!h) return <Redirect href="/welcome" />;
   const fixed = hasFinancialHistory(h);
-  const nm = (pid: ID) => (pid === h.youId ? 'You' : h.people.find((p) => p.id === pid)?.name ?? 'Someone');
+  const nm = (pid: ID) => {
+    const name = h.people.find((p) => p.id === pid)?.name.trim();
+    if (pid === h.youId) return name && name !== 'You' ? `${name} (you)` : 'You';
+    return name || 'Someone';
+  };
   const title = (members: ID[]) => groupName({ id: 'x', color: 'citrus', memberIds: members }, h.people, h.youId);
 
   const move = (pid: ID, target: number | 'new') => {
     if (target === 'new') {
       const from = arr.find((g) => g.includes(pid));
-      if (from && from.length === 1) { showToast(`${nm(pid)} already ${pid === h.youId ? 'have' : 'has'} a group of their own`); return; }
+      if (from && from.length === 1) { showToast(pid === h.youId ? 'You already have a group of your own' : `${nm(pid)} already has a group of their own`); return; }
     } else if (arr[target].length >= maxGroupSize() && !arr[target].includes(pid)) {
       showToast(`A group is up to ${groupLimitWords()} people who pay as one`);
       return;
@@ -56,6 +63,7 @@ export default function Groups() {
   };
 
   const done = async () => {
+    if (Date.now() - shownAt.current < 700) return;
     if (!fixed) {
       if (h.sync && !h.sync.setup) {
         // Already shared: regrouping is a server change, so it needs a connection.
@@ -69,7 +77,7 @@ export default function Groups() {
         try { setGroups(h.id, arr.map((m) => ({ memberIds: m }))); } catch (e) { showToast((e as Error).message); return; }
         // A new household made while signed in goes to the server once its groups are set.
         if (first === '1' && currentSession() && !h.sync) {
-          turnOnSync(h.id).catch(() => showToast('Saved on this phone. It will be shared when you’re back online.'));
+          turnOnSync(h.id).catch(() => showToast(`Saved in ${thisDevice}. It will be shared when you’re back online.`));
         }
       }
     }
@@ -82,12 +90,14 @@ export default function Groups() {
   const hint = fixed ? null
     : pendingNew ? 'Now tap the person who should start the new group.'
       : sel ? `Now tap the group ${nm(sel)} should join.`
-        : 'Tap a person, then tap another group to move them.';
+        : 'To move someone, choose the person, then choose another group.';
 
   return (
-    <Screen header={<ScreenHeader title="Who shares money?" />} footer={<CTA label={saving ? 'Saving…' : fixed ? 'Done' : 'Looks right'} disabled={saving} onPress={done} />}>
+    <Screen header={<ScreenHeader title="Who shares money?" back={first === '1' ? null : undefined} />}
+      footer={<CTA label={saving ? 'Saving…' : fixed ? 'Done' : 'Continue'} disabled={saving} onPress={done} />}>
       <T style={{ fontSize: 15, lineHeight: 21, color: c.ink2, marginTop: 12 }}>
-        People who pay as one, like a couple, share a balance. Each group settles with the others.
+        People who share money, like a couple, go in one group and have one balance. Balances are between groups.
+        {fixed ? '' : ' You can change this until the first expense is added.'}
       </T>
       {hint ? <T accessibilityLiveRegion="polite" style={{ fontSize: 14, fontFamily: fonts.semibold, color: c.ink, marginTop: 12 }}>{hint}</T> : null}
 
@@ -147,13 +157,13 @@ export default function Groups() {
         ) : null}
       </View>
 
-      <View style={{ marginTop: 16 }}>
-        <Banner icon={fixed ? <Lock size={18} color={c.ink2} /> : undefined}>
-          <BannerText rest={fixed
-            ? 'Groups are fixed now that money is recorded, so every past balance stays explainable.'
-            : 'You can change this until the first expense is added.'} />
-        </Banner>
-      </View>
+      {fixed ? (
+        <View style={{ marginTop: 16 }}>
+          <Banner icon={<Lock size={18} color={c.ink2} />}>
+            <BannerText rest="Groups are fixed now that money is recorded, so every past balance stays explainable." />
+          </Banner>
+        </View>
+      ) : null}
     </Screen>
   );
 }

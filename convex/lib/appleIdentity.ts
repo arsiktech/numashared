@@ -237,6 +237,7 @@ export async function createAppleClientSecret(
   environment: IdentityEnvironment,
   nowSeconds: number,
   cryptoProvider: Crypto = crypto,
+  clientId: string = environment.appleClientId,
 ): Promise<string> {
   return await signJwt(
     { alg: signingAlgorithm, kid: environment.appleKeyId, typ: "JWT" },
@@ -245,7 +246,7 @@ export async function createAppleClientSecret(
       iat: nowSeconds,
       exp: nowSeconds + accessTokenLifetimeSeconds,
       aud: appleIssuer,
-      sub: environment.appleClientId,
+      sub: clientId,
     },
     environment.applePrivateKeyPkcs8Pem,
     cryptoProvider,
@@ -258,6 +259,7 @@ export async function exchangeAppleAuthorizationCode(
   clientId: string,
   fetchProvider: typeof fetch,
   timeoutMillis = appleHttpTimeoutMillis,
+  redirectURI?: string,
 ): Promise<{ idToken: string; refreshToken?: string }> {
   if (authorizationCode.length < 1 || authorizationCode.length > 4_096) {
     throw new IdentityError("APPLE_CODE_REJECTED", 400);
@@ -268,6 +270,8 @@ export async function exchangeAppleAuthorizationCode(
     code: authorizationCode,
     grant_type: "authorization_code",
   });
+  // A web authorization code is bound to the redirect URI it was issued for.
+  if (redirectURI !== undefined) body.set("redirect_uri", redirectURI);
   let response: Response;
   let text: string;
   try {

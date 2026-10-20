@@ -9,7 +9,7 @@ import { formatMoney } from '@/core';
 import { Warn } from '@/ui/icons';
 import { Banner, BannerText, Chip, CTA, haptic, T } from '@/ui/primitives';
 import { useTheme } from '@/ui/theme';
-import { fonts, isWeb } from '@/ui/tokens';
+import { fonts, isWeb, thisDevice } from '@/ui/tokens';
 import { Caption, Field, Label, Screen, ScreenHeader } from '@/features/onboarding/chrome';
 import { explainFailure, SignInButtons, useSession, useSignInOptions } from '@/features/account/session';
 import {
@@ -118,7 +118,7 @@ export default function ImportSheet() {
   const groups = preview ? preview.household.groups.map((g) => g.memberIds.map((id) => preview.household.people.find((p) => p.id === id)!.name).join(' + ')) : [];
 
   const footer = created ? (
-    session ? null : <CTA variant="second" label="Not now, keep it on this phone" onPress={() => router.replace('/home')} />
+    session ? null : <CTA variant="second" label={`Not now, keep it in ${thisDevice}`} onPress={() => router.replace('/home')} />
   ) : preview ? (
     <CTA label={busy === 'creating' ? 'Creating…' : `Create ${(name || 'household').trim()}`} disabled={!!busy} onPress={create} />
   ) : (
@@ -135,7 +135,7 @@ export default function ImportSheet() {
       <Field value={link} onChangeText={(v) => { setLink(v); setLoaded(null); setError(null); }} accessibilityLabel="Google Sheets link"
         placeholder="https://docs.google.com/spreadsheets/d/…" autoCapitalize="none" autoCorrect={false} keyboardType="url"
         returnKeyType="go" onSubmitEditing={read} editable={!created} />
-      <Caption>The sheet needs “Anyone with the link can view”. It is read once, on this phone.</Caption>
+      <Caption>The sheet needs “Anyone with the link can view”. It is read once, in {thisDevice}.</Caption>
 
       {error ? (
         <View style={{ marginTop: 16 }} accessibilityLiveRegion="polite">
@@ -185,7 +185,7 @@ export default function ImportSheet() {
 
       {created && !session ? (
         <View style={{ marginTop: 24, gap: 12 }}>
-          <T style={{ fontSize: 16, lineHeight: 22 }}>Created on this phone. Sign in to share it with everyone in it.</T>
+          <T style={{ fontSize: 16, lineHeight: 22 }}>Created in {thisDevice}. Sign in to share it with everyone in it.</T>
           {signIn.any ? <SignInButtons verb="to share it" onSignedIn={() => { void share(created); }} /> : null}
         </View>
       ) : null}

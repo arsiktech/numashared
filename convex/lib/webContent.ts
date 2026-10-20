@@ -172,10 +172,10 @@ function page(args: {
 <meta name="description" content="${escapeHTML(args.description)}">
 ${args.head ?? ""}
 <style>
-:root{color-scheme:light dark;font-family:-apple-system,BlinkMacSystemFont,"SF Pro Text",sans-serif;background:#f5f2eb;color:#292722}*{box-sizing:border-box}body{margin:0;padding:40px 20px;overflow-wrap:anywhere}main{max-width:680px;margin:0 auto;background:#fffdf8;border:1px solid #ddd7ca;border-radius:24px;padding:32px;box-shadow:0 12px 40px #29272212}h1,h2{font-family:-apple-system,BlinkMacSystemFont,"SF Pro Display",sans-serif;letter-spacing:-.02em}h1{font-size:2rem;margin-top:0}h2{margin-top:2rem}p,li{font-size:1.04rem;line-height:1.55}a,button{color:inherit;font-weight:650}button,.button{display:inline-block;border:1px solid #292722;border-radius:999px;background:#292722;color:#fffdf8;padding:12px 18px;text-decoration:none;font:inherit;font-weight:650;cursor:pointer}.actions{display:flex;flex-wrap:wrap;gap:10px}.button.secondary{background:transparent;color:inherit}small{color:#686258}a:focus-visible,button:focus-visible{outline:3px solid currentColor;outline-offset:5px}@media(max-width:480px){body{padding:20px 16px}main{padding:24px}}@media(prefers-color-scheme:dark){:root{background:#1c1b18;color:#f4f0e7}main{background:#24221e;border-color:#454139}small{color:#bdb8ae}.button,button{background:#f4f0e7;color:#24221e;border-color:#f4f0e7}.button.secondary{background:transparent;color:#f4f0e7}}
+:root{color-scheme:light dark;font-family:-apple-system,BlinkMacSystemFont,"SF Pro Text",sans-serif;background:#f5f2eb;color:#292722}*{box-sizing:border-box}body{margin:0;padding:40px 20px;overflow-wrap:anywhere}main{max-width:680px;margin:0 auto;background:#fffdf8;border:1px solid #ddd7ca;border-radius:24px;padding:32px;box-shadow:0 12px 40px #29272212}h1,h2{font-family:-apple-system,BlinkMacSystemFont,"SF Pro Display",sans-serif;letter-spacing:-.02em}h1{font-size:2rem;margin-top:0}h2{margin-top:2rem}p,li{font-size:1.04rem;line-height:1.55}a,button{color:inherit;font-weight:650}main a{padding:12px 0}.back{display:inline-block;margin:-12px 0 8px}button,.button{display:inline-block;border:1px solid #292722;border-radius:999px;background:#292722;color:#fffdf8;padding:12px 18px;text-decoration:none;font:inherit;font-weight:650;cursor:pointer}.actions{display:flex;flex-wrap:wrap;gap:10px}.button.secondary{background:transparent;color:inherit}small{color:#686258}a:focus-visible,button:focus-visible{outline:3px solid currentColor;outline-offset:5px}@media(max-width:480px){body{padding:20px 16px}main{padding:24px}}@media(prefers-color-scheme:dark){:root{background:#1c1b18;color:#f4f0e7}main{background:#24221e;border-color:#454139}small{color:#bdb8ae}.button,button{background:#f4f0e7;color:#24221e;border-color:#f4f0e7}.button.secondary{background:transparent;color:#f4f0e7}}
 </style>
 </head>
-<body><main>${args.body}</main></body>
+<body><main><p><a class="back" href="/">Numa Shared home</a></p>${args.body}</main></body>
 </html>`;
 }
 
@@ -197,13 +197,16 @@ export function aasaDocument(configuration: AasaConfiguration) {
 
 export function marketingHTML(
   configuration: SupportPageConfiguration,
+  webAppURL?: string,
 ): string {
   // The home page is authored in web-home/ and generated into homePage.generated.ts
-  // (npm run build:home). Only the support address is substituted at request time.
-  return homeTemplate.replaceAll(
-    "{{SUPPORT_EMAIL}}",
-    escapeHTML(configuration.supportEmail),
-  );
+  // (npm run build:home). The support address and, when there is one, the web app's address are
+  // substituted at request time; <!--web--> blocks show only with a web app, <!--noweb--> only without.
+  return homeTemplate
+    .replace(/<!--web-->([\s\S]*?)<!--\/web-->/g, webAppURL ? "$1" : "")
+    .replace(/<!--noweb-->([\s\S]*?)<!--\/noweb-->/g, webAppURL ? "" : "$1")
+    .replaceAll("{{WEB_APP_URL}}", escapeHTML(webAppURL ?? ""))
+    .replaceAll("{{SUPPORT_EMAIL}}", escapeHTML(configuration.supportEmail));
 }
 
 export type HomeAsset = { type: string; body: ArrayBuffer };
@@ -245,8 +248,8 @@ export function genericInviteHTML(
 <meta property="og:type" content="website">
 <meta name="robots" content="noindex,nofollow">`,
     body: `<h1>Numa Shared invite</h1>
-<p>Someone invited you to a shared pot. Details stay private until you choose to view them.</p>
-<form method="post"><button type="submit">View invite</button></form>
+<p>Someone invited you to a shared household. Details stay private until you choose to view them.</p>
+<form method="post"><button class="button secondary" type="submit">View invite details</button></form>
 ${inviteActions(configuration, inviteCode)}
 <small>If the app is already installed, return to the message and tap the invite link again. You can also enter the six-character code in Join.</small>`,
   });
@@ -261,25 +264,25 @@ export function invitePreviewHTML(
   let detail: string;
   let codeInstruction = "";
   if (preview.status === "active") {
-    heading = preview.potName ? `Join ${preview.potName}` : "Join a shared pot";
+    heading = preview.potName ? `Join ${preview.potName}` : "Join a shared household";
     detail = preview.kind === "potLink"
-      ? "This link needs the pot owner’s approval before any history becomes visible."
+      ? "This link needs the household owner’s approval before any history becomes visible."
       : "This private invite can be claimed once.";
     if (inviteCode) {
       codeInstruction = `<p>Enter <strong>${escapeHTML(inviteCode)}</strong> in Join after installing.</p>`;
     }
   } else if (preview.status === "expired") {
     heading = "This invite expired";
-    detail = "Ask the pot owner for a new invite.";
+    detail = "Ask the household owner for a new invite.";
   } else if (preview.status === "revoked") {
     heading = "This invite is no longer active";
-    detail = "Ask the pot owner for a new invite.";
+    detail = "Ask the household owner for a new invite.";
   } else if (preview.status === "used") {
     heading = "This invite was already used";
-    detail = "Open Numa Shared on the device that joined, or ask the pot owner for help.";
+    detail = "Open Numa Shared on the device that joined, or ask the household owner for help.";
   } else {
     heading = "This invite isn’t valid";
-    detail = "Ask the pot owner for a new invite.";
+    detail = "Ask the household owner for a new invite.";
   }
   return page({
     title: heading,
@@ -299,14 +302,46 @@ export function privacyHTML(configuration: PrivacyPageConfiguration): string {
   return page({
     title: "Numa Shared privacy policy",
     description: "How Numa Shared handles personal data.",
-    body: `<h1>Privacy policy</h1><p><small>Last updated 15 July 2026</small></p>
+    body: `<h1>Privacy policy</h1><p><small>Last updated 20 October 2026</small></p>
 <p>Numa Shared records shared household expenses. It does not move money, connect to bank accounts, sell data, or use data for advertising.</p>
 <h2>Controller and contact</h2><p>${controller}, ${address}, is responsible for this service. Privacy requests: <a href="mailto:${contact}">${contact}</a>.</p>
-<h2>Data used</h2><ul><li>Sign in with Apple account identifier and relay email, when Apple provides it.</li><li>Pot membership, display names, expense and settlement records, and free text entered by members.</li><li>Device push token, notification preference, and security/session records needed to operate sync.</li><li>Crash diagnostics only under the build and consent settings disclosed in the app.</li></ul>
-<h2>Why and how long</h2><p>Data is used only for account access, shared-pot sync, invitations, notifications, support, security, and legal compliance. Identifiers, authored free text, and push tokens are removed or redacted through account deletion. Shared arithmetic may remain for other members as their legitimate shared record. A sole-member pot is deleted.</p>
-<h2>Processors and transfers</h2><p>Convex provides the hosted database and functions. International transfers use ${transfer}. The controller keeps processor terms and transfer safeguards under review.</p>
-<h2>Your choices and rights</h2><p>You can export your data, hide amounts on this device, mute a pot, sign out, and delete your account in the app. Depending on where you live, you may also request access, correction, erasure, restriction, portability, or object to processing. Pending-member names supplied by another person can also be anonymized after a verified request.</p>
-<h2>Age and tracking</h2><p>Accounts are for people aged 13 or older, subject to a higher local minimum where required. No advertising or cross-app tracking is used.</p>`,
+<h2>Data used</h2><ul><li>Sign in with Apple: the account identifier and relay email, when Apple provides it.</li><li>Sign in with Google: the account identifier and email address Google provides.</li><li>Household membership, display names, expense and repayment records, and free text entered by members.</li><li>Device push token, notification preference, and security/session records needed to operate sync.</li><li>Crash diagnostics only under the build and consent settings disclosed in the app.</li></ul><p>In the web app, a household you keep on your device is stored only in that browser’s storage until you sign in and share it. On web screens that offer Google sign-in, Google’s sign-in script is loaded from accounts.google.com, even if you don’t use it.</p><p>Importing a Google Sheet: your device downloads the sheet once, through the link you paste, and builds the household from it. The sheet itself is not sent to Numa Shared; the household made from it is treated like any other.</p>
+<h2>Why and how long</h2><p>Data is used only for account access, shared-household sync, invitations, notifications, support, security, and legal compliance. Identifiers, authored free text, and push tokens are removed or redacted through account deletion. Shared arithmetic may remain for other members as their legitimate shared record. A household with only one member is deleted.</p>
+<h2>Where data is stored, processors and transfers</h2><p>Shared households are stored by Convex, which provides the hosted database and functions, on Amazon Web Services servers in the United States (US East, Virginia). If you use Numa Shared from the European Economic Area, the United Kingdom or Switzerland, your data is transferred there. ${transfer}. Google provides sign-in for people who choose it. Apple provides sign-in with Apple and delivers notifications through the Apple Push Notification service, which receives your device’s push token and the notification text. The controller keeps processor terms and transfer safeguards under review.</p>
+<h2>Your choices and rights</h2><p>You can export your data, hide amounts on your device, mute a household, sign out, and delete your account in the app. Depending on where you live, you may also request access, correction, erasure, restriction, portability, or object to processing. Pending-member names supplied by another person can also be anonymized after a verified request.</p>
+<h2>Age and tracking</h2><p>Accounts are for people aged 13 or older, subject to a higher local minimum where required. No advertising or cross-app tracking is used.</p>
+<p>See also the <a href="/terms">terms of service</a>.</p>`,
+  });
+}
+
+/**
+ * Terms of service. Plain words, written for a free beta run by one person: it records, it never
+ * moves money, it comes without guarantees, and the law still protects consumers where it must.
+ */
+export function termsHTML(privacy: PrivacyPageConfiguration, support: SupportPageConfiguration): string {
+  const operator = escapeHTML(privacy.controllerName);
+  const address = escapeHTML(privacy.controllerAddress);
+  const email = escapeHTML(support.supportEmail);
+  return page({
+    title: "Numa Shared terms of service",
+    description: "The terms for using Numa Shared.",
+    body: `<h1>Terms of service</h1><p><small>Last updated 20 October 2026</small></p>
+<p>These terms are an agreement between you and ${operator}, ${address} (“we”), who runs Numa Shared. By using the app or the website you accept them. If you don’t, please don’t use Numa Shared.</p>
+<h2>1. What Numa Shared is</h2><p>Numa Shared is a record-keeping tool for shared household costs. It works out who owes whom from what the members of a household enter. It never moves money, holds funds, connects to bank accounts or makes payments. It is not a bank, payment service, accounting, tax, legal or financial advice. A “repayment” in Numa Shared is only a record that someone says they paid; the payment itself happens somewhere else, between you and the other person.</p>
+<h2>2. Balances are only as good as the records</h2><p>Balances, plans and summaries are calculated from what people enter. Check the figures before you rely on them, especially before you pay anyone. You and the other members are responsible for what you record and for any money you exchange.</p>
+<h2>3. Free during the beta</h2><p>Numa Shared is free while it is in beta. Features may change, appear or go away. If we ever introduce paid features, we will say so clearly in advance, and nothing will be charged without your explicit agreement.</p>
+<h2>4. Your account</h2><p>You need to be at least 13, or older where local law sets a higher age. You can use Numa Shared without an account on one device; signing in with Apple or Google lets you share a household. Keep your sign-in secure. You are responsible for what happens under your account.</p>
+<h2>5. Shared households</h2><p>Everything added to a shared household is visible to its members. History is permanent: edits and voids stay visible so every balance can be explained. Only add information about other people that you are entitled to share, and only invite people who should see that household. The household owner manages invitations and membership.</p>
+<h2>6. Fair use</h2><p>Don’t use Numa Shared to break the law, to harass or deceive anyone, or to store content you have no right to. Don’t try to access other people’s data, get around limits or security, overload the service, or copy it with automated tools beyond normal personal use, such as your own card sync.</p>
+<h2>7. Your content</h2><p>You keep ownership of what you enter. You allow us to store, process and show it to the members of your household, only as needed to run Numa Shared. The <a href="/privacy">privacy policy</a> explains how personal data is handled.</p>
+<h2>8. Availability and your data</h2><p>We work to keep Numa Shared running and your records safe, but we can’t promise it will always be available, error-free or free of data loss. Keep your own copy of records that matter: you can export them as CSV at any time. We may change, suspend or end the service; if we end it, we will give reasonable notice where we can so you can export your data.</p>
+<h2>9. No guarantees</h2><p>To the extent the law allows, Numa Shared is provided “as is” and “as available”, without warranties of any kind, including fitness for a particular purpose or accuracy of calculations based on the data entered.</p>
+<h2>10. Limits on liability</h2><p>To the extent the law allows, we are not liable for: indirect or consequential losses; lost profits, savings or opportunities; losses caused by information you or other members entered; disagreements or payments between household members; or loss of data you could have avoided by exporting it. In any case, our total liability to you for all claims is limited to fifty euros (€50).</p><p>Nothing in these terms limits liability that cannot be limited by law, including for death or personal injury caused by negligence, for fraud, or for intentional or grossly negligent conduct, and nothing affects your statutory rights as a consumer.</p>
+<h2>11. Ending</h2><p>You can stop using Numa Shared at any time and delete your account from Settings. We may suspend or close an account that seriously or repeatedly breaks these terms, or where the law requires it. Sections 2, 7 (for content already shared), 9, 10 and 13 continue to apply afterwards.</p>
+<h2>12. Changes</h2><p>We may update these terms. The date at the top always shows the latest version. If a change matters to you, we will tell you in the app or on this site before it takes effect. If you keep using Numa Shared after that, the new terms apply; if you don’t agree, you can delete your account.</p>
+<h2>13. Law and disputes</h2><p>These terms are governed by the law of Spain. If you live in the European Union or elsewhere as a consumer, you also keep the protection of the mandatory laws of your country of residence and may bring a claim in the courts there.</p>
+<h2>14. Apple and Google</h2><p>If you got Numa Shared from Apple’s App Store or TestFlight, or sign in with Apple or Google, their own terms also apply to their services. Apple and Google are not parties to these terms and are not responsible for Numa Shared or its support.</p>
+<h2>15. Contact</h2><p>Questions about these terms: <a href="mailto:${email}">${email}</a>.</p>`,
   });
 }
 
@@ -317,13 +352,14 @@ export function supportHTML(configuration: SupportPageConfiguration): string {
     description: "Help with Numa Shared.",
     body: `<h1>Support</h1>
 <p>Numa Shared never moves money. It records what household members say happened and derives who owes whom.</p>
-<h2>Invite trouble</h2><p>Expired, revoked, or already-used links cannot be reopened. Ask the pot owner for a new invite. A pot link still needs owner approval before history appears.</p>
-<h2>Edit or settle</h2><p>Editing corrects a record and keeps the correction visible in history. Settling records a payment made somewhere else; Numa Shared does not send that payment.</p>
-<h2>Balances and spending</h2><p>Balances show who owes whom after shared expenses and recorded settlements. Spending reports summarize expense records; they do not say that money moved between members.</p>
-<h2>Leaving a pot</h2><p>Resolve or acknowledge any remaining balance first. If you are the owner, transfer ownership before leaving. Your member remains archived in the shared history so past arithmetic does not change.</p>
-<h2>Lost phone or sign-in trouble</h2><p>Use the device passcode and Find My erase for a lost phone. Sign in with the same Apple account to restore synced pots. Never send invite tokens, device tokens, or Apple credentials by email.</p>
-<h2>Export after removal</h2><p>A removed member keeps a frozen, read-only local snapshot through the removal event and can export that snapshot from the device. Later pot activity is not included.</p>
+<h2>Invite trouble</h2><p>Expired, revoked, or already-used links cannot be reopened. Ask the household owner for a new invite. A household link still needs owner approval before history appears.</p>
+<h2>Edit or record a repayment</h2><p>Editing corrects a record and keeps the correction visible in history. A repayment records money paid somewhere else; Numa Shared does not send that payment.</p>
+<h2>Balances and spending</h2><p>Balances show who owes whom after shared expenses and recorded repayments. Spending reports summarize expense records; they do not say that money moved between members.</p>
+<h2>Leaving a household</h2><p>Resolve or acknowledge any remaining balance first. If you are the owner, transfer ownership before leaving. Your member remains archived in the shared history so past arithmetic does not change.</p>
+<h2>Lost phone or sign-in trouble</h2><p>Use the device passcode and Find My erase for a lost phone. Sign in with the same Apple or Google account to restore shared households. Never send invite tokens, device tokens, or passwords by email.</p>
+<h2>Export after removal</h2><p>A removed member keeps a frozen, read-only local snapshot through the removal event and can export that snapshot from the device. Later household activity is not included.</p>
 <h2>Contact</h2><p><a class="button" href="mailto:${email}?subject=Numa%20Shared%20support">Email ${email}</a></p>
-<p><a href="/">Back to Numa Shared</a></p>`,
+<p><a href="/privacy">Privacy policy</a> · <a href="/terms">Terms of service</a></p>
+`,
   });
 }

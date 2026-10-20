@@ -2,12 +2,12 @@
 // left, the history thread in the middle and the selected record on the right.
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { FlatList, ScrollView, StyleSheet, View } from 'react-native';
-import Animated, { Extrapolation, interpolate, runOnJS, useAnimatedScrollHandler, useAnimatedStyle, useSharedValue } from 'react-native-reanimated';
+import Animated, { Extrapolation, interpolate, runOnJS, useAnimatedReaction, useAnimatedScrollHandler, useAnimatedStyle, useSharedValue } from 'react-native-reanimated';
 import { Redirect, useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { markSeen, useStore } from '@/store/store';
 import { openSheet } from '@/store/ui';
-import { Check, ChevUp, Search } from '@/ui/icons';
+import { Check, ChevDown, Search } from '@/ui/icons';
 import { Press, T } from '@/ui/primitives';
 import { useTheme } from '@/ui/theme';
 import { fonts, isWeb } from '@/ui/tokens';
@@ -47,104 +47,113 @@ function rows(records: LedgerRecord[]): Row[] {
   return out;
 }
 
-// The bands stay put. The list below is one endless history that slides up over them; once its top
-// reaches the status bar it becomes History, with a bar to get back and a small orb to keep adding.
+type Item = { kind: 'gap'; key: string } | { kind: 'head'; key: string } | Row;
+
+// The bands are drawn once, fixed behind everything, so they never move. In front of them is one
+// ordinary list that iOS scrolls natively (momentum, bounce): it starts with a transparent gap the
+// bands' height, then the "Latest" header, which sticks at the top natively, then the history.
+// Scrolling slides the history up over the bands; nothing re-positions anything per frame.
+// Taps in the gap reach an invisible copy of the bands in exactly the same place, so every band
+// button still works; that copy is the only thing that follows the scroll, and it can't be seen.
 function PhoneHome({ freshIds }: { freshIds: Set<string> }) {
   const { h, ledger, hide } = useHousehold();
   const { c, height: H } = useTheme();
   const router = useRouter();
   const insets = useSafeAreaInsets();
-  const list = useRef<FlatList<Row>>(null);
-  const y = useSharedValue(0);
+  const list = useRef<FlatList<Item>>(null);
   const [bandsH, setBandsH] = useState(0);
   const [docked, setDocked] = useState(false);
-  const dockedSV = useSharedValue(false);
-  const dock = Math.max(1, bandsH - 26 - insets.top);
-  const data = useMemo(() => (ledger ? rows(ledger.records) : []), [ledger]);
-  const onScroll = useAnimatedScrollHandler((e) => {
-    y.value = e.contentOffset.y;
-    const now = e.contentOffset.y >= dock - 4;
-    if (now !== dockedSV.value) { dockedSV.value = now; runOnJS(setDocked)(now); }
+  // The list starts below the status bar; the bands behind it start at the very top.
+  const gap = Math.max(0, (bandsH || H * 0.55) - 26 - insets.top);
+  const y = useSharedValue(0);
+  const onScroll = useAnimatedScrollHandler((e) => { y.value = e.contentOffset.y; });
+  const data = useMemo<Item[]>(() => (ledger ? [{ kind: 'gap', key: 'gap' }, { kind: 'head', key: 'head' }, ...rows(ledger.records)] : []), [ledger]);
+  // History mode switches as the header reaches the top: a state change, not per-frame movement.
+  useAnimatedReaction(() => y.value >= gap - 1, (now, was) => { if (now !== was) runOnJS(setDocked)(now); }, [gap]);
+  const touchCopy = useAnimatedStyle(() => ({ transform: [{ translateY: Math.max(y.value, -400) }] }));
+  const corners = useAnimatedStyle(() => {
+    const r = interpolate(y.value, [gap - 30, gap], [26, 0], Extrapolation.CLAMP);
+    return { borderTopLeftRadius: r, borderTopRightRadius: r };
   });
-  // Counter-scroll the bands so they never move, even when the list is pulled down past its top.
-  // Once the list has docked they are covered, so they stop there and scroll away.
-  const pinned = useAnimatedStyle(() => ({ transform: [{ translateY: Math.min(y.value, dock) }] }));
-  const bar = useAnimatedStyle(() => ({ opacity: interpolate(y.value, [dock - 36, dock], [0, 1], Extrapolation.CLAMP) }));
-  const fold = useAnimatedStyle(() => ({ opacity: interpolate(y.value, [dock - 36, dock - 6], [1, 0], Extrapolation.CLAMP) }));
   if (!h || !ledger) return null;
   const freshRecord = new Set(h.events.filter((e) => freshIds.has(e.id)).map((e) => ('recordId' in e ? e.recordId : '')));
   const search = () => { requestHistorySearch(true); router.push('/history'); };
+  const bands = <Bands h={h} balances={ledger.balances} hide={hide} />;
 
   return (
     <View style={{ flex: 1, backgroundColor: c.bg }}>
+      {/* What you see. Screen readers use the copy in the list instead. */}
+      <View accessibilityElementsHidden importantForAccessibility="no-hide-descendants" aria-hidden pointerEvents="none"
+        ref={(node) => { if (isWeb && node) (node as unknown as HTMLElement).setAttribute('inert', ''); }}
+        onLayout={(e) => setBandsH(e.nativeEvent.layout.height)}>
+        {bands}
+      </View>
+
       <Animated.FlatList
         ref={list}
+        style={{ position: 'absolute', left: 0, right: 0, top: insets.top, bottom: 0 }}
         data={data}
-        keyExtractor={(row) => row.key}
+        keyExtractor={(item) => item.key}
+        stickyHeaderIndices={[1]}
         onScroll={onScroll}
         scrollEventThrottle={16}
-        showsVerticalScrollIndicator={docked}
-        initialNumToRender={14}
+        showsVerticalScrollIndicator={false}
+        initialNumToRender={16}
         windowSize={11}
-        contentContainerStyle={{ flexGrow: 1 }}
-        ListHeaderComponent={(
-          <>
-            <Animated.View style={pinned} onLayout={(e) => setBandsH(e.nativeEvent.layout.height)}>
-              <Bands h={h} balances={ledger.balances} hide={hide} tail={isWeb ? undefined : H} />
-            </Animated.View>
-            <Animated.View style={[{ marginTop: -26, backgroundColor: c.bg, borderTopLeftRadius: 26, borderTopRightRadius: 26, paddingHorizontal: 22, paddingTop: 14 }]}>
-              <Animated.View style={[{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', height: 44 }, fold]}>
-                <T accessibilityRole="header" style={{ fontFamily: fonts.bold, fontSize: 20 }}>Latest</T>
-                {ledger.records.length ? (
-                  <Press accessibilityRole="button" accessibilityLabel="Search history" onPress={search} style={{ height: 44, flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                    <Search size={18} color={c.ink} />
-                    <T style={{ fontSize: 16, fontFamily: fonts.medium }}>Search</T>
-                  </Press>
-                ) : null}
+        renderItem={({ item }) => {
+          if (item.kind === 'gap') {
+            return (
+              <View style={{ height: gap }}>
+                <Animated.View style={[{ position: 'absolute', left: 0, right: 0, top: -insets.top, opacity: 0 }, touchCopy]}>{bands}</Animated.View>
+              </View>
+            );
+          }
+          if (item.kind === 'head') {
+            return (
+              <Animated.View style={[{ backgroundColor: c.bg, paddingHorizontal: 22, paddingTop: 14, overflow: 'hidden' }, corners]}>
+                <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', height: 44 }}>
+                  {docked ? (
+                    <Press accessibilityRole="button" accessibilityLabel="Back to balances" onPress={() => { list.current?.scrollToOffset({ offset: 0, animated: true }); setDocked(false); }}
+                      style={{ height: 44, flexDirection: 'row', alignItems: 'center', gap: 4, marginLeft: -4 }}>
+                      <ChevDown size={18} color={c.ink} />
+                      <T style={{ fontSize: 16, fontFamily: fonts.medium }}>Balances</T>
+                    </Press>
+                  ) : (
+                    <T accessibilityRole="header" style={{ fontFamily: fonts.bold, fontSize: 20 }}>Latest</T>
+                  )}
+                  {docked ? <T accessibilityRole="header" style={{ fontFamily: fonts.bold, fontSize: 17 }}>History</T> : null}
+                  {ledger.records.length ? (
+                    <Press accessibilityRole="button" accessibilityLabel="Search history" onPress={search} style={{ height: 44, minWidth: docked ? 92 : undefined, flexDirection: 'row', alignItems: 'center', justifyContent: 'flex-end', gap: 6 }}>
+                      <Search size={18} color={c.ink} />
+                      {docked ? null : <T style={{ fontSize: 16, fontFamily: fonts.medium }}>Search</T>}
+                    </Press>
+                  ) : null}
+                </View>
+                <SyncLine />
               </Animated.View>
-              <SyncLine />
-            </Animated.View>
-          </>
-        )}
-        renderItem={({ item }) => (
-          <View style={{ backgroundColor: c.bg, paddingHorizontal: 22 }}>
-            {item.kind === 'day' ? (
-              <T style={{ fontFamily: fonts.semibold, fontSize: 13, color: c.ink2, paddingTop: 16, paddingBottom: 2 }}>{item.label}</T>
-            ) : (
-              <RecordRow h={h} r={item.r} hide={hide} fresh={freshRecord.has(item.r.id)} last={item.last}
-                onPress={() => openSheet({ type: 'detail', recordId: item.r.id })} />
-            )}
-          </View>
-        )}
-        ListEmptyComponent={<View style={{ backgroundColor: c.bg, paddingHorizontal: 22 }}><EmptyState /></View>}
-        ListFooterComponentStyle={{ flexGrow: 1, backgroundColor: c.bg }}
+            );
+          }
+          return (
+            <View style={{ backgroundColor: c.bg, paddingHorizontal: 22 }}>
+              {item.kind === 'day' ? (
+                <T style={{ fontFamily: fonts.semibold, fontSize: 13, color: c.ink2, paddingTop: 16, paddingBottom: 2 }}>{item.label}</T>
+              ) : (
+                <RecordRow h={h} r={item.r} hide={hide} fresh={freshRecord.has(item.r.id)} last={item.last}
+                  onPress={() => openSheet({ type: 'detail', recordId: item.r.id })} />
+              )}
+            </View>
+          );
+        }}
         ListFooterComponent={(
-          <View style={{ flexGrow: 1, minHeight: insets.bottom + 120, alignItems: 'center', paddingTop: 22 }}>
-            {data.length > 12 ? <T style={{ fontSize: 13, color: c.ink3 }}>That’s everything in {h.name}</T> : null}
-            {/* A floor, so pulling past the end never shows the bands behind the list. */}
+          // Fills the rest of the screen, so a short history still covers the bands once docked.
+          <View style={{ backgroundColor: c.bg, minHeight: H - insets.top - 120, paddingHorizontal: 22, paddingBottom: insets.bottom + 110 }}>
+            {ledger.records.length ? (data.length > 14 ? <T style={{ fontSize: 13, color: c.ink3, textAlign: 'center', paddingTop: 22 }}>That’s everything in {h.name}</T> : null) : <EmptyState />}
+            {/* Bouncing past the end shows more page, never the bands behind. */}
             {isWeb ? null : <View pointerEvents="none" style={{ position: 'absolute', left: 0, right: 0, top: '100%', height: H, backgroundColor: c.bg }} />}
           </View>
         )}
       />
-
-      {/* History bar: appears as the list reaches the top. */}
-      <Animated.View pointerEvents={docked ? 'box-none' : 'none'} style={[StyleSheet.absoluteFill, bar]}>
-        <View style={{ paddingTop: insets.top, backgroundColor: c.bg, borderBottomWidth: 1, borderBottomColor: c.hair }}>
-          <View style={{ height: 52, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 12 }}>
-            <Press accessibilityRole="button" accessibilityLabel="Back to balances" onPress={() => list.current?.scrollToOffset({ offset: 0, animated: true })}
-              style={{ height: 44, minWidth: 44, flexDirection: 'row', alignItems: 'center', gap: 4, paddingHorizontal: 8 }}>
-              <ChevUp size={18} color={c.ink} />
-              <T style={{ fontSize: 16, fontFamily: fonts.medium }}>Balances</T>
-            </Press>
-            <T accessibilityRole="header" style={{ fontFamily: fonts.bold, fontSize: 17 }}>History</T>
-            <Press accessibilityRole="button" accessibilityLabel="Search history" onPress={search}
-              style={{ height: 44, minWidth: 92, alignItems: 'flex-end', justifyContent: 'center', paddingHorizontal: 8 }}>
-              <Search size={20} color={c.ink} />
-            </Press>
-          </View>
-        </View>
-        {docked ? <OrbButton size={64} plus={24} style={{ position: 'absolute', right: 18, bottom: insets.bottom + 18 }} /> : null}
-      </Animated.View>
+      {docked ? <OrbButton size={64} plus={24} style={{ position: 'absolute', right: 18, bottom: insets.bottom + 18 }} /> : null}
     </View>
   );
 }
@@ -161,7 +170,7 @@ function EmptyState() {
         <T style={{ fontSize: 30, color: c.ink2 }}>+</T>
       </View>
       <T style={{ fontFamily: fonts.bold, fontSize: 20 }}>Nothing here yet</T>
-      <T style={{ fontSize: 14, color: c.ink2, textAlign: 'center', maxWidth: 300 }}>Tap the orb to add the first expense. Everyone in {h.name} sees it straight away.</T>
+      <T style={{ fontSize: 14, color: c.ink2, textAlign: 'center', maxWidth: 300 }}>{isWeb ? 'Press' : 'Tap'} the orb to add the first expense. {h.sync ? `Everyone in ${h.name} sees it straight away.` : 'It stays on this device until you share the household.'}</T>
       <View style={{ alignSelf: 'stretch', marginTop: 10, backgroundColor: c.card, borderRadius: 18 }}>
         <Press noScale onPress={() => router.push('/setup/opening')} accessibilityLabel="Already owe each other money? Add an opening balance"
           style={{ padding: 16, borderBottomWidth: invited.length ? 1 : 0, borderBottomColor: c.hair }}>
@@ -171,7 +180,7 @@ function EmptyState() {
         {invited.length ? (
           <Press noScale onPress={() => router.push('/setup/invite')} accessibilityLabel="Invite people" style={{ padding: 16 }}>
             <T style={{ fontSize: 16 }}>{invited.map((p) => p.name).join(', ')} {invited.length > 1 ? 'haven’t' : 'hasn’t'} joined yet</T>
-            <T style={{ fontSize: 13, color: c.ink2, marginTop: 2 }}>Send the invite again</T>
+            <T style={{ fontSize: 13, color: c.ink2, marginTop: 2 }}>{invited.some((p) => h.sync?.invites?.[p.id]?.issued) ? 'Send the invite again' : 'Invite them'}</T>
           </Press>
         ) : null}
       </View>

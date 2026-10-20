@@ -3,10 +3,10 @@
 // edits an expense (dark "Save changes") and, on a desk, becomes a popover without a keypad.
 import { useEffect, useMemo, useRef, useState, type Dispatch, type ReactNode, type SetStateAction } from 'react';
 import { TextInput, View, type TextStyle } from 'react-native';
-import { applyKey, categoryLabel, currencyDigits, formatMoney, inputFromCents, parseInput, type Key } from '@/core';
+import { applyKey, categoryLabel, currencyDigits, formatMoney, inputFromCents, parseInput, typeAmount, type Key } from '@/core';
 import type { Category, ExpenseContent, Household, ID, LedgerEvent } from '@/core/types';
 import { addExpense, groupOfPerson, ledgerOf, reviseExpense, SaveError, yourGroup } from '@/store/store';
-import { useUI, type OpenSheet } from '@/store/ui';
+import { showToast, useUI, type OpenSheet } from '@/store/ui';
 import { todayISO } from '@/store/ids';
 import { CategoryIcon, Plus, Warn } from '@/ui/icons';
 import { BigAmount, Keypad, SplitBar, Word, type SplitSegment } from '@/ui/money-ui';
@@ -112,7 +112,13 @@ function AddBody({ h, spec, draft, set, t, pop }: {
   const [error, setError] = useState<'save' | string | null>(null);
   const [newCat, setNewCat] = useState('');
   const [midH, setMidH] = useState(0);
+  // Measured too little room for four rows of 44 pt keys (a short phone with a long sentence):
+  // scroll the whole sheet instead of hiding the top row. Checked again when the screen changes.
+  const [cramped, setCramped] = useState<number | null>(null);
   const noteRef = useRef<TextInput>(null);
+  const typed = useRef<{ keys: Key[]; input: string }>({ keys: [], input: '' });
+  const live = useRef({ input: draft.input, sug: !!draft.sugKey });
+  useEffect(() => { live.current = { input: draft.input, sug: !!draft.sugKey }; }, [draft.input, draft.sugKey]);
   const saving = saveGuard(spec.key);
 
   const suggestions = useMemo(() => suggestionsFor(ledger), [ledger]);
@@ -165,7 +171,25 @@ function AddBody({ h, spec, draft, set, t, pop }: {
       return;
     }
     if (panel === 'payer' || panel === 'date') setPanel(null);
-    set((d) => ({ ...d, input: applyKey(d.sugKey && k !== 'back' ? '' : d.input, k, cur), sugKey: null }));
+    // Replay every key typed so far (typeAmount), so "1.600,00" from a European keyboard means 1600.
+    // Refs, not the render's draft, so fast typing on a keyboard doesn't lose keys between renders.
+    const start = live.current.sug && k !== 'back' ? '' : live.current.input;
+    const base = typed.current.input === start ? typed.current.keys : ([...start] as Key[]);
+    const seq = k === 'back' ? base.slice(0, -1) : [...base, k];
+    const next = typeAmount(seq, cur);
+    if (k !== 'back' && next === start) {
+      // A third digit after a separator may still turn out to be thousands ("1.600,"), so keep it.
+      const maybeThousands = /^[0-9]$/.test(k) && seq.length >= 4 && seq[seq.length - 4] === '.' && seq.slice(-3).every((x: Key) => /^[0-9]$/.test(x));
+      if (maybeThousands) showToast(`${currencyDigits(cur)} decimal places at most. For a thousand or more, type the digits without a separator.`);
+      else {
+        haptic.warn();
+        if (/^[0-9]$/.test(k)) showToast(start.includes('.') ? `Up to ${currencyDigits(cur)} decimal places` : 'That’s the largest amount');
+        return;
+      }
+    }
+    typed.current = { keys: seq, input: next };
+    live.current = { input: next, sug: false };
+    set((d) => ({ ...d, input: next, sugKey: null }));
   };
 
   const save = async () => {
@@ -333,10 +357,11 @@ function AddBody({ h, spec, draft, set, t, pop }: {
       ) : null}
       <View style={lineStyle}>
         <T style={sentenceText}>for</T>
-        <Word color={t.ink} size={wordSize} open={catOpen} placeholder={!draft.catChosen}
+        {/* The guessed category is what gets saved, so it reads as chosen, not as a faded hint. */}
+        <Word color={t.ink} size={wordSize} open={catOpen}
           onPress={() => { haptic.tick(); setExact(null); setPanel(catOpen ? null : 'category'); }}
           accessibilityLabel={`Category: ${what}. ${catOpen ? 'Close the list' : 'Change'}`}
-          leading={draft.title.trim() ? undefined : <CategoryIcon category={draft.category} size={pop ? 22 : 26} color={draft.catChosen ? t.ink : alpha(t.ink, 0.55)} />}>
+          leading={draft.title.trim() ? undefined : <CategoryIcon category={draft.category} size={pop ? 22 : 26} color={t.ink} />}>
           {what}
         </Word>
       </View>
@@ -384,7 +409,7 @@ function AddBody({ h, spec, draft, set, t, pop }: {
   );
 
   const showSuggestions = suggestions.length > 0 && (draft.input === '' || draft.sugKey !== null);
-  const dateRow = <DateRow tone={t} date={draft.date} onPick={(date) => { haptic.tick(); set((d) => ({ ...d, date })); setPanel(null); }} />;
+  const dateRow = <DateRow tone={t} date={draft.date} onPick={(date, stayOpen) => { haptic.tick(); set((d) => ({ ...d, date })); if (!stayOpen) setPanel(null); }} />;
 
   const grid = <CategoryGrid tone={t} value={draft.title.trim() ? null : draft.category} custom={!!draft.title.trim()} compact={pop}
     onPick={pickCategory} onNew={() => { setNewCat(draft.title); setPanel('newcat'); }} />;
@@ -430,7 +455,10 @@ function AddBody({ h, spec, draft, set, t, pop }: {
 
   // Short screens (a phone in landscape): everything scrolls, with a keypad of fixed height, so
   // the keypad and Save are never cut off.
-  if (isShortSheet(screenH)) {
+  if (isShortSheet(screenH) || cramped === screenH) {
+    // A phone in landscape scrolls everything; a short phone in portrait keeps the receipt and its
+    // Add button pinned at the bottom and scrolls only the sentence and keypad.
+    const pinned = !isShortSheet(screenH);
     return (
       <View style={{ flex: 1 }}>
         {head}
@@ -442,8 +470,9 @@ function AddBody({ h, spec, draft, set, t, pop }: {
           <View style={{ paddingHorizontal: 12, paddingTop: 8 }}>
             {keypadArea ?? <Keypad onKey={(k) => onKey(k as Key)} color={t.ink} height={SHORT_KEY_HEIGHT} allowDot={currencyDigits(cur) > 0} />}
           </View>
-          {receipt}
+          {pinned ? null : receipt}
         </SheetScrollView>
+        {pinned ? receipt : null}
       </View>
     );
   }
@@ -455,7 +484,11 @@ function AddBody({ h, spec, draft, set, t, pop }: {
         {sentence}
         <View style={{ marginTop: 12 }}>{slot}</View>
       </View>
-      <View style={{ flex: 1, minHeight: 0, overflow: 'hidden', justifyContent: panel === 'category' || panel === 'newcat' ? 'flex-start' : 'flex-end', paddingHorizontal: 12, paddingTop: 8 }} onLayout={(e) => setMidH(e.nativeEvent.layout.height)}>
+      <View style={{ flex: 1, minHeight: 0, overflow: 'hidden', justifyContent: panel === 'category' || panel === 'newcat' ? 'flex-start' : 'flex-end', paddingHorizontal: 12, paddingTop: 8 }} onLayout={(e) => {
+        const room = e.nativeEvent.layout.height;
+        setMidH(room);
+        if (!panel && room > 0 && room < 4 * SHORT_KEY_HEIGHT + 8) setCramped(screenH);
+      }}>
         {panel === 'category' ? <View style={{ paddingHorizontal: 10, paddingTop: 6 }}>{grid}</View>
           : panel === 'newcat' ? <View style={{ paddingHorizontal: 10, paddingTop: 6 }}>{newField}</View>
           : <Keypad onKey={(k) => onKey(k as Key)} color={t.ink} height={keyHeight(screenH, midH)} allowDot={currencyDigits(cur) > 0} />}

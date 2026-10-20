@@ -1,9 +1,10 @@
+import { useEffect, useState } from 'react';
 import { View } from 'react-native';
 import { useStore } from '@/store/store';
 import { Checks, Clock, CloudOff, Warn } from '@/ui/icons';
 import { Press, T } from '@/ui/primitives';
 import { useTheme } from '@/ui/theme';
-import { fonts } from '@/ui/tokens';
+import { fonts, thisDevice } from '@/ui/tokens';
 import { online, useSyncStatus } from '@/sync/runtime';
 import { putHousehold } from '@/store/store';
 import { explainFailure } from '../account/session';
@@ -15,8 +16,17 @@ export function SyncLine() {
   const { h } = useHousehold();
   const recent = useStore((s) => s.recent);
   const status = useSyncStatus();
+  // Re-render when the undo window closes, so the line doesn't keep promising an undo.
+  const latest = h ? Math.max(0, ...recent.filter((r) => r.householdId === h.id).map((r) => r.at)) : 0;
+  const [, tick] = useState(0);
+  useEffect(() => {
+    const left = latest + 8000 - Date.now();
+    if (left <= 0) return;
+    const t = setTimeout(() => tick((n) => n + 1), left + 50);
+    return () => clearTimeout(t);
+  }, [latest]);
   if (!h) return null;
-  const undoOpen = recent.some((r) => r.householdId === h.id && Date.now() - r.at < 8000);
+  const undoOpen = Date.now() - latest < 8000;
   const queued = h.events.filter((e) => e.seq === undefined).length;
   const rejected = h.sync?.rejected ?? [];
 
@@ -34,7 +44,7 @@ export function SyncLine() {
     a11y = 'Sync paused. Try again';
   } else if (h.sync && (!status.signedIn || !status.connected) && (queued > 0 || h.sync.setup)) {
     icon = <CloudOff size={15} color={c.ink2} />;
-    text = status.signedIn ? `Offline · ${queued || 'Changes'} waiting to send` : 'Signed out · changes wait on this phone';
+    text = status.signedIn ? `Offline · ${queued || 'Changes'} waiting to send` : `Signed out · changes wait in ${thisDevice}`;
   } else if (h.sync && queued > 0 && status.throttled?.split(',').includes(h.id)) {
     icon = <Clock size={15} color={c.ink2} />;
     text = `${queued} changes left to upload. The server takes 2,000 an hour, so the rest follow by themselves.`;
@@ -42,7 +52,7 @@ export function SyncLine() {
     icon = <Clock size={15} color={c.ink2} />;
     text = queued > 1 ? `Sending ${queued} changes…` : 'Sending…';
   } else if (h.sync) {
-    text = status.connected ? 'Shared · everyone sees the same' : 'Shared · last synced on this phone';
+    text = status.connected ? 'Shared · everyone sees the same' : `Shared · last synced in ${thisDevice}`;
   }
 
   const line = (

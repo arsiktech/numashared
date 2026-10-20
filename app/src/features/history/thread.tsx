@@ -53,7 +53,7 @@ export function HistoryThread({ selectedId, onSelect, desk }: { selectedId?: ID 
               {i === 0 || !sameDay(items[i - 1].at, it.at) ? <DaySeparator at={it.at} desk={!!desk} /> : null}
               <Item h={h} it={it} hide={hide} desk={!!desk} selected={selectedId === it.record.id && it.kind !== 'change'} onSelect={onSelect} />
             </View>
-          )) : <EmptyThread empty={empty} query={query} filter={filter} />}
+          )) : <EmptyThread empty={empty} query={query} filter={filter} shared={!!h?.sync} />}
         </View>
       </ScrollView>
       <Compose desk={!!desk} bottom={desk ? 12 : Math.max(insets.bottom - 4, 10)} />
@@ -286,7 +286,7 @@ function SystemLine({ text, onPress, selected }: { text: string; onPress: () => 
   );
 }
 
-function EmptyThread({ empty, query, filter }: { empty: boolean; query: string; filter: Filter }) {
+function EmptyThread({ empty, query, filter, shared }: { empty: boolean; query: string; filter: Filter; shared: boolean }) {
   const { c } = useTheme();
   const what = filter === 'expenses' ? 'expenses' : filter === 'repayments' ? 'repayments' : filter === 'changes' ? 'edits or voids' : 'records';
   return (
@@ -295,7 +295,7 @@ function EmptyThread({ empty, query, filter }: { empty: boolean; query: string; 
         {query ? `Nothing matches “${query}”` : empty ? 'Nothing here yet' : `No ${what} yet`}
       </T>
       <T style={{ fontSize: 14, color: c.ink2, textAlign: 'center', maxWidth: 300 }}>
-        {query ? 'Try a name, a category or a word from a note.' : empty ? 'Add the first expense and it shows up here for everyone.' : 'They show up here as soon as anyone adds one.'}
+        {query ? 'Try a name, a category or a word from a note.' : empty ? shared ? 'Add the first expense and it shows up here for everyone.' : 'Add the first expense and it shows up here.' : 'They show up here as soon as anyone adds one.'}
       </T>
     </View>
   );

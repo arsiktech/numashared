@@ -86,6 +86,7 @@ interface AccountDeletionBeginResult {
     encryptedRefreshToken: string;
     encryptionNonce: string;
     encryptionKeyVersion: string;
+    appleClientId?: string;
   } | null;
 }
 
@@ -253,6 +254,12 @@ async function exchangeApple(
   const identityToken = head.value;
   const authorizationCode = stringField(body, "authorizationCode", 4_096);
   const rawNonce = stringField(body, "nonce", 256);
+  // The web app signs in through Apple's website flow, under the Services ID.
+  const web = body.client === "web";
+  if (web && (!environment.appleWebClientId || !environment.appleWebRedirectURI)) {
+    throw new IdentityError("APPLE_WEB_SIGN_IN_UNAVAILABLE", 503);
+  }
+  const clientId = web ? environment.appleWebClientId! : environment.appleClientId;
   await validateIdentitySigningKeys(environment);
   const nowSeconds = Math.floor(nowMillis / 1_000);
   const [codeRateKey, tokenRateKey] = await Promise.all([
@@ -275,21 +282,23 @@ async function exchangeApple(
   const presentedIdentity = await verifyAppleIdentityToken(
     identityToken,
     rawNonce,
-    environment.appleClientId,
+    clientId,
     appleKeys,
     nowSeconds,
   );
-  const clientSecret = await createAppleClientSecret(environment, nowSeconds);
+  const clientSecret = await createAppleClientSecret(environment, nowSeconds, crypto, clientId);
   const exchange = await exchangeAppleAuthorizationCode(
     authorizationCode,
     clientSecret,
-    environment.appleClientId,
+    clientId,
     fetch,
+    undefined,
+    web ? environment.appleWebRedirectURI : undefined,
   );
   const exchangedIdentity = await verifyAppleIdentityToken(
     exchange.idToken,
     rawNonce,
-    environment.appleClientId,
+    clientId,
     appleKeys,
     nowSeconds,
   );
@@ -301,13 +310,17 @@ async function exchangeApple(
     presentedIdentity.subject,
     environment.tokenHashSecret,
   );
+  // The token is kept with the client it was issued to, so account deletion revokes it there.
   const encryptedAppleRefresh = exchange.refreshToken === undefined
     ? undefined
-    : await encryptAppleRefreshToken(
-      exchange.refreshToken,
-      appleSubjectHash,
-      environment,
-    );
+    : {
+      ...await encryptAppleRefreshToken(
+        exchange.refreshToken,
+        appleSubjectHash,
+        environment,
+      ),
+      ...(web ? { appleClientId: clientId } : {}),
+    };
   const refreshToken = generateOpaqueRefreshToken();
   const refreshTokenHash = await hashRefreshToken(
     refreshToken,
@@ -544,14 +557,17 @@ async function deleteAccountNow(
       started.appleSubjectHash,
       identityEnvironment,
     );
+    const revokeClientId = started.authorization.appleClientId ?? identityEnvironment.appleClientId;
     const clientSecret = await createAppleClientSecret(
       identityEnvironment,
       Math.floor(now / 1_000),
+      crypto,
+      revokeClientId,
     );
     await revokeAppleRefreshToken(
       appleRefreshToken,
       clientSecret,
-      identityEnvironment.appleClientId,
+      revokeClientId,
       fetch,
     );
     await ctx.runMutation(

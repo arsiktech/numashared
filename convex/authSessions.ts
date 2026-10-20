@@ -15,6 +15,7 @@ const encryptedAppleRefreshValidator = v.object({
   encryptedRefreshToken: v.string(),
   encryptionNonce: v.string(),
   encryptionKeyVersion: v.string(),
+  appleClientId: v.optional(v.string()),
 });
 
 const maximumActiveSessionsPerAccount = 20;
@@ -123,6 +124,7 @@ type EstablishInput = {
     encryptedRefreshToken: string;
     encryptionNonce: string;
     encryptionKeyVersion: string;
+    appleClientId?: string;
   };
   sessionId: string;
   publicAccountIdCandidate: string;
@@ -204,6 +206,7 @@ async function establish(ctx: MutationCtx, args: EstablishInput): Promise<{
       if (authorization) {
         await ctx.db.patch(authorization._id, {
           ...args.encryptedAppleRefresh,
+          appleClientId: args.encryptedAppleRefresh.appleClientId,
           updatedAt: args.now,
           authorizedAt: args.now,
           revokedAt: undefined,

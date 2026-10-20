@@ -8,7 +8,7 @@ import type { Household, Person } from '@/core/types';
 import { CloudOff, Copy, Share as ShareIcon } from '@/ui/icons';
 import { Banner, BannerText, CTA, Dot, ListCard, Pill, T } from '@/ui/primitives';
 import { useTheme } from '@/ui/theme';
-import { fonts } from '@/ui/tokens';
+import { fonts, thisDevice } from '@/ui/tokens';
 import { useHousehold, initials } from '@/features/hooks';
 import { Caption, Screen, ScreenHeader } from '@/features/onboarding/chrome';
 import { showCode } from '@/features/onboarding/model';
@@ -16,7 +16,7 @@ import { InvitePattern } from '@/features/onboarding/pattern';
 import { shareText } from '@/features/onboarding/share';
 import { explainFailure, SignInButtons, useSession, useSignInOptions } from '@/features/account/session';
 import { showToast } from '@/store/ui';
-import { SITE_URL } from '@/sync/config';
+import { PUBLIC_SITE_URL } from '@/sync/config';
 import { failureOf } from '@/sync/engine';
 import { online, turnOnSync, useSyncStatus } from '@/sync/runtime';
 import { groupLimitWords } from '@/sync/contract';
@@ -48,7 +48,7 @@ function ShareFirst({ h }: { h: Household }) {
   return (
     <View style={{ marginTop: 18, gap: 14 }}>
       <T style={{ fontSize: 16, lineHeight: 22 }}>
-        {h.name} lives only on this phone right now. Share it, and everyone you invite sees the same history and balance on their own phone.
+        {h.name} lives only in {thisDevice} right now. Share it, and everyone you invite sees the same history and balance on their own phone or computer.
       </T>
       <People h={h} />
       {session ? (
@@ -80,7 +80,7 @@ function Codes({ h }: { h: Household }) {
       {h.sync!.setup ? (
         <View style={{ marginTop: 18 }}>
           <Banner icon={<CloudOff size={18} color={c.ink2} />}>
-            <BannerText rest={status.connected ? 'Setting up the shared household…' : 'Codes appear as soon as this phone is online.'} />
+            <BannerText rest={status.connected ? 'Setting up the shared household…' : `Codes appear as soon as ${thisDevice} is online.`} />
           </Banner>
         </View>
       ) : null}
@@ -114,7 +114,7 @@ function CodeCard({ h, p }: { h: Household; p: Person }) {
   const invite = h.sync!.invites?.[p.id];
   const ready = invite?.issued;
   const code = ready ? showCode(invite.code) : '';
-  const link = ready ? `${SITE_URL}/join/${invite.token}?code=${invite.code}` : '';
+  const link = ready ? `${PUBLIC_SITE_URL}/join/${invite.token}?code=${invite.code}` : '';
   return (
     <View style={{ backgroundColor: c.card, borderRadius: 20, padding: 18, gap: 12 }}>
       <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>

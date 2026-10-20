@@ -2,14 +2,15 @@
 // actions on a paper sheet below. Tablet and desk web: the hero fills the left half and the actions
 // sit in a card on the right. Two ways in: start a household, or join one with an invite.
 import { useState } from 'react';
-import { ScrollView, View } from 'react-native';
+import { Linking, ScrollView, View } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { loadSample, unlock, useStore } from '@/store/store';
 import { Lock } from '@/ui/icons';
 import { CTA, Press, T } from '@/ui/primitives';
 import { useTheme } from '@/ui/theme';
-import { fonts } from '@/ui/tokens';
+import { fonts, isWeb } from '@/ui/tokens';
+import { PUBLIC_SITE_URL } from '@/sync/config';
 import { Brand, MiniOrb } from '@/features/onboarding/chrome';
 
 export default function Welcome() {
@@ -25,7 +26,8 @@ function PhoneWelcome() {
   const lilac = tone('lilac');
   const heroH = Math.round(Math.min(560, Math.max(300, height - lowerH + 26)));
   const topH = Math.round(heroH * 0.56);
-  const size = Math.min(80, (width - 44) / 4.3);
+  // "house money." takes two lines on a phone; keep both inside the lower band on short screens.
+  const size = Math.max(40, Math.min(80, (width - 44) / 4.3, (heroH - topH - 26 - 18) / 1.9));
   const big = { fontFamily: fonts.cond, fontSize: size, lineHeight: size * 0.94 };
   const orb = Math.round(Math.min(92, size * 1.15));
   return (
@@ -86,6 +88,7 @@ function WelcomeActions({ desk }: { desk?: boolean }) {
   const router = useRouter();
   const locked = useStore((s) => s.locked && s.households.length > 0);
   const lockedCount = useStore((s) => s.households.length);
+  const existing = useStore((s) => (s.locked ? undefined : s.households[0]));
   return (
     <View>
       {!desk ? (
@@ -102,7 +105,12 @@ function WelcomeActions({ desk }: { desk?: boolean }) {
           <CTA label="Unlock" icon={<Lock size={20} color={c.bg} />} onPress={() => { unlock(); router.replace('/home'); }} />
         ) : (
           <>
-            <CTA label="Start a household" onPress={() => router.push('/setup/account')}
+            {existing ? (
+              <CTA label={`Open ${existing.name}`} onPress={() => router.replace('/home')}
+                accessibilityLabel={`Open ${existing.name}, the household you already have here`} />
+            ) : null}
+            <CTA label={existing ? 'Start another household' : 'Start a household'} variant={existing ? 'second' : 'primary'}
+              onPress={() => router.push('/setup/account')}
               accessibilityLabel="Start a household. You set it up and invite the others" />
             <CTA label="Join with an invite" variant="second" onPress={() => router.push('/join')}
               accessibilityLabel="Join with an invite. Someone already set up your household" />
@@ -122,6 +130,10 @@ function WelcomeActions({ desk }: { desk?: boolean }) {
           <Press onPress={() => { loadSample(); router.replace('/home'); }} accessibilityRole="link"
             accessibilityLabel="Look around a sample household" style={{ minHeight: 44, justifyContent: 'center' }}>
             <T style={{ fontSize: 14, color: c.ink2, textDecorationLine: 'underline' }}>Look around a sample</T>
+          </Press>
+          <Press onPress={() => (isWeb ? window.open(`${PUBLIC_SITE_URL}/privacy`, '_blank', 'noopener') : Linking.openURL(`${PUBLIC_SITE_URL}/privacy`))}
+            accessibilityRole="link" accessibilityLabel="Privacy" style={{ minHeight: 44, justifyContent: 'center' }}>
+            <T style={{ fontSize: 14, color: c.ink2, textDecorationLine: 'underline' }}>Privacy</T>
           </Press>
         </View>
       ) : null}

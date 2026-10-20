@@ -45,7 +45,14 @@ export function movePerson(groups: Arrangement, personId: ID, target: number | '
 
 /** Six-character invite code shown as "K7Q 4MZ". Accepts any typing; keeps letters and digits. */
 export function cleanCode(raw: string) {
-  return raw.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 6);
+  // Pasted with words around it ("Code: K7Q-4MZ"): take the code itself, the last six characters
+  // standing alone or split three and three.
+  const parts = raw.toUpperCase().split(/[^A-Z0-9]+/).filter(Boolean);
+  for (let i = parts.length - 1; i >= 0; i--) {
+    if (parts[i].length === 6) return parts[i];
+    if (i > 0 && parts[i].length === 3 && parts[i - 1].length === 3) return parts[i - 1] + parts[i];
+  }
+  return parts.join('').slice(0, 6);
 }
 export const showCode = (code: string) => (code.length > 3 ? `${code.slice(0, 3)} ${code.slice(3)}` : code);
 
