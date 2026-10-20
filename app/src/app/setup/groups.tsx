@@ -10,7 +10,7 @@ import { showToast } from '@/store/ui';
 import { Lock, Plus } from '@/ui/icons';
 import { Banner, BannerText, CTA, haptic, Press, T } from '@/ui/primitives';
 import { useTheme } from '@/ui/theme';
-import { alpha, fonts } from '@/ui/tokens';
+import { alpha, fonts, thisDevice } from '@/ui/tokens';
 import { useHousehold } from '@/features/hooks';
 import { Screen, ScreenHeader } from '@/features/onboarding/chrome';
 import { maxGroupSize, movePerson, type Arrangement } from '@/features/onboarding/model';
@@ -73,7 +73,7 @@ export default function Groups() {
         try { setGroups(h.id, arr.map((m) => ({ memberIds: m }))); } catch (e) { showToast((e as Error).message); return; }
         // A new household made while signed in goes to the server once its groups are set.
         if (first === '1' && currentSession() && !h.sync) {
-          turnOnSync(h.id).catch(() => showToast('Saved on this phone. It will be shared when you’re back online.'));
+          turnOnSync(h.id).catch(() => showToast(`Saved in ${thisDevice}. It will be shared when you’re back online.`));
         }
       }
     }

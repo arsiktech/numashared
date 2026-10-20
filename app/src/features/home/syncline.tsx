@@ -4,7 +4,7 @@ import { useStore } from '@/store/store';
 import { Checks, Clock, CloudOff, Warn } from '@/ui/icons';
 import { Press, T } from '@/ui/primitives';
 import { useTheme } from '@/ui/theme';
-import { fonts } from '@/ui/tokens';
+import { fonts, thisDevice } from '@/ui/tokens';
 import { online, useSyncStatus } from '@/sync/runtime';
 import { putHousehold } from '@/store/store';
 import { explainFailure } from '../account/session';
@@ -44,7 +44,7 @@ export function SyncLine() {
     a11y = 'Sync paused. Try again';
   } else if (h.sync && (!status.signedIn || !status.connected) && (queued > 0 || h.sync.setup)) {
     icon = <CloudOff size={15} color={c.ink2} />;
-    text = status.signedIn ? `Offline · ${queued || 'Changes'} waiting to send` : 'Signed out · changes wait on this phone';
+    text = status.signedIn ? `Offline · ${queued || 'Changes'} waiting to send` : `Signed out · changes wait in ${thisDevice}`;
   } else if (h.sync && queued > 0 && status.throttled?.split(',').includes(h.id)) {
     icon = <Clock size={15} color={c.ink2} />;
     text = `${queued} changes left to upload. The server takes 2,000 an hour, so the rest follow by themselves.`;
@@ -52,7 +52,7 @@ export function SyncLine() {
     icon = <Clock size={15} color={c.ink2} />;
     text = queued > 1 ? `Sending ${queued} changes…` : 'Sending…';
   } else if (h.sync) {
-    text = status.connected ? 'Shared · everyone sees the same' : 'Shared · last synced on this phone';
+    text = status.connected ? 'Shared · everyone sees the same' : `Shared · last synced in ${thisDevice}`;
   }
 
   const line = (

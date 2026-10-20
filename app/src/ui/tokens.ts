@@ -100,5 +100,7 @@ export const type = {
 };
 
 export const isWeb = Platform.OS === 'web';
+/** Where a household that isn't shared lives: "this browser" on the web, "this phone" in the app. */
+export const thisDevice = isWeb ? 'this browser' : 'this phone';
 export const isAndroid = Platform.OS === 'android';
 export const isIOS = Platform.OS === 'ios';

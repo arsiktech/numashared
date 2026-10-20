@@ -9,7 +9,7 @@ import { openSheet } from '@/store/ui';
 import { Bell, Check, Download, Eye, House, Lock, Moon, Pencil, People, Share as ShareIcon, VoidX } from '@/ui/icons';
 import { Press, T, Toggle } from '@/ui/primitives';
 import { useTheme } from '@/ui/theme';
-import { fonts, isAndroid, isWeb } from '@/ui/tokens';
+import { fonts, isAndroid, isWeb, thisDevice } from '@/ui/tokens';
 import { useHousehold } from '@/features/hooks';
 import { CURRENCIES, currencyLabel } from '@/features/onboarding/model';
 import { SGroup, SNote, SRow, SettingsShell, useDesk, type DeskSection } from '@/features/settings/parts';
@@ -253,7 +253,7 @@ function LeaveRow({ last }: { last?: boolean }) {
     ? `Leave ${h.name}? Everything you added stays in its history for the others, and your balance stays visible to them. You can’t add anything after leaving.`
     : mode === 'delete-shared'
       ? `Delete ${h.name} for good? Nobody else has joined, so nobody loses anything. Invite codes you sent stop working.`
-      : `Delete ${h.name}? It isn’t shared, so this phone has the only copy and its history is gone for good.`;
+      : `Delete ${h.name}? It isn’t shared, so ${thisDevice} has the only copy and its history is gone for good.`;
   const go = async () => {
     setBusy(true);
     try {

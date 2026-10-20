@@ -2,14 +2,15 @@
 // actions on a paper sheet below. Tablet and desk web: the hero fills the left half and the actions
 // sit in a card on the right. Two ways in: start a household, or join one with an invite.
 import { useState } from 'react';
-import { ScrollView, View } from 'react-native';
+import { Linking, ScrollView, View } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { loadSample, unlock, useStore } from '@/store/store';
 import { Lock } from '@/ui/icons';
 import { CTA, Press, T } from '@/ui/primitives';
 import { useTheme } from '@/ui/theme';
-import { fonts } from '@/ui/tokens';
+import { fonts, isWeb } from '@/ui/tokens';
+import { PUBLIC_SITE_URL } from '@/sync/config';
 import { Brand, MiniOrb } from '@/features/onboarding/chrome';
 
 export default function Welcome() {
@@ -129,6 +130,10 @@ function WelcomeActions({ desk }: { desk?: boolean }) {
           <Press onPress={() => { loadSample(); router.replace('/home'); }} accessibilityRole="link"
             accessibilityLabel="Look around a sample household" style={{ minHeight: 44, justifyContent: 'center' }}>
             <T style={{ fontSize: 14, color: c.ink2, textDecorationLine: 'underline' }}>Look around a sample</T>
+          </Press>
+          <Press onPress={() => (isWeb ? window.open(`${PUBLIC_SITE_URL}/privacy`, '_blank', 'noopener') : Linking.openURL(`${PUBLIC_SITE_URL}/privacy`))}
+            accessibilityRole="link" accessibilityLabel="Privacy" style={{ minHeight: 44, justifyContent: 'center' }}>
+            <T style={{ fontSize: 14, color: c.ink2, textDecorationLine: 'underline' }}>Privacy</T>
           </Press>
         </View>
       ) : null}

@@ -12,7 +12,7 @@ import { Close, Lock, VoidX, Warn } from '@/ui/icons';
 import { Banner, BannerText, CTA, haptic, IconButton, Press, T, TextButton } from '@/ui/primitives';
 import { Sheet, useSheet } from '@/ui/sheet';
 import { useTheme } from '@/ui/theme';
-import { fonts, isAndroid } from '@/ui/tokens';
+import { fonts, isAndroid, thisDevice } from '@/ui/tokens';
 import type { SheetProps } from './host';
 
 export function SignOutSheet({ spec, onClosed }: SheetProps<'signout'>) {
@@ -90,7 +90,7 @@ function Body() {
           <View style={{ marginTop: 16 }}>
             <Banner kind="warn" icon={<Warn size={18} color={c.warnInk} />}>
               <BannerText kind="warn" strong={`${unsentCount()} change${unsentCount() > 1 ? 's haven’t' : ' hasn’t'} reached the others yet.`}
-                rest=" Connect to the internet first: signing out now removes them from this phone." />
+                rest={` Connect to the internet first: signing out now removes them from ${thisDevice}.`} />
             </Banner>
           </View>
         ) : null}
