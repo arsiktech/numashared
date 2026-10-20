@@ -4,11 +4,13 @@ Numa Shared uses alert pushes only for the exhaustive matrix in `GOAL_BRIEF.md Â
 
 ## Delivery path
 
-1. A successful `events:appendEvents` transaction records each new event and atomically schedules `apns:deliverEventPush` only for an eligible kind.
-2. An exact idempotent replay returns the original sequence and schedules nothing.
-3. `notifications:pushTargets` resolves the event at its stored sequence, applies actor exclusion and per-pot mutes, and returns registered devices. A newly contested branch routes the choice message to the current heads' authors; ordinary expense/edit/void/settlement messages route through units whose record contribution actually changed. Restore is silent because the goal's notification matrix is exhaustive and does not include it.
-4. The Node action reuses an ES256 provider JWT for less than 50 minutes, opens one HTTP/2 session per APNs environment in the batch, and sends the required topic/push-type/priority/expiration headers.
-5. A timestamped APNs `410 Unregistered` removes a token only if no newer registration exists. Other APNs rejections do not mutate token state.
+1. A successful `events:appendEvents` transaction records each new event and, only for an eligible kind, atomically adds its id to the pot's `pendingPushes` row (`convex/pushQueue.ts`). The first queued event schedules `pushQueue:flushPendingPush`.
+2. An exact idempotent replay returns the original sequence and queues nothing.
+3. The flush waits until the pot has been quiet for 30 seconds, or at most 10 minutes from the first queued event while events keep arriving, then clears the row and schedules `apns:deliverBatchPush`. The sync client uploads one event per call, so without this a bulk upload sent one push per event.
+4. `notifications:batchPushPlan` resolves each queued event at its stored sequence (in pages of 100) and `composeBatchMessages` gives each person at most two messages: the event's own body when one event affects them, otherwise `<n> updates in <pot> affect your balance`, plus a separate `needs your choice` request when a record became contested. Each event reads only its own record history and the membership events up to its sequence, never the whole pot.
+5. Per event, the plan applies actor exclusion and per-pot mutes, and returns registered devices. A newly contested branch routes the choice message to the current heads' authors; ordinary expense/edit/void/settlement messages route through units whose record contribution actually changed. Restore is silent because the goal's notification matrix is exhaustive and does not include it.
+6. The Node action reuses an ES256 provider JWT for less than 50 minutes, opens one HTTP/2 session per APNs environment in the batch, and sends the required topic/push-type/priority/expiration headers.
+7. A timestamped APNs `410 Unregistered` removes a token only if no newer registration exists. Other APNs rejections do not mutate token state.
 
 The custom payload is deliberately small:
 

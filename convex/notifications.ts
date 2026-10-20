@@ -1,6 +1,13 @@
 import { v } from "convex/values";
 
-import { internalMutation, internalQuery, mutation, query } from "./_generated/server";
+import type { Doc, Id } from "./_generated/dataModel";
+import {
+  internalMutation,
+  internalQuery,
+  mutation,
+  query,
+  type QueryCtx,
+} from "./_generated/server";
 import { fail, requireActiveMembership, requireSession } from "./lib/access";
 import { requireApprovedWriteTarget } from "./lib/deployment";
 import { validateTimeZone } from "./lib/eventValidation";
@@ -134,6 +141,166 @@ export const setPotMute = mutation({
   },
 });
 
+type PotPushContext = {
+  potId: string;
+  potName: string;
+  activeByMember: Map<string, Doc<"potMembers">>;
+  mutedMemberIds: Set<string>;
+};
+
+// One event's resolved push: who receives it (as accounts) and the §6 body. `kind`
+// separates the "needs your choice" request from ordinary balance notifications, so a
+// batched delivery can keep the request distinct instead of folding it into a summary.
+export type EventPushPlan = {
+  eventId: string;
+  kind: "unit" | "contested";
+  body: string;
+  accountIds: Id<"accounts">[];
+};
+
+async function loadPotPushContext(
+  ctx: QueryCtx,
+  potId: string,
+): Promise<PotPushContext | null> {
+  const pot = await ctx.db
+    .query("pots")
+    .withIndex("by_pot_id", (index) => index.eq("potId", potId))
+    .unique();
+  if (!pot?.name) return null;
+  const members = await ctx.db
+    .query("potMembers")
+    .withIndex("by_pot_account", (index) => index.eq("potId", potId))
+    .collect();
+  const activeByMember = new Map(
+    members.filter((member) => member.status === "active").map((m) => [m.memberId, m]),
+  );
+  const mutes = await ctx.db
+    .query("potMutes")
+    .withIndex("by_pot_account", (index) => index.eq("potId", potId))
+    .collect();
+  const mutedAccountIds = new Set(mutes.map((mute) => mute.accountId));
+  const mutedMemberIds = new Set(
+    [...activeByMember.values()]
+      .filter((member) => mutedAccountIds.has(member.accountId))
+      .map((member) => member.memberId),
+  );
+  return { potId, potName: pot.name, activeByMember, mutedMemberIds };
+}
+
+async function planEventPush(
+  ctx: QueryCtx,
+  pot: PotPushContext,
+  eventId: string,
+): Promise<EventPushPlan | null> {
+  const event = await ctx.db
+    .query("events")
+    .withIndex("by_pot_event", (index) =>
+      index.eq("potId", pot.potId).eq("eventId", eventId),
+    )
+    .unique();
+  if (!event) return null;
+  // Read only what this push needs: the triggering record's own history and the
+  // membership events (memberAdded, groupChanged), all bounded by this event's
+  // sequence. Loading the whole pot here made every push O(pot size), so a bulk
+  // upload of N events cost O(N^2) database reads.
+  const recordEvents = event.recordId
+    ? await ctx.db
+        .query("events")
+        .withIndex("by_pot_record", (index) =>
+          index
+            .eq("potId", pot.potId)
+            .eq("recordId", event.recordId)
+            .lte("sequence", event.sequence),
+        )
+        .collect()
+    : [];
+
+  const accountIdsFor = (memberIds: readonly string[]) => memberIds.flatMap((memberId) => {
+    const member = pot.activeByMember.get(memberId);
+    return member ? [member.accountId] : [];
+  });
+
+  const contestedAuthors = contestedHeadAuthorMemberIds(recordEvents, event.eventId);
+  if (contestedAuthors) {
+    const recipients = contestedAuthors.filter((memberId) =>
+      memberId !== event.actorMemberId && !pot.mutedMemberIds.has(memberId),
+    );
+    return {
+      eventId,
+      kind: "contested",
+      body: contestedBody(pot.potName),
+      accountIds: accountIdsFor(recipients),
+    };
+  }
+
+  const body = notificationBody(event.payload, pot.potName);
+  if (!body) return null;
+
+  // Compare this record's contribution immediately before and after the stored event.
+  // This includes units removed by an edit and follows the same provisional-head rule
+  // as Core without calculating or storing any pot balance.
+  const units = financialTransitionAffectedUnitIds(recordEvents, event.eventId);
+  if (!units || units.length === 0) return { eventId, kind: "unit", body, accountIds: [] };
+
+  const membershipEventsOfKind = (kind: "memberAdded" | "groupChanged") =>
+    ctx.db
+      .query("events")
+      .withIndex("by_pot_kind", (index) =>
+        index
+          .eq("potId", pot.potId)
+          .eq("payload.kind", kind)
+          .lte("sequence", event.sequence),
+      )
+      .collect();
+  const membershipEvents = [
+    ...(await membershipEventsOfKind("memberAdded")),
+    ...(await membershipEventsOfKind("groupChanged")),
+  ].sort((left, right) => (left.sequence < right.sequence ? -1 : 1));
+
+  // Personal units come from memberAdded. Each groupChanged payload is the complete
+  // current group topology, so rebuild group-unit membership through this event's
+  // sequence and never let later structural changes alter an earlier push.
+  const unitMembers = new Map<string, Set<string>>();
+  const groupUnitIds = new Set<string>();
+  for (const potEvent of membershipEvents) {
+    if (potEvent.payload.kind === "memberAdded") {
+      unitMembers.set(potEvent.payload.unitId, new Set([potEvent.payload.memberId]));
+    } else if (potEvent.payload.kind === "groupChanged") {
+      for (const unitId of groupUnitIds) unitMembers.delete(unitId);
+      groupUnitIds.clear();
+      for (const group of potEvent.payload.groups) {
+        groupUnitIds.add(group.unitId);
+        unitMembers.set(group.unitId, new Set(group.orderedMemberIds));
+      }
+    }
+  }
+
+  const recipients = unitNotificationRecipients({
+    affectedUnitIds: units,
+    unitMembers,
+    actorMemberId: event.actorMemberId,
+    mutedMemberIds: pot.mutedMemberIds,
+  });
+  return { eventId, kind: "unit", body, accountIds: accountIdsFor(recipients) };
+}
+
+async function tokensForAccountIds(
+  ctx: QueryCtx,
+  accountIds: readonly Id<"accounts">[],
+): Promise<Array<PushTargetToken & { accountId: Id<"accounts"> }>> {
+  const tokens: Array<PushTargetToken & { accountId: Id<"accounts"> }> = [];
+  for (const accountId of accountIds) {
+    const accountTokens = await ctx.db
+      .query("pushTokens")
+      .withIndex("by_account", (index) => index.eq("accountId", accountId))
+      .collect();
+    for (const token of accountTokens) {
+      tokens.push({ accountId, deviceToken: token.deviceToken, environment: token.environment });
+    }
+  }
+  return tokens;
+}
+
 // Resolve who must receive a push for one event, and on which devices. Internal: the
 // fan-out action calls it, never a client. Returns no body (and no tokens) whenever §6
 // says this event is silent, so the caller cannot accidentally invent a notification.
@@ -141,130 +308,38 @@ export const pushTargets = internalQuery({
   args: { potId: v.string(), eventId: v.string() },
   handler: async (ctx, args) => {
     const empty = { body: null, tokens: [] as PushTargetToken[] };
-    const pot = await ctx.db
-      .query("pots")
-      .withIndex("by_pot_id", (index) => index.eq("potId", args.potId))
-      .unique();
-    if (!pot?.name) return empty;
-    const event = await ctx.db
-      .query("events")
-      .withIndex("by_pot_event", (index) =>
-        index.eq("potId", args.potId).eq("eventId", args.eventId),
-      )
-      .unique();
-    if (!event) return empty;
-    // Read only what this push needs: the triggering record's own history and the
-    // membership events (memberAdded, groupChanged), all bounded by this event's
-    // sequence. Loading the whole pot here made every push O(pot size), so a bulk
-    // upload of N events cost O(N^2) database reads.
-    const recordEvents = event.recordId
-      ? await ctx.db
-          .query("events")
-          .withIndex("by_pot_record", (index) =>
-            index
-              .eq("potId", args.potId)
-              .eq("recordId", event.recordId)
-              .lte("sequence", event.sequence),
-          )
-          .collect()
-      : [];
-    const membershipEventsOfKind = (kind: "memberAdded" | "groupChanged") =>
-      ctx.db
-        .query("events")
-        .withIndex("by_pot_kind", (index) =>
-          index
-            .eq("potId", args.potId)
-            .eq("payload.kind", kind)
-            .lte("sequence", event.sequence),
-        )
-        .collect();
-    const membershipEvents = [
-      ...(await membershipEventsOfKind("memberAdded")),
-      ...(await membershipEventsOfKind("groupChanged")),
-    ].sort((left, right) => (left.sequence < right.sequence ? -1 : 1));
-
-    const members = await ctx.db
-      .query("potMembers")
-      .withIndex("by_pot_account", (index) => index.eq("potId", args.potId))
-      .collect();
-    const activeByMember = new Map(
-      members.filter((member) => member.status === "active").map((m) => [m.memberId, m]),
-    );
-    const mutes = await ctx.db
-      .query("potMutes")
-      .withIndex("by_pot_account", (index) => index.eq("potId", args.potId))
-      .collect();
-    const mutedAccountIds = new Set(mutes.map((mute) => mute.accountId));
-    const mutedMemberIds = new Set(
-      [...activeByMember.values()]
-        .filter((member) => mutedAccountIds.has(member.accountId))
-        .map((member) => member.memberId),
-    );
-
-    const tokensForMemberIds = async (memberIds: readonly string[]) => {
-      const tokens: PushTargetToken[] = [];
-      for (const memberId of memberIds) {
-        const member = activeByMember.get(memberId);
-        if (!member) continue;
-        const accountTokens = await ctx.db
-          .query("pushTokens")
-          .withIndex("by_account", (index) => index.eq("accountId", member.accountId))
-          .collect();
-        for (const token of accountTokens) {
-          tokens.push({ deviceToken: token.deviceToken, environment: token.environment });
-        }
-      }
-      return tokens;
+    const pot = await loadPotPushContext(ctx, args.potId);
+    if (!pot) return empty;
+    const plan = await planEventPush(ctx, pot, args.eventId);
+    if (!plan) return empty;
+    const tokens = await tokensForAccountIds(ctx, plan.accountIds);
+    return {
+      body: plan.body,
+      tokens: tokens.map(({ deviceToken, environment }) => ({ deviceToken, environment })),
     };
-
-    const contestedAuthors = contestedHeadAuthorMemberIds(recordEvents, event.eventId);
-    if (contestedAuthors) {
-      const recipients = contestedAuthors.filter((memberId) =>
-        memberId !== event.actorMemberId && !mutedMemberIds.has(memberId),
-      );
-      return {
-        body: contestedBody(pot.name),
-        tokens: await tokensForMemberIds(recipients),
-      };
-    }
-
-    const body = notificationBody(event.payload, pot.name);
-    if (!body) return empty;
-
-    // Compare this record's contribution immediately before and after the stored event.
-    // This includes units removed by an edit and follows the same provisional-head rule
-    // as Core without calculating or storing any pot balance.
-    const units = financialTransitionAffectedUnitIds(recordEvents, event.eventId);
-    if (!units || units.length === 0) return { body, tokens: [] };
-
-    // Personal units come from memberAdded. Each groupChanged payload is the complete
-    // current group topology, so rebuild group-unit membership through this event's
-    // sequence and never let later structural changes alter an earlier push.
-    const unitMembers = new Map<string, Set<string>>();
-    const groupUnitIds = new Set<string>();
-    for (const potEvent of membershipEvents) {
-      if (potEvent.sequence > event.sequence) break;
-      if (potEvent.payload.kind === "memberAdded") {
-        unitMembers.set(potEvent.payload.unitId, new Set([potEvent.payload.memberId]));
-      } else if (potEvent.payload.kind === "groupChanged") {
-        for (const unitId of groupUnitIds) unitMembers.delete(unitId);
-        groupUnitIds.clear();
-        for (const group of potEvent.payload.groups) {
-          groupUnitIds.add(group.unitId);
-          unitMembers.set(group.unitId, new Set(group.orderedMemberIds));
-        }
-      }
-    }
-
-    const recipients = unitNotificationRecipients({
-      affectedUnitIds: units,
-      unitMembers,
-      actorMemberId: event.actorMemberId,
-      mutedMemberIds,
-    });
-
-    return { body, tokens: await tokensForMemberIds(recipients) };
   },
+});
+
+// Resolve a batch of queued events for one pot (see pushQueue.ts). The caller pages
+// through large batches, so each call reads one bounded slice of event ids.
+export const batchPushPlan = internalQuery({
+  args: { potId: v.string(), eventIds: v.array(v.string()) },
+  handler: async (ctx, args) => {
+    const pot = await loadPotPushContext(ctx, args.potId);
+    if (!pot) return { potName: null, plans: [] as EventPushPlan[] };
+    const plans: EventPushPlan[] = [];
+    for (const eventId of args.eventIds) {
+      const plan = await planEventPush(ctx, pot, eventId);
+      if (plan && plan.accountIds.length > 0) plans.push(plan);
+    }
+    return { potName: pot.potName, plans };
+  },
+});
+
+// Devices for the accounts a batched delivery decided to notify.
+export const pushTokensForAccounts = internalQuery({
+  args: { accountIds: v.array(v.id("accounts")) },
+  handler: async (ctx, args) => await tokensForAccountIds(ctx, args.accountIds),
 });
 
 // APNs 410 Unregistered means the device will never accept this token again: drop it so

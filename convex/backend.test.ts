@@ -6,6 +6,7 @@ import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 import timeZoneIdentifierParity from "../NumaSharedCore/Tests/NumaSharedCoreTests/Fixtures/time-zone-identifier-parity.json";
 import ios18TimeZoneIdentifiersFixture from "../ios/NumaShared/NumaSharedTests/Fixtures/ios18-time-zone-identifiers.json";
 import { ios18TimeZoneIdentifiers } from "./lib/ios18TimeZoneIdentifiers";
+import { composeBatchMessages } from "./lib/notificationMatrix";
 import {
   eventWriteLimitPerHour,
   inviteIssueLimitPerDay,
@@ -80,7 +81,10 @@ const bindPendingMember = makeFunctionReference<"mutation">(
 );
 const pushTargets = makeFunctionReference<"query">("notifications:pushTargets");
 const dropPushToken = makeFunctionReference<"mutation">("notifications:dropPushToken");
+const batchPushPlan = makeFunctionReference<"query">("notifications:batchPushPlan");
+const flushPendingPush = makeFunctionReference<"mutation">("pushQueue:flushPendingPush");
 const deliverEventPush = makeFunctionReference<"action">("apns:deliverEventPush");
+const deliverBatchPush = makeFunctionReference<"action">("apns:deliverBatchPush");
 
 function id(value: number): string {
   return `01890f5e-7b00-7000-8000-${value.toString(16).padStart(12, "0")}`;
@@ -2661,7 +2665,7 @@ describe("Backend event and multi-user foundation", () => {
     expect(targets.tokens).toEqual([{ deviceToken: ownerToken, environment: "sandbox" }]);
   });
 
-  test("schedules APNs once for a new eligible event, never for replay or a silent kind", async () => {
+  test("queues one coalesced push for a new eligible event, never for replay or a silent kind", async () => {
     vi.useFakeTimers();
     const t = convexTest(schema, modules);
     await promote(t);
@@ -2671,11 +2675,17 @@ describe("Backend event and multi-user foundation", () => {
     const scheduled = async () => await t.run(async (ctx) =>
       await ctx.db.system.query("_scheduled_functions").collect(),
     );
+    const pending = async () => await t.run(async (ctx) =>
+      await ctx.db.query("pendingPushes").collect(),
+    );
     let rows = await scheduled();
     expect(rows).toHaveLength(1);
-    expect(rows[0].name).toMatch(/apns(?:\.js)?:deliverEventPush$/);
-    expect(rows[0].args).toEqual([{ potId: ids.pot, eventId: pushedEvent.eventId }]);
+    expect(rows[0].name).toMatch(/pushQueue(?:\.js)?:flushPendingPush$/);
     expect(rows[0].state).toEqual({ kind: "pending" });
+    let queued = await pending();
+    expect(queued).toHaveLength(1);
+    expect(rows[0].args).toEqual([{ pendingId: queued[0]._id }]);
+    expect(queued[0].eventIds).toEqual([pushedEvent.eventId]);
 
     await owner(t).mutation(appendEvents, { potId: ids.pot, events: [pushedEvent] });
     await owner(t).mutation(appendEvents, {
@@ -2687,6 +2697,137 @@ describe("Backend event and multi-user foundation", () => {
     });
     rows = await scheduled();
     expect(rows).toHaveLength(1);
+    queued = await pending();
+    expect(queued[0].eventIds).toEqual([pushedEvent.eventId]);
+  });
+
+  test("coalesces a run of one-event uploads into one summary push per person", async () => {
+    vi.useFakeTimers();
+    const t = convexTest(schema, modules);
+    const { joinerUnit } = await setupTwoMemberPushPot(t);
+    const sharedExpense = (eventId: string, recordId: string) => ({
+      ...baseEvent(eventId),
+      payload: {
+        kind: "expenseAdded" as const,
+        recordId,
+        content: {
+          expenseKind: "shared" as const,
+          amount: money(2_000n),
+          payerUnitId: ids.payer,
+          allocations: [
+            { unitId: ids.payer, amount: money(1_000n) },
+            { unitId: joinerUnit, amount: money(1_000n) },
+          ],
+        },
+      },
+      textFields: ["title"] as const,
+      authoredText: [{ field: "title" as const, value: `Shared ${recordId}` }],
+    });
+    // Drop anything the setup queued so this test sees only its own batch.
+    await t.run(async (ctx) => {
+      for (const row of await ctx.db.query("pendingPushes").collect()) {
+        await ctx.db.delete(row._id);
+      }
+    });
+
+    // The sync client sends one event per call, as it did for the bulk upload.
+    const uploaded = [0, 1, 2].map((offset) =>
+      sharedExpense(id(2_700 + offset * 2), id(2_701 + offset * 2)));
+    for (const event of uploaded) {
+      await owner(t).mutation(appendEvents, { potId: ids.pot, events: [event] });
+      vi.setSystemTime(Date.now() + 5_000);
+    }
+    const queued = await t.run(async (ctx) => await ctx.db.query("pendingPushes").collect());
+    expect(queued).toHaveLength(1);
+    expect(queued[0].eventIds).toEqual(uploaded.map((event) => event.eventId));
+    const flushes = await t.run(async (ctx) =>
+      (await ctx.db.system.query("_scheduled_functions").collect())
+        .filter((row) => /flushPendingPush$/.test(row.name)));
+    expect(flushes).toHaveLength(1);
+
+    const joinerAccount = await t.run(async (ctx) => (await ctx.db
+      .query("potMembers")
+      .withIndex("by_pot_account", (index) => index.eq("potId", ids.pot))
+      .collect()).find((member) => member.memberId !== ids.ownerMember)!.accountId);
+
+    // Three events affecting Maya become one summary; the owner (the actor) gets none.
+    const plan = await t.query(batchPushPlan, {
+      potId: ids.pot,
+      eventIds: queued[0].eventIds,
+    });
+    expect(plan.potName).toBe("Casa Mar");
+    expect(composeBatchMessages(plan.potName!, plan.plans)).toEqual([
+      { accountId: joinerAccount, body: "3 updates in Casa Mar affect your balance" },
+    ]);
+    // A batch of one keeps the event's own wording.
+    const single = await t.query(batchPushPlan, {
+      potId: ids.pot,
+      eventIds: [uploaded[0].eventId],
+    });
+    expect(composeBatchMessages(single.potName!, single.plans)).toEqual([
+      { accountId: joinerAccount, body: "New expense in Casa Mar affects your balance" },
+    ]);
+  });
+
+  test("flushes a pending push after a quiet window, or at the ceiling during a long upload", async () => {
+    vi.useFakeTimers();
+    const t = convexTest(schema, modules);
+    await promote(t);
+    const pending = async () => await t.run(async (ctx) =>
+      await ctx.db.query("pendingPushes").collect(),
+    );
+    const scheduledNamed = async (pattern: RegExp) => await t.run(async (ctx) =>
+      (await ctx.db.system.query("_scheduled_functions").collect())
+        .filter((row) => pattern.test(row.name) && row.state.kind === "pending"));
+
+    // Move the clock with setSystemTime only: it never fires scheduled functions, so
+    // each flush below runs exactly when the test calls it.
+    await owner(t).mutation(appendEvents, {
+      potId: ids.pot,
+      events: [expenseRoot(id(2_800), id(2_801))],
+    });
+    const [row] = await pending();
+    expect(await t.mutation(flushPendingPush, { pendingId: row._id }))
+      .toEqual({ status: "deferred" });
+    vi.setSystemTime(Date.now() + 30_001);
+    expect(await t.mutation(flushPendingPush, { pendingId: row._id }))
+      .toEqual({ status: "flushed", eventCount: 1 });
+    expect(await pending()).toEqual([]);
+    const deliveries = await scheduledNamed(/apns(?:\.js)?:deliverBatchPush$/);
+    expect(deliveries).toHaveLength(1);
+    expect(deliveries[0].args).toEqual([{ potId: ids.pot, eventIds: [id(2_800)] }]);
+    expect(await t.mutation(flushPendingPush, { pendingId: row._id }))
+      .toEqual({ status: "gone" });
+
+    // A long upload keeps the pot busy; the ceiling still delivers within ten minutes.
+    await owner(t).mutation(appendEvents, {
+      potId: ids.pot,
+      events: [expenseRoot(id(2_810), id(2_811))],
+    });
+    const [busy] = await pending();
+    for (let step = 0; step < 31; step += 1) {
+      vi.setSystemTime(Date.now() + 20_000);
+      await owner(t).mutation(appendEvents, {
+        potId: ids.pot,
+        events: [expenseRoot(id(2_812 + step * 2), id(2_813 + step * 2))],
+      });
+    }
+    const result = await t.mutation(flushPendingPush, { pendingId: busy._id });
+    expect(result).toEqual({ status: "flushed", eventCount: 32 });
+  });
+
+  test("batch messages keep a choice request separate and never repeat a person", () => {
+    const plans = [
+      { kind: "unit" as const, body: "New expense in Casa Mar affects your balance", accountIds: ["a", "b"] },
+      { kind: "contested" as const, body: "A record in Casa Mar needs your choice", accountIds: ["a"] },
+      { kind: "unit" as const, body: "A settlement in Casa Mar involves your balance", accountIds: ["a", "a"] },
+    ];
+    expect(composeBatchMessages("Casa Mar", plans)).toEqual([
+      { accountId: "a", body: "2 updates in Casa Mar affect your balance" },
+      { accountId: "a", body: "A record in Casa Mar needs your choice" },
+      { accountId: "b", body: "New expense in Casa Mar affects your balance" },
+    ]);
+    expect(composeBatchMessages("Casa Mar", [])).toEqual([]);
   });
 
   test("rejects a blank void even inside atomic legacy adoption", async () => {
@@ -3078,6 +3219,10 @@ describe("Backend event and multi-user foundation", () => {
         potId: ids.pot,
         eventId: ids.expenseEvent,
       }),
+      "DEPLOYMENT_NOT_APPROVED",
+    );
+    await expectTerminalCode(
+      t.action(deliverBatchPush, { potId: ids.pot, eventIds: [ids.expenseEvent] }),
       "DEPLOYMENT_NOT_APPROVED",
     );
     vi.stubEnv("NUMA_SHARED_DEPLOYMENT_CLASS", "anonymous-local");
