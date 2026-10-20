@@ -83,7 +83,7 @@ function PhoneHome({ freshIds }: { freshIds: Set<string> }) {
   return (
     <View style={{ flex: 1, backgroundColor: c.bg }}>
       {/* What you see. Screen readers use the copy in the list instead. */}
-      <View accessibilityElementsHidden importantForAccessibility="no-hide-descendants" pointerEvents="none"
+      <View accessibilityElementsHidden importantForAccessibility="no-hide-descendants" aria-hidden pointerEvents="none"
         onLayout={(e) => setBandsH(e.nativeEvent.layout.height)}>
         {bands}
       </View>
@@ -169,7 +169,7 @@ function EmptyState() {
         <T style={{ fontSize: 30, color: c.ink2 }}>+</T>
       </View>
       <T style={{ fontFamily: fonts.bold, fontSize: 20 }}>Nothing here yet</T>
-      <T style={{ fontSize: 14, color: c.ink2, textAlign: 'center', maxWidth: 300 }}>Tap the orb to add the first expense. Everyone in {h.name} sees it straight away.</T>
+      <T style={{ fontSize: 14, color: c.ink2, textAlign: 'center', maxWidth: 300 }}>{isWeb ? 'Press' : 'Tap'} the orb to add the first expense. {h.sync ? `Everyone in ${h.name} sees it straight away.` : 'It stays on this device until you share the household.'}</T>
       <View style={{ alignSelf: 'stretch', marginTop: 10, backgroundColor: c.card, borderRadius: 18 }}>
         <Press noScale onPress={() => router.push('/setup/opening')} accessibilityLabel="Already owe each other money? Add an opening balance"
           style={{ padding: 16, borderBottomWidth: invited.length ? 1 : 0, borderBottomColor: c.hair }}>
@@ -179,7 +179,7 @@ function EmptyState() {
         {invited.length ? (
           <Press noScale onPress={() => router.push('/setup/invite')} accessibilityLabel="Invite people" style={{ padding: 16 }}>
             <T style={{ fontSize: 16 }}>{invited.map((p) => p.name).join(', ')} {invited.length > 1 ? 'haven’t' : 'hasn’t'} joined yet</T>
-            <T style={{ fontSize: 13, color: c.ink2, marginTop: 2 }}>Send the invite again</T>
+            <T style={{ fontSize: 13, color: c.ink2, marginTop: 2 }}>{invited.some((p) => h.sync?.invites?.[p.id]?.issued) ? 'Send the invite again' : 'Invite them'}</T>
           </Press>
         ) : null}
       </View>

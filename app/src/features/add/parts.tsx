@@ -1,6 +1,6 @@
 // Building blocks shared by the Add and Repay sheets: the header with its date chip, the inline
 // date picker, tonal chip rows, the note line, the paper receipt and the physical keyboard bridge.
-import { useEffect, useRef, type ReactNode, type RefObject } from 'react';
+import { createElement, useEffect, useRef, type ReactNode, type RefObject } from 'react';
 import { ScrollView, TextInput, View, type StyleProp, type ViewStyle } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import type { Key } from '@/core';
@@ -83,8 +83,11 @@ export function ChipRow({ children, label, style, wrap }: { children: ReactNode;
   );
 }
 
-/** Today, Yesterday, 2 days ago, or one day further back each tap. */
-export function DateRow({ tone, date, onPick }: { tone: GroupTone; date: string; onPick: (iso: string) => void }) {
+/**
+ * Today, Yesterday, 2 days ago, or one day further back each tap (the row stays open for that).
+ * The web adds the browser's own calendar for anything older.
+ */
+export function DateRow({ tone, date, onPick }: { tone: GroupTone; date: string; onPick: (iso: string, stayOpen?: boolean) => void }) {
   const presets = [todayISO(), daysAgoISO(1), daysAgoISO(2)];
   const older = !presets.includes(date);
   const back = shiftISO(older ? date : presets[2], -1);
@@ -94,9 +97,19 @@ export function DateRow({ tone, date, onPick }: { tone: GroupTone; date: string;
       <TChip tone={tone} label="Yesterday" on={date === presets[1]} onPress={() => onPick(presets[1])} />
       <TChip tone={tone} label="2 days ago" on={date === presets[2]} onPress={() => onPick(presets[2])} />
       {older ? <TChip tone={tone} label={dateLabel(date)} on accessibilityLabel={dateSpoken(date)} /> : null}
-      <TChip tone={tone} label="‹ Earlier" accessibilityLabel={`One day earlier: ${dateSpoken(back)}`} onPress={() => onPick(back)} />
+      <TChip tone={tone} label="‹ 1 day earlier" accessibilityLabel={`One day earlier: ${dateSpoken(back)}`} onPress={() => onPick(back, true)} />
+      {isWeb ? <WebDateInput tone={tone} value={date} max={presets[0]} onPick={onPick} /> : null}
     </ChipRow>
   );
+}
+
+function WebDateInput({ tone, value, max, onPick }: { tone: GroupTone; value: string; max: string; onPick: (iso: string) => void }) {
+  return createElement('input', {
+    type: 'date', value, max, 'aria-label': 'Pick a date',
+    onChange: (e: { target: { value: string } }) => { const v = e.target.value; if (/^\d{4}-\d{2}-\d{2}$/.test(v) && v <= max) onPick(v); },
+    style: { height: 36, borderRadius: 18, border: 'none', padding: '0 12px', font: `600 15px ${fonts.semibold}, system-ui`, color: tone.ink,
+      background: alpha(tone.ink, 0.09), colorScheme: 'light', cursor: 'pointer' },
+  });
 }
 
 /** The small colored dot next to a person or group in a chip. */

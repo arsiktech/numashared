@@ -116,7 +116,7 @@ export default function Join() {
           <T nativeID="join-code" style={{ fontFamily: fonts.semibold, fontSize: 12.5, color: c.ink2, marginBottom: 8, marginHorizontal: 4 }}>Invite code</T>
           <Field value={showCode(code)} onChangeText={(v) => { setCode(cleanCode(v)); setLink(null); setPreview(null); setError(null); }}
             accessibilityLabel="Invite code, 6 characters" placeholder="K7Q 4MZ" autoCapitalize="characters" autoCorrect={false}
-            autoComplete="off" maxLength={7} returnKeyType="go" onSubmitEditing={check} autoFocus={!link && (!isWeb || !phone)}
+            autoComplete="off" maxLength={16} returnKeyType="go" onSubmitEditing={check} autoFocus={!link && (!isWeb || !phone)}
             style={{ minHeight: 76, borderRadius: 20 }}
             inputStyle={{ fontFamily: fonts.semibold, fontSize: 36, letterSpacing: 2, paddingVertical: 12, fontVariant: ['tabular-nums'] }} />
         </View>

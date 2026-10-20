@@ -211,6 +211,26 @@ describe("free-host web entry", () => {
     });
   });
 
+  test("the home page leads into the web app when there is one", async () => {
+    vi.stubEnv("NUMA_SHARED_WEB_APP_URL", "https://shared.example.com/app");
+    const t = convexTest(schema, modules);
+    const body = await (await t.fetch("/")).text();
+    expect(body).toContain('class="button" href="https://shared.example.com/app/">Open the web app');
+    expect(body).toContain('class="orb orb--link" data-orb href="https://shared.example.com/app/"');
+    expect(body).toContain("Free during the beta.");
+    expect(body).toContain("Request the iPhone beta");
+    expect(body).not.toContain("<!--web-->");
+    expect(body).not.toContain("<!--noweb-->");
+    expect(body).not.toContain("{{");
+    expect(body).not.toMatch(/Come to the table|Press the orb|on this iPhone/);
+
+    vi.stubEnv("NUMA_SHARED_WEB_APP_URL", "");
+    const plain = await (await t.fetch("/")).text();
+    expect(plain).not.toContain("Open the web app");
+    expect(plain).toContain("Request TestFlight access");
+    expect(plain).not.toContain("<!--");
+  });
+
   test("offers invitation-only beta access without requiring an App Store listing", async () => {
     vi.stubEnv("NUMA_SHARED_APP_STORE_URL", "");
     const t = convexTest(schema, modules);
@@ -226,7 +246,7 @@ describe("free-host web entry", () => {
     const support = await t.fetch("/support");
     expect(support.status).toBe(200);
     const supportBody = await support.text();
-    expect(supportBody).toContain('href="/">Back to Numa Shared');
+    expect(supportBody).toContain('href="/">Numa Shared home');
     expect(supportBody).not.toContain("apps.apple.com");
 
     vi.stubEnv("NUMA_SHARED_SUPPORT_EMAIL", "");
@@ -430,7 +450,7 @@ describe("free-host web entry", () => {
     expect(response.status).toBe(200);
     expect(response.headers.get("content-type")).toBe("text/html; charset=utf-8");
     expect(body).toContain("Casa Mar");
-    expect(body).toContain("This link needs the pot owner’s approval");
+    expect(body).toContain("This link needs the household owner’s approval");
     expect(body).toContain("Enter <strong>HTML12</strong> in Join after installing");
     expect(body).not.toContain("claimTicket");
     expect(body).not.toMatch(/[a-f0-9]{64}/);
@@ -454,7 +474,7 @@ describe("free-host web entry", () => {
     expect(support.status).toBe(200);
     expect(supportBody).toContain("mailto:support@example.com");
     expect(supportBody).toContain("Numa Shared never moves money");
-    expect(supportBody).toContain("Ask the pot owner for a new invite");
+    expect(supportBody).toContain("Ask the household owner for a new invite");
     expect(supportBody).toContain("Editing corrects a record");
     expect(supportBody).toContain("Balances show who owes whom");
     expect(supportBody).toContain("transfer ownership before leaving");

@@ -80,7 +80,7 @@ export default function PeopleScreen() {
       try { await online.addPerson(h, v); } catch (e) { showToast(explainFailure(failureOf(e).code)); return; }
       showToast(`${v} added. Their invite code is on the Invite screen`);
       haptic.success();
-    } else if (addPerson(h.id, v)) { showToast(`${v} added in a group of their own`); haptic.success(); }
+    } else if (addPerson(h.id, v)) { showToast(`${v} added`); haptic.success(); }
     setNewName('');
     setAdding(false);
   };

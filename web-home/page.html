@@ -16,7 +16,7 @@
 <a class="skip" href="#main">Skip to content</a>
 <nav class="pill" aria-label="Sections">
 <a class="pill__brand" href="#top"><span class="pill__dot" aria-hidden="true"></span>Numa Shared</a>
-<a href="#add">Add</a><a href="#why">Why</a><a href="#repay">Repay</a><a href="#history">History</a>
+<a class="pill__sec" href="#add">Add</a><a class="pill__sec" href="#repay">Repay</a><a class="pill__sec" href="#history">History</a><!--web--><a class="pill__go" href="{{WEB_APP_URL}}/">Open app</a><!--/web-->
 </nav>
 <main id="main">
 <div class="world" id="top" data-world>
@@ -37,42 +37,43 @@
 <p class="amt"><span class="amt__eur">€</span><span class="amt__n" data-amt>84</span></p>
 </div>
 <div class="sq" data-sq>
-<p class="sq__h">All square.</p>
+<p class="sq__h">Nothing owed.</p>
 <p class="sq__p">No one owes anyone.</p>
 </div>
 </div>
 <ul class="slips">
 <li class="slip slip--dinner" data-slip="dinner"><span class="disc disc--lilac"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7 3v8M4 3v5a3 3 0 0 0 6 0V3M7 11v10M17 21V3c-2.5 1.5-3.5 4.5-3.5 8H17"/></svg></span><span class="slip__t"><b>Dinner together</b><small>Alex paid · yesterday</small><em class="share" data-share>Your group’s share €48.00</em></span><span class="slip__a">€96.00</span></li>
 <li class="slip slip--internet" data-slip="internet"><span class="disc disc--lilac"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2.5 9a15 15 0 0 1 19 0M5.5 12.5a10 10 0 0 1 13 0M8.5 16a5 5 0 0 1 7 0M12 19.5h.01"/></svg></span><span class="slip__t"><b>Internet</b><small>Jo paid · 10 September</small><em class="share" data-share>Your group’s share €36.00</em></span><span class="slip__a">€72.00</span></li>
-<li class="slip slip--repay" data-slip="repay"><span class="disc disc--citrus"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 8h14M14 4l4 4-4 4M20 16H6M10 12l-4 4 4 4"/></svg></span><span class="slip__t"><b>Repayment recorded</b><small>You + Sam to Alex + Jo</small><em class="share" data-share>Written down, not sent</em></span><span class="slip__a">€84.00</span></li>
+<li class="slip slip--repay" data-slip="repay"><span class="disc disc--citrus"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 8h14M14 4l4 4-4 4M20 16H6M10 12l-4 4 4 4"/></svg></span><span class="slip__t"><b>Repayment recorded</b><small>You + Sam to Alex + Jo</small><em class="share" data-share>Recorded only, no money sent</em></span><span class="slip__a">€84.00</span></li>
 </ul>
-<div class="orb" data-orb>
+<!--web--><a class="orb orb--link" data-orb href="{{WEB_APP_URL}}/" aria-label="Add an expense: open the web app"><!--/web--><!--noweb--><div class="orb" data-orb><!--/noweb-->
 <span class="orb__ball" data-ball><span class="orb__glyph orb__glyph--plus"><svg viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="#252B27" stroke-width="2" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg></span><span class="orb__glyph orb__glyph--check"><svg viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="#252B27" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg></span></span>
 <span class="orb__label"><b>Add an expense</b><small>Who paid? Who was it for?</small></span>
-</div>
+<!--web--></a><!--/web--><!--noweb--></div><!--/noweb-->
 <p class="stage__note">Sample household. Names and amounts are made up.</p>
 </div>
 
 <section class="act act--hello" id="hello" data-act data-sc-act="flow">
 <div class="copy copy--hello">
 <h1>Shared expenses,<br>made clear.</h1>
-<p class="lede">For every “I’ll get this” moment. One shared record of who paid and who owes whom.</p>
-<p class="actions"><a class="button" href="mailto:{{SUPPORT_EMAIL}}?subject=Numa%20Shared%20TestFlight">Request TestFlight access</a></p>
-<p class="fine">Never moves money. Record repayments after you make them.<br>Beta access is by invitation.</p>
+<p class="lede">For couples, flatmates and families who share costs. One shared record of who paid and who owes whom.</p>
+<!--web--><p class="actions"><a class="button" href="{{WEB_APP_URL}}/">Open the web app</a><a class="link" href="mailto:{{SUPPORT_EMAIL}}?subject=Numa%20Shared%20TestFlight">Request the iPhone beta</a></p>
+<p class="fine">Free during the beta. No account needed to start. Never moves money: you record repayments after you make them.</p><!--/web--><!--noweb--><p class="actions"><a class="button" href="mailto:{{SUPPORT_EMAIL}}?subject=Numa%20Shared%20TestFlight">Request TestFlight access</a></p>
+<p class="fine">Never moves money. Record repayments after you make them.<br>Free during the beta. Beta access is by invitation.</p><!--/noweb-->
 </div>
 </section>
 
 <section class="act act--add" id="add" data-act data-sc-act="flow">
 <div class="copy">
-<h2>Press the orb. Dinner lands on the table.</h2>
-<p>Choose who paid and who shared the expense. Split equally, by shares, or with exact amounts. Then the next one, and the next. Each goes onto the same shared record.</p>
+<h2>Add an expense in seconds.</h2>
+<p>Choose who paid and who shared the cost. Split equally, by shares, or with exact amounts. Then the next one, and the next. Each goes onto the same shared record.</p>
 </div>
 </section>
 
 <section class="act act--why" id="why" data-act data-sc-act="flow">
 <div class="copy">
 <h2>Who owes whom, and why.</h2>
-<p>Balances update from your records, and every slip shows your group’s share. Start on your iPhone; sign in with Apple when you want to invite people or sync.</p>
+<p>Balances update from your records, and every expense shows your group’s share. Start in your browser or on iPhone. Sign in when you want to invite people and keep everyone in sync.</p>
 <dl class="receipt">
 <div><dt>Dinner together, Alex paid €96.00</dt><dd>€48.00</dd></div>
 <div><dt>Internet, Jo paid €72.00</dt><dd>€36.00</dd></div>
@@ -84,7 +85,7 @@
 
 <section class="act act--repay" id="repay" data-act data-sc-act="flow">
 <div class="copy">
-<h2>Paid it back? Write it down.</h2>
+<h2>Paid them back? Record it.</h2>
 <p>See a simple repayment plan. Pay outside the app, then record it so everyone knows where things stand. Numa Shared never moves money.</p>
 <dl class="receipt">
 <div><dt>Previously owed</dt><dd>€84.00</dd></div>
@@ -97,22 +98,25 @@
 <section class="act act--history" id="history" data-act data-sc-act="flow">
 <div class="copy">
 <h2>A history you can follow.</h2>
-<p><strong>Corrections stay visible.</strong> Search past expenses, see what changed, and export your records as CSV. Hide amounts on this iPhone when you need privacy. No ads or tracking SDKs.</p>
+<p><strong>Corrections stay visible.</strong> Search past expenses, see what changed, and export your records as CSV. Hide amounts on your device when you need privacy. No ads or tracking SDKs.</p>
 <p>A repayment brings the balance to zero. The records stay exactly where they were.</p>
 </div>
 </section>
 
 <section class="act act--close" id="request" data-act data-sc-act="flow">
 <div class="copy">
-<h2>Come to the table.</h2>
+<!--web--><h2>Try it now.</h2>
+<p>It works in your browser today, and there is a private beta of the iPhone app.</p>
+<p class="actions"><a class="button" href="{{WEB_APP_URL}}/">Open the web app</a><a class="link" href="mailto:{{SUPPORT_EMAIL}}?subject=Numa%20Shared%20TestFlight">Request the iPhone beta</a></p>
+<p class="fine">Free during the beta. Never moves money.</p><!--/web--><!--noweb--><h2>Join the beta.</h2>
 <p>Private beta for iPhone. Request access and we will reply with next steps.</p>
 <p class="actions"><a class="button" href="mailto:{{SUPPORT_EMAIL}}?subject=Numa%20Shared%20TestFlight">Request TestFlight access</a></p>
-<p class="fine">Never moves money. Beta access is by invitation.</p>
+<p class="fine">Never moves money. Free during the beta. Beta access is by invitation.</p><!--/noweb-->
 </div>
 </section>
 
 </div>
 </main>
-<footer class="foot"><span>Numa Shared · Household expenses</span><div><a href="/privacy">Privacy</a><a href="/support">Support</a><a href="mailto:{{SUPPORT_EMAIL}}">Contact</a></div></footer>
+<footer class="foot"><span>Numa Shared · Household expenses</span><div><!--web--><a href="{{WEB_APP_URL}}/">Open the app</a><!--/web--><a href="/privacy">Privacy</a><a href="/support">Support</a><a href="mailto:{{SUPPORT_EMAIL}}">Contact</a></div></footer>
 </body>
 </html>

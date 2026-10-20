@@ -6,7 +6,11 @@ A Cloudflare Worker that puts Numa Shared under its own address:
 |---|---|
 | `/app/…` | The web app (an Expo web export of `app/`, served as a single-page app). |
 | `/`, `/assets/…`, `/privacy`, `/support`, `/join/<token>`, `/.well-known/apple-app-site-association` | Fetched from the backend and served here, so the address stays branded. |
-| anything else, any POST | `307` to the backend, so its rate limits see each person's own IP. |
+| any other page a browser opens | A small "page not found" with links home and to the app. |
+| `/auth/…`, `/app-config`, `/card-sync/…`, any POST | `307` to the backend, so its rate limits see each person's own IP. |
+
+Hashed bundles and fonts under `/app/_expo/static/` and `/app/assets/` are served with a one-year
+immutable cache, so a return visit opens without downloading the app again.
 
 The web app calls the backend directly. The backend answers it with CORS headers only for origins
 listed in `NUMA_SHARED_WEB_ORIGINS`.

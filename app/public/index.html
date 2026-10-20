@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta httpEquiv="X-UA-Compatible" content="IE=edge" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no" />
+    <title>Numa Shared</title>
+    <!-- The `react-native-web` recommended style reset: https://necolas.github.io/react-native-web/docs/setup/#root-element -->
+    <style id="expo-reset">
+      html,
+      body {
+        height: 100%;
+      }
+      body {
+        overflow: hidden;
+        margin: 0;
+        background: #fbfaf6;
+      }
+      #root {
+        display: flex;
+        height: 100%;
+        flex: 1;
+      }
+      /* Shown until the app has loaded, which can take a while on a slow connection. The app replaces it. */
+      .boot {
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        gap: 18px;
+        font: 600 16px/1.4 system-ui, -apple-system, "Segoe UI", sans-serif;
+        color: #595d56;
+      }
+      .boot__mark {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        font-size: 22px;
+        color: #1e2420;
+      }
+      .boot__dot {
+        width: 30px;
+        height: 30px;
+        border-radius: 50%;
+        background: radial-gradient(circle at 35% 30%, #ffe9a8, #f2b33d);
+        animation: boot 1.2s ease-in-out infinite alternate;
+      }
+      @keyframes boot {
+        to { transform: scale(0.82); }
+      }
+      @media (prefers-reduced-motion: reduce) {
+        .boot__dot { animation: none; }
+      }
+      @media (prefers-color-scheme: dark) {
+        body { background: #121512; }
+        .boot { color: #adb1a6; }
+        .boot__mark { color: #eef0e6; }
+      }
+    </style>
+  </head>
+
+  <body>
+    <noscript>
+      You need to enable JavaScript to run Numa Shared.
+    </noscript>
+    <div id="root">
+      <div class="boot" role="status">
+        <div class="boot__mark"><span class="boot__dot" aria-hidden="true"></span>Numa Shared</div>
+        <div>Opening the app…</div>
+      </div>
+    </div>
+  </body>
+</html>

@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   applyKey, currencyDigits, formatMoney, inputFromCents, MAX_AMOUNT, maxWholeDigits, parseInput,
-  splitDisplay, type Key,
+  splitDisplay, typeAmount, type Key,
 } from '../money';
 
 const type = (keys: Key[], currency: string, start = '') => keys.reduce((s, k) => applyKey(s, k, currency), start);
@@ -156,5 +156,19 @@ describe('parseInput', () => {
     }
     expect(inputFromCents(5280, 'EUR')).toBe('52.80');
     expect(inputFromCents(0, 'EUR')).toBe('');
+  });
+});
+
+describe('typeAmount', () => {
+  const keys = (text: string) => [...text].map((ch) => (ch === ',' ? '.' : ch === '<' ? 'back' : ch) as Key);
+  it('reads a separator before a group of three digits as thousands', () => {
+    expect(typeAmount(keys('1.600,00'), 'EUR')).toBe('1600.00');
+    expect(typeAmount(keys('1,234,567.89'), 'EUR')).toBe('1234567.89');
+  });
+  it('types like the keypad otherwise', () => {
+    expect(typeAmount(keys('12,50'), 'EUR')).toBe('12.50');
+    expect(typeAmount(keys('1.60.'), 'EUR')).toBe('1.60');
+    expect(typeAmount(keys('1.600'), 'EUR')).toBe('1.60');
+    expect(typeAmount(keys('45.5<8'), 'EUR')).toBe('45.8');
   });
 });

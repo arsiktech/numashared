@@ -188,7 +188,7 @@ export const aasa = httpAction(async () => {
 export const marketing = httpAction(async () => {
   try {
     return new Response(
-      marketingHTML(readSupportPageConfiguration(process.env)),
+      marketingHTML(readSupportPageConfiguration(process.env), readInvitePageConfiguration(process.env).webAppURL),
       { status: 200, headers: marketingSecurityHeaders },
     );
   } catch {

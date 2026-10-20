@@ -203,7 +203,7 @@ function RepayBody({ h, spec, groups, setGroups, t }: {
   );
 
   let slot;
-  if (panel === 'date') slot = <DateRow tone={t} date={date} onPick={(d) => { haptic.tick(); setDate(d); setPanel(null); }} />;
+  if (panel === 'date') slot = <DateRow tone={t} date={date} onPick={(d, stayOpen) => { haptic.tick(); setDate(d); if (!stayOpen) setPanel(null); }} />;
   else if (panel === 'from' || panel === 'to') slot = groupRow(panel);
   else slot = owed > 0 ? (
     <ChipRow label="How much">

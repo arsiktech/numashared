@@ -5,9 +5,9 @@ import { useEffect } from 'react';
 import { View } from 'react-native';
 import { Redirect, useLocalSearchParams, useRouter } from 'expo-router';
 import { CloudOff } from '@/ui/icons';
-import { Banner, BannerText, CTA, Press, T } from '@/ui/primitives';
+import { Banner, BannerText, CTA, T } from '@/ui/primitives';
 import { useTheme } from '@/ui/theme';
-import { fonts } from '@/ui/tokens';
+import { fonts, isWeb } from '@/ui/tokens';
 import { Screen, ScreenHeader } from '@/features/onboarding/chrome';
 import { inExpoGo, SignInButtons, useSession, useSignInOptions } from '@/features/account/session';
 import { showToast } from '@/store/ui';
@@ -22,6 +22,7 @@ export default function Account() {
   const phone = layout === 'phone';
   const citrus = tone('citrus');
   const lilac = tone('lilac');
+  const here = isWeb ? 'in this browser' : 'on this phone';
 
   // Signed in already: nothing to ask here.
   useEffect(() => { if (session && !returning) router.replace('/setup/new'); }, [session, returning, router]);
@@ -52,7 +53,7 @@ export default function Account() {
       <T style={{ fontSize: 16, lineHeight: 22, color: c.ink2, marginTop: 12 }}>
         {returning
           ? 'Use the same account as before and your households come back.'
-          : 'Everyone you invite will see the same household and balance on their own phone. Your account is only used to sign you in.'}
+          : 'Signing in lets the people you invite see the same household and balance on their own phone or computer. Your account is only used to sign you in. You can also start without one.'}
       </T>
 
       {options.any ? (
@@ -71,17 +72,10 @@ export default function Account() {
 
       {!returning ? (
         <View style={{ marginTop: 16 }}>
-          {options.any ? (
-            <Press onPress={() => router.replace('/setup/new')} accessibilityRole="link"
-              accessibilityLabel="Not now. Keep the household on this phone"
-              style={{ minHeight: 44, alignSelf: 'center', justifyContent: 'center', paddingHorizontal: 8 }}>
-              <T style={{ fontFamily: fonts.semibold, fontSize: 15, textDecorationLine: 'underline' }}>Not now, keep it on this phone</T>
-            </Press>
-          ) : (
-            <CTA label="Continue on this phone" onPress={() => router.replace('/setup/new')} />
-          )}
+          <CTA variant="second" label={`Start without an account`} accessibilityLabel={`Start without an account. Keep the household ${here}`}
+            onPress={() => router.replace('/setup/new')} />
           <T style={{ fontFamily: fonts.medium, fontSize: 12.5, lineHeight: 18, color: c.ink2, textAlign: 'center', marginTop: 8 }}>
-            You can share it later from Invite people.
+            {`It stays ${here} until you sign in and share it from Invite people.`}
           </T>
         </View>
       ) : null}

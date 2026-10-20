@@ -16,7 +16,7 @@ import { InvitePattern } from '@/features/onboarding/pattern';
 import { shareText } from '@/features/onboarding/share';
 import { explainFailure, SignInButtons, useSession, useSignInOptions } from '@/features/account/session';
 import { showToast } from '@/store/ui';
-import { SITE_URL } from '@/sync/config';
+import { PUBLIC_SITE_URL } from '@/sync/config';
 import { failureOf } from '@/sync/engine';
 import { online, turnOnSync, useSyncStatus } from '@/sync/runtime';
 import { groupLimitWords } from '@/sync/contract';
@@ -114,7 +114,7 @@ function CodeCard({ h, p }: { h: Household; p: Person }) {
   const invite = h.sync!.invites?.[p.id];
   const ready = invite?.issued;
   const code = ready ? showCode(invite.code) : '';
-  const link = ready ? `${SITE_URL}/join/${invite.token}?code=${invite.code}` : '';
+  const link = ready ? `${PUBLIC_SITE_URL}/join/${invite.token}?code=${invite.code}` : '';
   return (
     <View style={{ backgroundColor: c.card, borderRadius: 20, padding: 18, gap: 12 }}>
       <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>

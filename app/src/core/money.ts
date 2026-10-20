@@ -165,6 +165,24 @@ export function applyKey(input: string, key: Key, currency: string): string {
 }
 
 /**
+ * Replays the keys typed into an amount field, so "1.600,00" means 1600.00 the way it is written in
+ * much of Europe: a separator followed by exactly three digits and then another separator was a
+ * thousands separator, and is left out. Otherwise each key goes through applyKey.
+ */
+export function typeAmount(keys: readonly Key[], currency: string): string {
+  const seq: Key[] = [];
+  for (const k of keys) {
+    if (k === 'back') seq.pop();
+    else seq.push(k);
+  }
+  const seps = seq.flatMap((k, i) => (k === '.' ? [i] : []));
+  const thousands = new Set(seps.filter((i, n) => n < seps.length - 1 && seps[n + 1] - i === 4));
+  let input = '';
+  seq.forEach((k, i) => { if (!thousands.has(i)) input = applyKey(input, k, currency); });
+  return input;
+}
+
+/**
  * Exact conversion of a typed amount to minor units. Returns null for an empty field, malformed
  * text, more fraction digits than the currency has, or an amount over the keypad cap.
  * "52.8" EUR -> 5280; "0" -> 0; "" -> null.

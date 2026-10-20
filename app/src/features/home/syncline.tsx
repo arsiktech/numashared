@@ -1,3 +1,4 @@
+import { useEffect, useState } from 'react';
 import { View } from 'react-native';
 import { useStore } from '@/store/store';
 import { Checks, Clock, CloudOff, Warn } from '@/ui/icons';
@@ -15,8 +16,17 @@ export function SyncLine() {
   const { h } = useHousehold();
   const recent = useStore((s) => s.recent);
   const status = useSyncStatus();
+  // Re-render when the undo window closes, so the line doesn't keep promising an undo.
+  const latest = h ? Math.max(0, ...recent.filter((r) => r.householdId === h.id).map((r) => r.at)) : 0;
+  const [, tick] = useState(0);
+  useEffect(() => {
+    const left = latest + 8000 - Date.now();
+    if (left <= 0) return;
+    const t = setTimeout(() => tick((n) => n + 1), left + 50);
+    return () => clearTimeout(t);
+  }, [latest]);
   if (!h) return null;
-  const undoOpen = recent.some((r) => r.householdId === h.id && Date.now() - r.at < 8000);
+  const undoOpen = Date.now() - latest < 8000;
   const queued = h.events.filter((e) => e.seq === undefined).length;
   const rejected = h.sync?.rejected ?? [];
 

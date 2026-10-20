@@ -32,6 +32,8 @@ export function Bands({ h, balances, hide, compact, tail }: { h: Household; bala
   const square = Object.values(balances).every((v) => v === 0);
   const empty = h.events.length === 0;
   const partners = mine.memberIds.filter((id) => id !== h.youId).map((id) => h.people.find((p) => p.id === id)!);
+  const me = h.people.find((p) => p.id === h.youId)?.name.trim();
+  const named = me && me !== 'You' ? me : '';
 
   const ticketTop = topH - 39;
   const lowest = others.length ? tone(others[others.length - 1]).band : c.chip;
@@ -54,7 +56,7 @@ export function Bands({ h, balances, hide, compact, tail }: { h: Household; bala
         ) : null}
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 14, flexWrap: 'wrap' }}>
           <T style={{ fontFamily: fonts.semibold, fontSize: 14, color: t.ink, opacity: 0.85 }}>
-            {partners.length ? 'Your group ·' : h.groups.length > 2 ? `${h.people.length} people` : 'Just you'}
+            {partners.length ? (named ? `Your group · ${named} (you) ·` : 'Your group ·') : named ? `${named} (you)` : h.groups.length > 2 ? `${h.people.length} people` : 'Only you'}
           </T>
           {partners.map((p) => (
             <View key={p.id} style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
@@ -88,10 +90,14 @@ export function Bands({ h, balances, hide, compact, tail }: { h: Household; bala
           </>
         ) : (
           <>
-            <T style={{ fontFamily: fonts.semibold, fontSize: 15, color: c.dark ? c.ink2 : '#595D56' }}>{bal < 0 ? 'owe' : 'get back'}</T>
-            <T numberOfLines={1} style={{ fontFamily: fonts.display, fontSize: ticketSize(money(h, Math.abs(bal), hide), compact ? 32 : 40, (compact ? 360 : width) - 132 - 110), letterSpacing: -1.2, color: c.dark ? c.ink : '#1E2420', fontVariant: ['tabular-nums'], flexShrink: 1 }}>
-              {money(h, Math.abs(bal), hide)}
-            </T>
+            <View style={{ flexShrink: 1, minWidth: 0 }}>
+              <T numberOfLines={1} style={{ fontFamily: fonts.semibold, fontSize: 13, color: c.dark ? c.ink2 : '#595D56' }}>
+                {partners.length ? (bal < 0 ? 'Your group owes' : 'Your group gets back') : bal < 0 ? 'You owe' : 'You get back'}
+              </T>
+              <T numberOfLines={1} adjustsFontSizeToFit style={{ fontFamily: fonts.display, fontSize: ticketSize(money(h, Math.abs(bal), hide), compact ? 32 : 38, (compact ? 360 : width) - 132 - 74), lineHeight: compact ? 36 : 42, letterSpacing: -1, color: c.dark ? c.ink : '#1E2420', fontVariant: ['tabular-nums'] }}>
+                {money(h, Math.abs(bal), hide)}
+              </T>
+            </View>
             {bal < 0 ? <ArrowDown size={22} color={c.dark ? c.ink : '#1E2420'} /> : <ArrowUp size={22} color={c.dark ? c.ink : '#1E2420'} />}
           </>
         )}
@@ -114,12 +120,12 @@ function TwoGroupBand({ h, g, balances, nameSize, square }: { h: Household; g: G
         {members.map((p) => (
           <View key={p.id} style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
             <Dot color={p.joined ? c.good : alpha('#000000', 0.3)} />
-            <T style={{ fontFamily: fonts.semibold, fontSize: 14, color: t.ink, opacity: 0.85 }}>{p.joined ? p.name : `${p.name} · invited`}</T>
+            <T style={{ fontFamily: fonts.semibold, fontSize: 14, color: t.ink, opacity: 0.85 }}>{p.joined || !h.sync ? p.name : `${p.name} · invited`}</T>
           </View>
         ))}
       </View>
       {!square ? (
-        <Pill style={{ marginTop: 18 }} label={bal < 0 ? 'We paid them back' : 'They paid us back'}
+        <Pill style={{ marginTop: 18 }} label={bal < 0 ? `${mine.memberIds.length > 1 ? 'We' : 'I'} paid ${nameOf(h, g)}` : `${nameOf(h, g)} paid ${mine.memberIds.length > 1 ? 'us' : 'me'}`}
           onPress={() => openSheet({ type: 'repay', fromGroupId: bal < 0 ? mine.id : g.id, toGroupId: bal < 0 ? g.id : mine.id, amount: Math.abs(bal) })} />
       ) : null}
     </View>
@@ -166,7 +172,7 @@ function CompactBand({ h, g, hide, first, last, balances, transfers, mine }: {
 
 /** Shrink the ticket number so long amounts fit instead of being cut off. */
 function ticketSize(text: string, max: number, room: number) {
-  return Math.max(22, Math.min(max, Math.floor(room / (text.length * 0.6))));
+  return Math.max(20, Math.min(max, Math.floor(room / (text.length * 0.66))));
 }
 
 /** A household with only your group: nothing to split yet, so point at adding people. */

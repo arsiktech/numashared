@@ -1,7 +1,7 @@
 // Settings: household, you, data and account. A shared household lives on the server and on every
 // member's phone; one made without signing in stays on this device until it is shared.
 import { useState } from 'react';
-import { TextInput, View } from 'react-native';
+import { Linking, TextInput, View } from 'react-native';
 import { Redirect, useLocalSearchParams, useRouter } from 'expo-router';
 import Constants from 'expo-constants';
 import { currencyLocked, getState, hasFinancialHistory, leaveHousehold, renameHousehold, setCurrency, setPrefs, useStore, type Appearance } from '@/store/store';
@@ -18,6 +18,7 @@ import { showToast } from '@/store/ui';
 import { failureOf } from '@/sync/engine';
 import { online, registerPush, signOutEverywhere, turnOnSync } from '@/sync/runtime';
 import { groupLimitWords } from '@/sync/contract';
+import { PUBLIC_SITE_URL } from '@/sync/config';
 import { Apple, CloudOff } from '@/ui/icons';
 import { Kbd } from '@/features/web/kbd';
 
@@ -204,7 +205,7 @@ function AccountGroup() {
       {session ? (
         <SRow first label="Signed in" sub={h.sync ? `${h.name} is shared` : `${h.name} is only on this device`} icon={<Apple size={22} color={c.ink2} />} chevron={false} />
       ) : (
-        <SRow first label="Not signed in" sub={signInOptions.any ? 'Sign in to share households between phones' : 'Signing in isn’t available on this device yet'} icon={<CloudOff size={22} color={c.ink2} />} chevron={false} />
+        <SRow first label="Not signed in" sub={signInOptions.any ? 'Sign in to share a household with others on any device' : 'Signing in isn’t available on this device yet'} icon={<CloudOff size={22} color={c.ink2} />} chevron={false} />
       )}
       {session && !h.sync ? (
         <SRow label={busy ? 'Sharing…' : `Share ${h.name}`} sub="Move it to your account so others can join" icon={<ShareIcon size={22} color={c.ink2} />}
@@ -215,14 +216,23 @@ function AccountGroup() {
           <SignInButtons />
         </View>
       ) : null}
-      <SRow label="Sign out" icon={<View />} chevron={false} onPress={() => openSheet({ type: 'signout' })} last={desk} />
+      {session ? (
+        <SRow label="Sign out" icon={<View />} chevron={false} onPress={() => openSheet({ type: 'signout' })} />
+      ) : null}
       {session ? (
         <SRow label="Delete account" sub="Deletes your account and its shared households here" icon={<View />}
           onPress={() => router.push('/settings/delete-account')} />
       ) : null}
+      <SRow label="Privacy" icon={<View />} onPress={() => openLink(`${PUBLIC_SITE_URL}/privacy`)} />
+      <SRow label="Help and support" icon={<View />} onPress={() => openLink(`${PUBLIC_SITE_URL}/support`)} last={desk} />
       {!desk ? <LeaveRow last /> : null}
     </SGroup>
   );
+}
+
+function openLink(url: string) {
+  if (isWeb) { window.open(url, '_blank', 'noopener'); return; }
+  Linking.openURL(url).catch(() => showToast('Couldn’t open the page'));
 }
 
 function LeaveRow({ last }: { last?: boolean }) {

@@ -14,13 +14,20 @@ import { useTheme } from '@/ui/theme';
 import { fonts, isAndroid, isIOS, isWeb, radius } from '@/ui/tokens';
 
 /** Back control and screen title. `back` is the label of the place you return to. */
+/** `back={null}` leaves the Back control out, for a step that can't be undone by going back. */
 export function ScreenHeader({ title, back = 'Back', onBack, titleSize = 40 }: {
-  title: string; back?: string; onBack?: () => void; titleSize?: number;
+  title: string; back?: string | null; onBack?: () => void; titleSize?: number;
 }) {
   const { c } = useTheme();
   const router = useRouter();
   const go = onBack ?? (() => (router.canGoBack() ? router.back() : router.replace('/')));
   const a11y = back === 'Back' ? 'Back' : `Back to ${back}`;
+  if (back === null) {
+    return title ? (
+      <T accessibilityRole="header" maxFontSizeMultiplier={1.4}
+        style={{ fontFamily: fonts.cond, fontSize: titleSize, lineHeight: titleSize * 1.05, marginTop: 8 }}>{title}</T>
+    ) : null;
+  }
   if (isAndroid) {
     return (
       <View style={{ minHeight: 64, flexDirection: 'row', alignItems: 'center', gap: 4, marginLeft: -12 }}>

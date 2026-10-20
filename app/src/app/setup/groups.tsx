@@ -1,6 +1,6 @@
 // Who shares money? People who pay as one share a group and a balance. Tap a person, then tap the
 // group they should join (the tap version of dragging them). Groups are fixed once money is recorded.
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { View } from 'react-native';
 import { Redirect, useLocalSearchParams, useRouter } from 'expo-router';
 import { groupName } from '@/core';
@@ -29,6 +29,9 @@ export default function Groups() {
   const [sel, setSel] = useState<ID | null>(null);
   const [pendingNew, setPendingNew] = useState(false);
   const [saving, setSaving] = useState(false);
+  // A double click on the previous screen's button lands here; don't let it confirm a step not yet seen.
+  const shownAt = useRef(0);
+  useEffect(() => { shownAt.current = Date.now(); }, []);
   if (!h) return <Redirect href="/welcome" />;
   const fixed = hasFinancialHistory(h);
   const nm = (pid: ID) => (pid === h.youId ? 'You' : h.people.find((p) => p.id === pid)?.name ?? 'Someone');
@@ -56,6 +59,7 @@ export default function Groups() {
   };
 
   const done = async () => {
+    if (Date.now() - shownAt.current < 700) return;
     if (!fixed) {
       if (h.sync && !h.sync.setup) {
         // Already shared: regrouping is a server change, so it needs a connection.
@@ -82,12 +86,14 @@ export default function Groups() {
   const hint = fixed ? null
     : pendingNew ? 'Now tap the person who should start the new group.'
       : sel ? `Now tap the group ${nm(sel)} should join.`
-        : 'Tap a person, then tap another group to move them.';
+        : 'To move someone, choose the person, then choose another group.';
 
   return (
-    <Screen header={<ScreenHeader title="Who shares money?" />} footer={<CTA label={saving ? 'Saving…' : fixed ? 'Done' : 'Looks right'} disabled={saving} onPress={done} />}>
+    <Screen header={<ScreenHeader title="Who shares money?" back={first === '1' ? null : undefined} />}
+      footer={<CTA label={saving ? 'Saving…' : fixed ? 'Done' : 'Continue'} disabled={saving} onPress={done} />}>
       <T style={{ fontSize: 15, lineHeight: 21, color: c.ink2, marginTop: 12 }}>
-        People who pay as one, like a couple, share a balance. Each group settles with the others.
+        People who share money, like a couple, go in one group and have one balance. Balances are between groups.
+        {fixed ? '' : ' You can change this until the first expense is added.'}
       </T>
       {hint ? <T accessibilityLiveRegion="polite" style={{ fontSize: 14, fontFamily: fonts.semibold, color: c.ink, marginTop: 12 }}>{hint}</T> : null}
 
@@ -147,13 +153,13 @@ export default function Groups() {
         ) : null}
       </View>
 
-      <View style={{ marginTop: 16 }}>
-        <Banner icon={fixed ? <Lock size={18} color={c.ink2} /> : undefined}>
-          <BannerText rest={fixed
-            ? 'Groups are fixed now that money is recorded, so every past balance stays explainable.'
-            : 'You can change this until the first expense is added.'} />
-        </Banner>
-      </View>
+      {fixed ? (
+        <View style={{ marginTop: 16 }}>
+          <Banner icon={<Lock size={18} color={c.ink2} />}>
+            <BannerText rest="Groups are fixed now that money is recorded, so every past balance stays explainable." />
+          </Banner>
+        </View>
+      ) : null}
     </Screen>
   );
 }
