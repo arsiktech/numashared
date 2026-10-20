@@ -29,6 +29,7 @@ import {
   readPrivacyPageConfiguration,
   readSupportPageConfiguration,
   supportHTML,
+  termsHTML,
   type PublicInvitePreview,
 } from "./lib/webContent";
 
@@ -331,6 +332,14 @@ export const privacy = httpAction(async () => {
 export const support = httpAction(async () => {
   try {
     return htmlResponse(supportHTML(readSupportPageConfiguration(process.env)));
+  } catch {
+    return unavailableResponse();
+  }
+});
+
+export const terms = httpAction(async () => {
+  try {
+    return htmlResponse(termsHTML(readPrivacyPageConfiguration(process.env), readSupportPageConfiguration(process.env)));
   } catch {
     return unavailableResponse();
   }

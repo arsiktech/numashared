@@ -22,6 +22,7 @@ import {
   marketingAsset,
   privacy,
   support,
+  terms,
 } from "./web";
 
 const http = httpRouter();
@@ -53,6 +54,7 @@ http.route({ pathPrefix: "/join/", method: "GET", handler: inviteLanding });
 http.route({ pathPrefix: "/join/", method: "POST", handler: withCors(inviteResolve) });
 http.route({ path: "/privacy", method: "GET", handler: privacy });
 http.route({ path: "/support", method: "GET", handler: support });
+http.route({ path: "/terms", method: "GET", handler: terms });
 http.route({ path: "/app-config", method: "GET", handler: withCors(appConfiguration) });
 http.route({ path: "/card-sync/spends", method: "POST", handler: spendsHttp });
 

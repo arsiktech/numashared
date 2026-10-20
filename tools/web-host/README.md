@@ -5,7 +5,7 @@ A Cloudflare Worker that puts Numa Shared under its own address:
 | Path | What happens |
 |---|---|
 | `/app/…` | The web app (an Expo web export of `app/`, served as a single-page app). |
-| `/`, `/assets/…`, `/privacy`, `/support`, `/join/<token>`, `/.well-known/apple-app-site-association` | Fetched from the backend and served here, so the address stays branded. |
+| `/`, `/assets/…`, `/privacy`, `/support`, `/terms`, `/join/<token>`, `/.well-known/apple-app-site-association` | Fetched from the backend and served here, so the address stays branded. |
 | any other page a browser opens | A small "page not found" with links home and to the app. |
 | `/auth/…`, `/app-config`, `/card-sync/…`, any POST | `307` to the backend, so its rate limits see each person's own IP. |
 

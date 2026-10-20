@@ -224,6 +224,7 @@ function AccountGroup() {
           onPress={() => router.push('/settings/delete-account')} />
       ) : null}
       <SRow label="Privacy" icon={<View />} onPress={() => openLink(`${PUBLIC_SITE_URL}/privacy`)} />
+      <SRow label="Terms of service" icon={<View />} onPress={() => openLink(`${PUBLIC_SITE_URL}/terms`)} />
       <SRow label="Help and support" icon={<View />} onPress={() => openLink(`${PUBLIC_SITE_URL}/support`)} last={desk} />
       {!desk ? <LeaveRow last /> : null}
     </SGroup>

@@ -17,7 +17,7 @@ main{max-width:34rem;margin:0 auto;padding:18vh 22px 48px}h1{font-size:2rem;line
 a{display:inline-block;padding:12px 0;margin-right:1.4rem;color:#1e2420;font-weight:650}
 @media (prefers-color-scheme:dark){body{background:#121512;color:#eef0e6}p{color:#adb1a6}a{color:#eef0e6}}</style></head>
 <body><main><h1>This page doesn’t exist</h1><p>The link may be old or mistyped.</p><a href="/">Numa Shared home</a><a href="/app/">Open the app</a></main></body></html>`;
-const PAGES = [/^\/$/, /^\/assets\//, /^\/privacy$/, /^\/support$/, /^\/join\/[^/]+$/, /^\/\.well-known\/apple-app-site-association$/];
+const PAGES = [/^\/$/, /^\/assets\//, /^\/privacy$/, /^\/support$/, /^\/terms$/, /^\/join\/[^/]+$/, /^\/\.well-known\/apple-app-site-association$/];
 
 export default {
   async fetch(request, env) {

@@ -134,6 +134,7 @@ describe("free-host web entry", () => {
     expect(body).toContain("Never moves money");
     expect(body).toContain('href="/privacy"');
     expect(body).toContain('href="/support"');
+    expect(body).toContain('href="/terms"');
     expect(body).toContain("mailto:support@example.com?subject=Numa%20Shared%20TestFlight");
     expect(body).not.toContain("{{");
     expect(body).not.toContain("shared.numaworth.com");
@@ -181,7 +182,7 @@ describe("free-host web entry", () => {
   test("keeps every other HTML route on the strict no-script CSP", async () => {
     const t = convexTest(schema, modules);
     const strict = "default-src 'none'; style-src 'unsafe-inline'; form-action 'self'; base-uri 'none'; frame-ancestors 'none'";
-    for (const path of ["/privacy", "/support", "/join/abc-123"]) {
+    for (const path of ["/privacy", "/support", "/terms", "/join/abc-123"]) {
       const response = await t.fetch(path);
       expect(response.status).toBe(200);
       expect(response.headers.get("content-security-policy")).toBe(strict);
@@ -479,6 +480,20 @@ describe("free-host web entry", () => {
     expect(supportBody).toContain("Balances show who owes whom");
     expect(supportBody).toContain("transfer ownership before leaving");
     expect(supportBody).toContain("frozen, read-only local snapshot");
+    expect(supportBody).toContain('href="/terms"');
+    expect(privacyBody).toContain("United States (US East, Virginia)");
+    expect(privacyBody).toContain('href="/terms"');
+
+    const terms = await t.fetch("/terms");
+    const termsBody = await terms.text();
+    expect(terms.status).toBe(200);
+    expect(termsBody).toContain("Terms of service");
+    expect(termsBody).toContain("Arseny &amp; Co");
+    expect(termsBody).toContain("never moves money");
+    expect(termsBody).toContain("fifty euros (€50)");
+    expect(termsBody).toContain("statutory rights as a consumer");
+    expect(termsBody).toContain("law of Spain");
+    expect(termsBody).toContain("mailto:support@example.com");
 
     vi.stubEnv("NUMA_SHARED_CONTROLLER_NAME", "");
     const unavailable = await t.fetch("/privacy");
