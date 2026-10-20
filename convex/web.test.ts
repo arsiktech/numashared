@@ -482,6 +482,7 @@ describe("free-host web entry", () => {
     expect(supportBody).toContain("frozen, read-only local snapshot");
     expect(supportBody).toContain('href="/terms"');
     expect(privacyBody).toContain("United States (US East, Virginia)");
+    expect(privacyBody).toContain("Apple Push Notification service");
     expect(privacyBody).toContain('href="/terms"');
 
     const terms = await t.fetch("/terms");
