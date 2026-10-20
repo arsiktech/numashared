@@ -153,11 +153,35 @@ export const pushTargets = internalQuery({
       )
       .unique();
     if (!event) return empty;
-    const potEvents = await ctx.db
-      .query("events")
-      .withIndex("by_pot_sequence", (index) => index.eq("potId", args.potId))
-      .order("asc")
-      .collect();
+    // Read only what this push needs: the triggering record's own history and the
+    // membership events (memberAdded, groupChanged), all bounded by this event's
+    // sequence. Loading the whole pot here made every push O(pot size), so a bulk
+    // upload of N events cost O(N^2) database reads.
+    const recordEvents = event.recordId
+      ? await ctx.db
+          .query("events")
+          .withIndex("by_pot_record", (index) =>
+            index
+              .eq("potId", args.potId)
+              .eq("recordId", event.recordId)
+              .lte("sequence", event.sequence),
+          )
+          .collect()
+      : [];
+    const membershipEventsOfKind = (kind: "memberAdded" | "groupChanged") =>
+      ctx.db
+        .query("events")
+        .withIndex("by_pot_kind", (index) =>
+          index
+            .eq("potId", args.potId)
+            .eq("payload.kind", kind)
+            .lte("sequence", event.sequence),
+        )
+        .collect();
+    const membershipEvents = [
+      ...(await membershipEventsOfKind("memberAdded")),
+      ...(await membershipEventsOfKind("groupChanged")),
+    ].sort((left, right) => (left.sequence < right.sequence ? -1 : 1));
 
     const members = await ctx.db
       .query("potMembers")
@@ -193,7 +217,7 @@ export const pushTargets = internalQuery({
       return tokens;
     };
 
-    const contestedAuthors = contestedHeadAuthorMemberIds(potEvents, event.eventId);
+    const contestedAuthors = contestedHeadAuthorMemberIds(recordEvents, event.eventId);
     if (contestedAuthors) {
       const recipients = contestedAuthors.filter((memberId) =>
         memberId !== event.actorMemberId && !mutedMemberIds.has(memberId),
@@ -210,7 +234,7 @@ export const pushTargets = internalQuery({
     // Compare this record's contribution immediately before and after the stored event.
     // This includes units removed by an edit and follows the same provisional-head rule
     // as Core without calculating or storing any pot balance.
-    const units = financialTransitionAffectedUnitIds(potEvents, event.eventId);
+    const units = financialTransitionAffectedUnitIds(recordEvents, event.eventId);
     if (!units || units.length === 0) return { body, tokens: [] };
 
     // Personal units come from memberAdded. Each groupChanged payload is the complete
@@ -218,7 +242,7 @@ export const pushTargets = internalQuery({
     // sequence and never let later structural changes alter an earlier push.
     const unitMembers = new Map<string, Set<string>>();
     const groupUnitIds = new Set<string>();
-    for (const potEvent of potEvents) {
+    for (const potEvent of membershipEvents) {
       if (potEvent.sequence > event.sequence) break;
       if (potEvent.payload.kind === "memberAdded") {
         unitMembers.set(potEvent.payload.unitId, new Set([potEvent.payload.memberId]));
