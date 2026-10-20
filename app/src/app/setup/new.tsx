@@ -39,11 +39,15 @@ export default function NewHousehold() {
   const create = () => {
     if (made.current) return;
     const named = others.map((o) => o.name.trim()).filter(Boolean);
-    if (!youName.trim()) { setProblem('Type your name, so the others know who paid.'); youInput.current?.focus(); return; }
-    if (!named.length) {
-      setProblem('Add at least one person to share costs with.');
-      inputs.current.get(others[0]?.key ?? -1)?.focus();
-      if (!others.length) add();
+    const missing = [
+      !youName.trim() ? 'your name' : '',
+      !named.length ? 'at least one person to share costs with' : '',
+    ].filter(Boolean);
+    if (missing.length) {
+      setProblem(`Add ${missing.join(' and ')}.`);
+      if (!youName.trim()) youInput.current?.focus();
+      else if (others.length) inputs.current.get(others[0].key)?.focus();
+      else add();
       return;
     }
     made.current = true;
