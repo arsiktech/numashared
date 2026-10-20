@@ -303,6 +303,15 @@ export default defineSchema({
     .index("by_pot_account", ["potId", "accountId"])
     .index("by_account", ["accountId"]),
 
+  // Eligible events waiting for one coalesced push per pot (see pushQueue.ts). Holds
+  // only event ids and timing, never text or amounts; a row lives for minutes at most.
+  pendingPushes: defineTable({
+    potId: v.string(),
+    eventIds: v.array(v.string()),
+    firstQueuedAt: v.number(),
+    lastQueuedAt: v.number(),
+  }).index("by_pot", ["potId"]),
+
   // Pot-link claims awaiting the owner's decision. Per-member invites skip this table:
   // their single claim is bound and consumed directly. A claim references the identity
   // the joiner picked ("I'm Leo" → memberId) or none ("I'm new here" → undefined).

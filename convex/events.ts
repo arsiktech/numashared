@@ -1,6 +1,5 @@
 import { v } from "convex/values";
 
-import { internal } from "./_generated/api";
 import { mutation, query, type QueryCtx } from "./_generated/server";
 import {
   requireActiveMembership,
@@ -12,6 +11,7 @@ import { appendEventsToPot } from "./lib/appendEvents";
 import { requireApprovedWriteTarget } from "./lib/deployment";
 import { isNotificationEligible } from "./lib/notificationMatrix";
 import { eventInputValidator } from "./model";
+import { queueEventPushes } from "./pushQueue";
 
 export const appendEvents = mutation({
   args: {
@@ -34,15 +34,15 @@ export const appendEvents = mutation({
       events: args.events,
     });
     const insertedEventIds = new Set(appended.insertedEventIds);
-    for (const event of args.events) {
-      if (!insertedEventIds.has(event.eventId) || !isNotificationEligible(event.payload)) {
-        continue;
-      }
-      await ctx.scheduler.runAfter(0, internal.apns.deliverEventPush, {
-        potId: args.potId,
-        eventId: event.eventId,
-      });
-    }
+    await queueEventPushes(
+      ctx,
+      args.potId,
+      args.events
+        .filter((event) =>
+          insertedEventIds.has(event.eventId) && isNotificationEligible(event.payload),
+        )
+        .map((event) => event.eventId),
+    );
     return { events: appended.events };
   },
 });
