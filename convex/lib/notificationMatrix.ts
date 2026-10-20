@@ -53,3 +53,51 @@ export function unitNotificationRecipients(args: {
   }
   return [...recipients].sort();
 }
+
+// A batch that touches someone more than once is summarised in one calm, amount-free
+// line instead of one push per event (a bulk upload used to send hundreds).
+export function batchSummaryBody(count: number, potName: string): string {
+  return `${count} updates in ${potName} affect your balance`;
+}
+
+// Collapse a batch of per-event plans into at most two messages per account: one for
+// balance updates (the event's own body when only one event affects them, otherwise a
+// summary) and one "needs your choice" request, which asks for action and is never
+// folded into the summary. Output order is stable: accounts in first-seen order.
+export function composeBatchMessages<AccountId extends string>(
+  potName: string,
+  plans: ReadonlyArray<{
+    kind: "unit" | "contested";
+    body: string;
+    accountIds: readonly AccountId[];
+  }>,
+): Array<{ accountId: AccountId; body: string }> {
+  const unitBodies = new Map<AccountId, string[]>();
+  const contested = new Set<AccountId>();
+  const order: AccountId[] = [];
+  const see = (accountId: AccountId) => {
+    if (!unitBodies.has(accountId) && !contested.has(accountId)) order.push(accountId);
+  };
+  for (const plan of plans) {
+    for (const accountId of new Set(plan.accountIds)) {
+      see(accountId);
+      if (plan.kind === "contested") {
+        contested.add(accountId);
+      } else {
+        const bodies = unitBodies.get(accountId) ?? [];
+        bodies.push(plan.body);
+        unitBodies.set(accountId, bodies);
+      }
+    }
+  }
+  const messages: Array<{ accountId: AccountId; body: string }> = [];
+  for (const accountId of order) {
+    const bodies = unitBodies.get(accountId) ?? [];
+    if (bodies.length === 1) messages.push({ accountId, body: bodies[0] });
+    if (bodies.length > 1) {
+      messages.push({ accountId, body: batchSummaryBody(bodies.length, potName) });
+    }
+    if (contested.has(accountId)) messages.push({ accountId, body: contestedBody(potName) });
+  }
+  return messages;
+}
