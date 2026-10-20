@@ -4,7 +4,7 @@ import { View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Svg, { Circle } from 'react-native-svg';
 import { getState, undo, useStore } from '@/store/store';
-import { showToast } from '@/store/ui';
+import { quietOpens, showToast } from '@/store/ui';
 import { haptic, Press, T } from './primitives';
 import { useTheme } from './theme';
 import { alpha, fonts } from './tokens';
@@ -32,6 +32,7 @@ export function UndoLane() {
         shadowColor: '#000', shadowOpacity: 0.22, shadowRadius: 14, shadowOffset: { width: 0, height: 12 }, elevation: 10 }}>
         <T numberOfLines={1} style={{ flex: 1, color: c.laneInk, fontFamily: fonts.semibold, fontSize: 15 }}>{last.label}</T>
         <Press accessibilityLabel={`Undo ${last.label}`} onPress={() => {
+          quietOpens(500);
           const ok = undo(last.eventId);
           haptic.medium();
           showToast(ok ? 'Undone. Nothing was shared.' : 'Already shared. Void it from history.');

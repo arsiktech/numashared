@@ -92,7 +92,7 @@ export function DateRow({ tone, date, onPick }: { tone: GroupTone; date: string;
   const older = !presets.includes(date);
   const back = shiftISO(older ? date : presets[2], -1);
   return (
-    <ChipRow label="When it happened">
+    <ChipRow label="When it happened" wrap={isWeb}>
       <TChip tone={tone} label="Today" on={date === presets[0]} onPress={() => onPick(presets[0])} />
       <TChip tone={tone} label="Yesterday" on={date === presets[1]} onPress={() => onPick(presets[1])} />
       <TChip tone={tone} label="2 days ago" on={date === presets[2]} onPress={() => onPick(presets[2])} />

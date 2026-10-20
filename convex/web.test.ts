@@ -218,7 +218,7 @@ describe("free-host web entry", () => {
     expect(body).toContain('class="button" href="https://shared.example.com/app/">Open the web app');
     expect(body).toContain('class="orb orb--link" data-orb href="https://shared.example.com/app/"');
     expect(body).toContain("Free during the beta.");
-    expect(body).toContain("Request the iPhone beta");
+    expect(body).toContain("Ask to test the iPhone app");
     expect(body).not.toContain("<!--web-->");
     expect(body).not.toContain("<!--noweb-->");
     expect(body).not.toContain("{{");

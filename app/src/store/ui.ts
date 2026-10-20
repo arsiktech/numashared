@@ -60,7 +60,12 @@ if (web) {
   });
 }
 
+let quietUntil = 0;
+/** Ignore sheet opens for a moment: the second click of a double click on Undo lands on what was under it. */
+export function quietOpens(ms: number) { quietUntil = Date.now() + ms; }
+
 export function openSheet(spec: SheetSpec, origin?: Origin) {
+  if (Date.now() < quietUntil) return;
   const key = seq++;
   ui = { ...ui, sheets: [...ui.sheets, { ...spec, key, origin }] };
   if (keepsDraft(spec)) hold(key);

@@ -165,12 +165,12 @@ html.live .copy{max-width:min(28rem,38vw)}
 /* Phone and small tablets: the table is the top half, the copy sits under it */
 @media (max-width:900px){
 html.live .stage{z-index:2;pointer-events:none}
-html.live .act .copy{top:61svh;max-width:none;position:sticky;z-index:3;background:var(--paper);padding:var(--s3) 0 var(--s4);box-shadow:0 -14px 14px -4px var(--paper)}
+html.live .act .copy{top:61svh;max-width:none}
 html.live .act--hello .copy{top:60svh}
 html.live .act--close .copy{top:61svh}
 .stage::before{inset:var(--s2) var(--s2) auto var(--s2);height:57svh;border-radius:var(--r3)}
 .plate,.slips,.orb,.stage__note{left:50%;translate:-50% 0;width:min(21.5rem,calc(100vw - 2.5rem))}
-.plate{top:8svh}
+.plate{top:max(8svh,4.75rem)}
 .dir{font-size:1.2rem;min-height:2.1em;max-width:none}
 .bal{margin-top:var(--s3)}
 .amt__n{font-size:clamp(3.4rem,17vw,4.4rem)}
@@ -178,11 +178,11 @@ html.live .act--close .copy{top:61svh}
 .sq{top:calc(var(--s3) + 28px + var(--s3))}
 .sq__h{font-size:clamp(2.6rem,13vw,3.6rem)}
 .sq__p{font-size:.95rem;margin-top:var(--s2)}
-.orb{top:28svh;gap:var(--s3)}
+.orb{top:calc(max(8svh,4.75rem) + 9.5rem);gap:var(--s3)}
 .orb__ball{width:3.5rem;height:3.5rem}
 .orb__label b{font-size:1.1rem}
 .orb__label small{font-size:.8125rem}
-.slips{top:calc(28svh + 3.6rem);gap:var(--s1)}
+.slips{top:calc(max(8svh,4.75rem) + 13.1rem);gap:var(--s1)}
 .slip{padding:var(--s2) var(--s3)}
 .slip__t b{font-size:.9375rem}
 .slip__t small{display:none}

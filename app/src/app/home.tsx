@@ -84,6 +84,7 @@ function PhoneHome({ freshIds }: { freshIds: Set<string> }) {
     <View style={{ flex: 1, backgroundColor: c.bg }}>
       {/* What you see. Screen readers use the copy in the list instead. */}
       <View accessibilityElementsHidden importantForAccessibility="no-hide-descendants" aria-hidden pointerEvents="none"
+        ref={(node) => { if (isWeb && node) (node as unknown as HTMLElement).setAttribute('inert', ''); }}
         onLayout={(e) => setBandsH(e.nativeEvent.layout.height)}>
         {bands}
       </View>

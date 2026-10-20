@@ -125,7 +125,9 @@ if (typeof window !== 'undefined' && typeof window.addEventListener === 'functio
     };
     const households = saved.households.map(join);
     if (pending) households.push(...state.households.filter((h) => !saved.households!.some((x) => x.id === h.id)));
-    state = { ...initial, ...saved, households, recent: state.recent, failNextSave: false } as State;
+    // Each tab keeps showing the household it was on, so a screen mid-setup isn't swapped out under it.
+    const activeId = households.some((h) => h.id === state.activeId) ? state.activeId : saved.activeId ?? null;
+    state = { ...initial, ...saved, households, activeId, recent: state.recent, failNextSave: false } as State;
     for (const l of listeners) l();
     if (pending) schedulePersist();
     applyAccount();

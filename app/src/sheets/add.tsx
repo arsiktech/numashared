@@ -180,7 +180,8 @@ function AddBody({ h, spec, draft, set, t, pop }: {
     if (k !== 'back' && next === start) {
       // A third digit after a separator may still turn out to be thousands ("1.600,"), so keep it.
       const maybeThousands = /^[0-9]$/.test(k) && seq.length >= 4 && seq[seq.length - 4] === '.' && seq.slice(-3).every((x: Key) => /^[0-9]$/.test(x));
-      if (!maybeThousands) {
+      if (maybeThousands) showToast(`${currencyDigits(cur)} decimal places at most. For a thousand or more, type the digits without a separator.`);
+      else {
         haptic.warn();
         if (/^[0-9]$/.test(k)) showToast(start.includes('.') ? `Up to ${currencyDigits(cur)} decimal places` : 'That’s the largest amount');
         return;
@@ -455,6 +456,9 @@ function AddBody({ h, spec, draft, set, t, pop }: {
   // Short screens (a phone in landscape): everything scrolls, with a keypad of fixed height, so
   // the keypad and Save are never cut off.
   if (isShortSheet(screenH) || cramped === screenH) {
+    // A phone in landscape scrolls everything; a short phone in portrait keeps the receipt and its
+    // Add button pinned at the bottom and scrolls only the sentence and keypad.
+    const pinned = !isShortSheet(screenH);
     return (
       <View style={{ flex: 1 }}>
         {head}
@@ -466,8 +470,9 @@ function AddBody({ h, spec, draft, set, t, pop }: {
           <View style={{ paddingHorizontal: 12, paddingTop: 8 }}>
             {keypadArea ?? <Keypad onKey={(k) => onKey(k as Key)} color={t.ink} height={SHORT_KEY_HEIGHT} allowDot={currencyDigits(cur) > 0} />}
           </View>
-          {receipt}
+          {pinned ? null : receipt}
         </SheetScrollView>
+        {pinned ? receipt : null}
       </View>
     );
   }

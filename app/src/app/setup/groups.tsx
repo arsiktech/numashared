@@ -34,13 +34,17 @@ export default function Groups() {
   useEffect(() => { shownAt.current = Date.now(); }, []);
   if (!h) return <Redirect href="/welcome" />;
   const fixed = hasFinancialHistory(h);
-  const nm = (pid: ID) => (pid === h.youId ? 'You' : h.people.find((p) => p.id === pid)?.name ?? 'Someone');
+  const nm = (pid: ID) => {
+    const name = h.people.find((p) => p.id === pid)?.name.trim();
+    if (pid === h.youId) return name && name !== 'You' ? `${name} (you)` : 'You';
+    return name || 'Someone';
+  };
   const title = (members: ID[]) => groupName({ id: 'x', color: 'citrus', memberIds: members }, h.people, h.youId);
 
   const move = (pid: ID, target: number | 'new') => {
     if (target === 'new') {
       const from = arr.find((g) => g.includes(pid));
-      if (from && from.length === 1) { showToast(`${nm(pid)} already ${pid === h.youId ? 'have' : 'has'} a group of their own`); return; }
+      if (from && from.length === 1) { showToast(pid === h.youId ? 'You already have a group of your own' : `${nm(pid)} already has a group of their own`); return; }
     } else if (arr[target].length >= maxGroupSize() && !arr[target].includes(pid)) {
       showToast(`A group is up to ${groupLimitWords()} people who pay as one`);
       return;

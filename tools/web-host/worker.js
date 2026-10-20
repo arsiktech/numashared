@@ -35,6 +35,9 @@ export default {
       }
       return res;
     }
+    // "/privacy/" is the same page as "/privacy".
+    const bare = url.pathname.replace(/\/+$/, '');
+    if (bare && bare !== url.pathname && PAGES.some((p) => p.test(bare))) return Response.redirect(`${url.origin}${bare}${url.search}`, 301);
     const target = `${BACKEND}${url.pathname}${url.search}`;
     if ((request.method === 'GET' || request.method === 'HEAD') && PAGES.some((p) => p.test(url.pathname))) {
       const upstream = await fetch(target, { method: request.method, headers: { Accept: request.headers.get('Accept') ?? '*/*' }, redirect: 'manual' });

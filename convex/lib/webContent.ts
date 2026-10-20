@@ -249,7 +249,7 @@ export function genericInviteHTML(
 <meta name="robots" content="noindex,nofollow">`,
     body: `<h1>Numa Shared invite</h1>
 <p>Someone invited you to a shared household. Details stay private until you choose to view them.</p>
-<form method="post"><button type="submit">View invite</button></form>
+<form method="post"><button class="button secondary" type="submit">View invite details</button></form>
 ${inviteActions(configuration, inviteCode)}
 <small>If the app is already installed, return to the message and tap the invite link again. You can also enter the six-character code in Join.</small>`,
   });
