@@ -14,3 +14,10 @@ export const PUBLIC_SITE_URL = process.env.EXPO_PUBLIC_SITE_URL ?? 'https://shar
 const google = (Constants.expoConfig?.extra?.googleSignIn ?? {}) as { iosClientId?: string; webClientId?: string };
 export const GOOGLE_IOS_CLIENT_ID = process.env.EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID || google.iosClientId || undefined;
 export const GOOGLE_WEB_CLIENT_ID = process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID || google.webClientId || undefined;
+
+/**
+ * Sign in with Apple on the web: the Services ID (a public identifier) and the return address
+ * registered for it at Apple. The web shows Apple only when the ID is set at build time.
+ */
+export const APPLE_WEB_CLIENT_ID = process.env.EXPO_PUBLIC_APPLE_WEB_CLIENT_ID || undefined;
+export const APPLE_WEB_REDIRECT_URI = process.env.EXPO_PUBLIC_APPLE_WEB_REDIRECT_URI || `${PUBLIC_SITE_URL}/app/`;

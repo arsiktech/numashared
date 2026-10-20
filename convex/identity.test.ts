@@ -1517,6 +1517,57 @@ describe("Apple exchange HTTP boundary", () => {
     )).resolves.toBe(appleRefreshToken);
   });
 
+  test("signs in with Apple on the web under the Services ID and keeps its token for that client", async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(nowMillis);
+    vi.stubEnv("SIWA_WEB_CLIENT_ID", "tech.arsik.numashared.web");
+    vi.stubEnv("SIWA_WEB_REDIRECT_URI", "https://shared.example.com/app/");
+    const t = convexTest(schema, modules);
+    const identityToken = await appleToken({ aud: "tech.arsik.numashared.web" });
+    const fetchProvider = stubAppleExchangeFetch(identityToken, "web-refresh-token-not-kept");
+    const response = await t.fetch("/auth/apple/exchange", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ identityToken, authorizationCode: "web-code", nonce: rawNonce, client: "web" }),
+    });
+    expect(response.status).toBe(200);
+    const tokenCall = fetchProvider.mock.calls.find(([url]) => String(url) === "https://appleid.apple.com/auth/token")!;
+    const sent = new URLSearchParams(String((tokenCall[1] as RequestInit).body));
+    expect(sent.get("client_id")).toBe("tech.arsik.numashared.web");
+    expect(sent.get("redirect_uri")).toBe("https://shared.example.com/app/");
+    const stored = await t.run(async (ctx) => ({
+      accounts: await ctx.db.query("accounts").collect(),
+      authorizations: await ctx.db.query("appleAuthorizations").collect(),
+    }));
+    expect(stored.accounts).toHaveLength(1);
+    expect(stored.authorizations).toHaveLength(1);
+    expect(stored.authorizations[0].appleClientId).toBe("tech.arsik.numashared.web");
+
+    // The app's own client ID is not accepted for a web sign-in, and vice versa.
+    const appToken = await appleToken();
+    stubAppleExchangeFetch(appToken, undefined);
+    const mismatch = await t.fetch("/auth/apple/exchange", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ identityToken: appToken, authorizationCode: "web-code-2", nonce: rawNonce, client: "web" }),
+    });
+    expect(mismatch.status).toBe(401);
+  });
+
+  test("refuses Apple on the web when no Services ID is configured", async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(nowMillis);
+    const t = convexTest(schema, modules);
+    const identityToken = await appleToken({ aud: "tech.arsik.numashared.web" });
+    stubAppleExchangeFetch(identityToken, undefined);
+    const response = await t.fetch("/auth/apple/exchange", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ identityToken, authorizationCode: "web-code", nonce: rawNonce, client: "web" }),
+    });
+    expect(response.status).toBe(503);
+  });
+
   test("rate-bounds a repeated exchange before another Apple request", async () => {
     vi.useFakeTimers();
     vi.setSystemTime(nowMillis);

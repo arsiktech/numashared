@@ -277,6 +277,7 @@ export const begin = internalMutation({
         encryptedRefreshToken: authorization.encryptedRefreshToken,
         encryptionNonce: authorization.encryptionNonce,
         encryptionKeyVersion: authorization.encryptionKeyVersion,
+        appleClientId: authorization.appleClientId,
       },
     };
   },

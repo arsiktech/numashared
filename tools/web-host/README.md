@@ -19,7 +19,7 @@ listed in `NUMA_SHARED_WEB_ORIGINS`.
 
 ```sh
 npm install
-GOOGLE_WEB_CLIENT_ID=<web OAuth client id> npm run build   # exports app/ under /app into dist/
+GOOGLE_WEB_CLIENT_ID=<web OAuth client id> APPLE_WEB_CLIENT_ID=<Apple Services ID> npm run build   # exports app/ under /app into dist/
 CLOUDFLARE_API_TOKEN=… npm run deploy
 ```
 
@@ -32,6 +32,11 @@ hostname must not be attached to another Pages project or Worker.
   - `NUMA_SHARED_WEB_ORIGINS=https://shared.numaworth.com`
   - `NUMA_SHARED_WEB_APP_URL=https://shared.numaworth.com/app`
   - `NUMA_SHARED_TESTFLIGHT_URL=https://testflight.apple.com/join/…` while in beta
+- Apple (Sign in with Apple on the web): a Services ID grouped with the app's App ID
+  (`tech.arsik.numashared`), with domain `shared.numaworth.com` and return URL
+  `https://shared.numaworth.com/app/`. Backend: `SIWA_WEB_CLIENT_ID=<Services ID>` and
+  `SIWA_WEB_REDIRECT_URI=https://shared.numaworth.com/app/`. Without the Services ID the web shows
+  only Google.
 - Google Cloud: add `https://shared.numaworth.com` to the web client's Authorized JavaScript origins,
   or Google sign-in on the web is refused.
 

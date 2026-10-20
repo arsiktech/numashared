@@ -74,6 +74,8 @@ export default defineSchema({
     encryptedRefreshToken: v.string(),
     encryptionNonce: v.string(),
     encryptionKeyVersion: v.string(),
+    // The Apple client the token was issued to: the web Services ID, or unset for the app itself.
+    appleClientId: v.optional(v.string()),
     createdAt: v.number(),
     updatedAt: v.number(),
     authorizedAt: v.optional(v.number()),

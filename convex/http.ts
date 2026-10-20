@@ -29,7 +29,7 @@ const http = httpRouter();
 
 http.route({ path: "/", method: "GET", handler: marketing });
 http.route({ pathPrefix: "/assets/", method: "GET", handler: marketingAsset });
-http.route({ path: "/auth/apple/exchange", method: "POST", handler: appleExchange });
+http.route({ path: "/auth/apple/exchange", method: "POST", handler: withCors(appleExchange) });
 http.route({
   path: "/auth/apple/notifications",
   method: "POST",
@@ -59,7 +59,7 @@ http.route({ path: "/app-config", method: "GET", handler: withCors(appConfigurat
 http.route({ path: "/card-sync/spends", method: "POST", handler: spendsHttp });
 
 // Preflight for the endpoints the web app calls from another origin (see lib/cors.ts).
-for (const path of ["/auth/google/exchange", "/auth/refresh", "/auth/logout", "/auth/account/deletion-preview", "/auth/account/delete", "/app-config"]) {
+for (const path of ["/auth/apple/exchange", "/auth/google/exchange", "/auth/refresh", "/auth/logout", "/auth/account/deletion-preview", "/auth/account/delete", "/app-config"]) {
   http.route({ path, method: "OPTIONS", handler: preflight });
 }
 http.route({ pathPrefix: "/join/", method: "OPTIONS", handler: preflight });

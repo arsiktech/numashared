@@ -4,7 +4,7 @@
   "type": "module",
   "description": "Serves the Numa Shared web app and public pages at shared.numaworth.com.",
   "scripts": {
-    "build": "cd ../../app && EXPO_WEB_BASE_URL=/app EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID=$GOOGLE_WEB_CLIENT_ID npx expo export -p web --output-dir ../tools/web-host/dist",
+    "build": "cd ../../app && EXPO_WEB_BASE_URL=/app EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID=$GOOGLE_WEB_CLIENT_ID EXPO_PUBLIC_APPLE_WEB_CLIENT_ID=$APPLE_WEB_CLIENT_ID npx expo export -p web --output-dir ../tools/web-host/dist",
     "dev": "wrangler dev",
     "deploy": "wrangler deploy"
   },
