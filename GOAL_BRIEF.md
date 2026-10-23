@@ -1,9 +1,14 @@
 # Numa Shared private-beta brief
 
 Updated September 12, 2026 from the owner interview. `PRODUCT.md` owns product
-truth; `AGENTS.md` owns execution defaults; the selected existing Notion Work item owns current
+truth; execution guidance stays private; the selected existing private work item owns current
 implementation scope. This supersedes the old public-beta mission, not its
 financial, privacy, accessibility or release safeguards.
+
+Implementation routing, qualified 2026-10-23: the current client is Expo in
+[`app/`](app/README.md). SwiftUI and P5 references below describe the legacy
+beta lane. Use [the verification map](docs/CI.md) for current-client checks;
+the dated brief does not make legacy UI coverage evidence for Expo.
 
 ## 1. Outcome and plan
 

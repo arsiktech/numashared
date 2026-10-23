@@ -6,6 +6,10 @@ Public snapshot note: some entries cite review receipts, release evidence and hi
 files (`reviews/`, `docs/history/`, `docs/release/`, `SHIP_REPORT.md`, `PROGRESS.md`)
 that stay in the private development repository.
 
+2026-10-23 context note: references below to removed repository instruction files
+are historical provenance. Execution guidance and candidate reviews stay private;
+[the verification map](docs/CI.md) routes current Expo and legacy Swift checks.
+
 ## 2026-07-12 — GOAL_BRIEF v1.0 scope overrides the build master prompt
 
 - Decision: ship exactly `GOAL_BRIEF.md §3`; its CUT list is forbidden even where the older build or design prompts include those features.
@@ -216,7 +220,7 @@ that stay in the private development repository.
 - Empty state: field explainer sits under the even line; a new `Your first expense starts here.` line points at the breathing vessel. Balance headline label moved to secondary ink so the amount owns the block. The local-only sync state renders as a quiet 44 pt cloud chip matching the header's icon buttons (same accessibility label "Enable sync"; all live sync states keep the readable text capsule; accessibility sizes always get text).
 - Vessel shimmer now re-gates on `NSProcessInfoPowerStateDidChange` live (mirrors the breath's observer); light-mode interior hues +10 % chroma.
 - Pure-move splits, no logic edits: `ConstellationLayout` + field math into `ConstellationLayout.swift`; settlement and accessibility/performance test journeys into `GoldenPathUITests+Settlements/+Performance.swift` extensions (five test helpers changed from `private` to internal within the test target to allow cross-file extensions). Full gesture-engine extraction from HomeView remains deliberately NOT done: it would require de-privatizing view state or restructuring working gesture code — deferred until it can ride behind a behavioral baseline.
-- The earlier "swift test finds 0 package tests" concern was a false alarm — both suites run and pass (Core 93, Sync 95); the earlier read only saw the trailing swift-testing runner line. AGENTS.md validation commands stand as written.
+- The earlier "swift test finds 0 package tests" concern was a false alarm — both suites run and pass (Core 93, Sync 95); the earlier read only saw the trailing swift-testing runner line. Those Swift-package commands remain legacy compatibility checks; see `docs/CI.md` for the current verification map.
 
 ## 2026-07-18 — Accessibility-audit contrast flake: root cause and hardening
 

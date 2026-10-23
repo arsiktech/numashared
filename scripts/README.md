@@ -1,5 +1,9 @@
 # Scripts
 
+The phase gates below target the legacy SwiftUI app in `ios/NumaShared/`.
+They are Swift compatibility checks, not the current Expo release gate.
+Use [the verification map](../docs/CI.md) for `app/` checks and coverage gaps.
+
 `phase-gate.sh P2|P3|P4|P5` is the only phase-gate entry point. It prints the
 full `main` base, candidate head, and candidate tree. It requires a clean frozen
 worktree, rejects a head not descended from current `main` or an empty phase

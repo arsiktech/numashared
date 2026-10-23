@@ -1,5 +1,8 @@
 # Numa Shared
 
+Current implementation: the Expo client in [`app/`](app/README.md) is current.
+The SwiftUI app in `ios/` is legacy; the product brief below remains unchanged.
+
 <!-- impeccable:product-schema 1 -->
 
 ## Platform

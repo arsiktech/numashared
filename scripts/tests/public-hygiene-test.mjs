@@ -18,6 +18,16 @@ const patterns = {
   'personal secrets folder': /Secrets\/numashared/,
 };
 
+test('agent instructions and project skills stay outside the public repository', () => {
+  const files = execFileSync('git', ['-C', root, 'ls-files', '-z']).toString('utf8').split('\0').filter(Boolean);
+  const forbidden = files.filter((rel) => {
+    const parts = rel.toLowerCase().split('/');
+    return parts.includes('.claude') || parts.includes('.agents') ||
+      ['agents.md', 'claude.md', 'skill.md', 'copilot-instructions.md'].includes(parts.at(-1));
+  });
+  assert.deepEqual(forbidden, []);
+});
+
 test('tracked text files contain no private details', () => {
   const files = execFileSync('git', ['-C', root, 'ls-files', '-z']).toString('utf8').split('\0').filter(Boolean);
   const hits = [];
