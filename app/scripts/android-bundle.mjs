@@ -19,7 +19,8 @@ const run = (command, args, cwd = process.cwd()) => {
   if (result.status !== 0) process.exit(result.status ?? 1);
 };
 run('npx', ['expo', 'prebuild', '-p', 'android', '--no-install']);
-run('./gradlew', [':app:bundleRelease', '--no-daemon', '--max-workers=4', ...process.argv.slice(2)], resolve('android'));
+run('./gradlew', [':app:bundleRelease', '--no-daemon', '--max-workers=4',
+  '-Dorg.gradle.jvmargs=-Xmx4096m -XX:MaxMetaspaceSize=1536m', ...process.argv.slice(2)], resolve('android'));
 const output = resolve(process.env.NUMA_ANDROID_AAB_OUTPUT);
 mkdirSync(dirname(output), { recursive: true });
 copyFileSync(resolve('android/app/build/outputs/bundle/release/app-release.aab'), output);

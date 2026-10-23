@@ -28,7 +28,9 @@ variables privately, then run `npm run android:bundle`:
 
 The script disables dotenv loading, regenerates Android and builds `bundleRelease`.
 The signing plugin replaces Expo's debug-signed release default and fails a
-release packaging task when signing credentials are missing. Never pass secrets
+release packaging task when signing credentials are missing. Release builds use
+a 4 GiB Gradle heap and 1536 MiB metaspace because the template's 512 MiB metaspace
+can fail during Kotlin release lint. Lint stays enabled. Never pass secrets
 as command-line Gradle properties, print the environment, or store passwords in
 Gradle files. Retain a protected offline backup of the upload key and its password.
 Google Play's app-signing key and this upload key are different keys.
