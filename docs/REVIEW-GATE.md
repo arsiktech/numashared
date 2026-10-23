@@ -12,7 +12,10 @@ Review the requested change against the user's intent, relevant product contract
 
 ## Release candidates
 
-Run `./scripts/phase-gate.sh P5` on a clean, immutable candidate for a new product release. The script verifies the full local matrix and source identity. Do not edit that checkout while it runs; continue unrelated work in another worktree if needed.
+Use [the verification map](CI.md) for the current Expo candidate, including the
+explicit rendered-journey coverage gap. `./scripts/phase-gate.sh P5` verifies
+legacy Swift compatibility and source identity on a clean, immutable candidate;
+it does not exercise the Expo app. Do not edit a frozen checkout while its gate runs.
 
 For material ledger, authentication, sync, privacy, or signing changes, use independent parallel review:
 
@@ -21,7 +24,12 @@ For material ledger, authentication, sync, privacy, or signing changes, use inde
 
 The primary agent reconciles findings against evidence. Resolve material issues before delivery, then verify the affected surfaces. Repeat the full matrix when executable candidate inputs change; documentation, receipt, or workflow-only changes need their own focused review and do not retroactively change the tested binary. Record both source identities when reusing evidence and verify the executable inputs are unchanged.
 
-Save one concise candidate review under `reviews/` with source commit/tree, relevant changes, checks and results, findings, and remaining work. Do not rewrite historical receipts or require a model name in the filename. A source review, signed-package inspection, Apple processing result, and installed-device result each prove their own stage.
+Save one concise candidate review in private storage outside this public
+repository, with source commit/tree, relevant changes, checks and results,
+findings, and remaining work. Do not put review receipts in tracked source,
+issues or pull requests. Do not rewrite historical receipts or require a model
+name in the filename. A source review, signed-package inspection, Apple processing
+result, and installed-device result each prove their own stage.
 
 ## Completion
 

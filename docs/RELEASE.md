@@ -3,6 +3,19 @@
 This runbook prepares and delivers one inspected candidate for the audience
 requested by the user. Verification details below protect candidate integrity.
 
+## Current app and legacy tooling
+
+The current client is the [Expo app](../app/README.md). Use the
+[verification map](CI.md) for its app types/tests, native consistency and
+backend sync integration. No committed rendered Expo journey gate exists;
+record the actual current-client rendered checks and any missing evidence.
+
+The Xcode settings and scripts below target the legacy SwiftUI project in
+`ios/NumaShared/`. `./scripts/phase-gate.sh P5` is its immutable-candidate Swift
+compatibility matrix, not a full Expo release matrix. The Expo iOS project is
+under `app/ios/` and has its own documented build lane. Preserve money, ledger,
+sync, privacy, audience and signed-artifact safeguards across both lanes.
+
 ## Scope and authorization
 
 Use the user's request and authorization already granted in the conversation.

@@ -6,6 +6,10 @@ Public snapshot note: some entries cite review receipts, release evidence and hi
 files (`reviews/`, `docs/history/`, `docs/release/`, `SHIP_REPORT.md`, `PROGRESS.md`)
 that stay in the private development repository.
 
+2026-10-23 context note: references below to removed repository instruction files
+are historical provenance. Execution guidance and candidate reviews stay private;
+[the verification map](docs/CI.md) routes current Expo and legacy Swift checks.
+
 ## 2026-07-12 — GOAL_BRIEF v1.0 scope overrides the build master prompt
 
 - Decision: ship exactly `GOAL_BRIEF.md §3`; its CUT list is forbidden even where the older build or design prompts include those features.
