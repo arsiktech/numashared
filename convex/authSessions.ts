@@ -425,8 +425,16 @@ export const revokeSessionByRefresh = internalMutation({
           .unique();
       }
     }
-    if (session && session.revokedAt === undefined) {
-      await ctx.db.patch(session._id, { revokedAt: args.now });
+    if (session) {
+      const tokens = await ctx.db.query("pushTokens")
+        .withIndex("by_account", (index) => index.eq("accountId", session.accountId)).collect();
+      for (const token of tokens) {
+        // Legacy rows cannot identify their installation, so retire them conservatively.
+        if (token.sessionId === undefined || token.sessionId === session.sessionId) {
+          await ctx.db.delete(token._id);
+        }
+      }
+      if (session.revokedAt === undefined) await ctx.db.patch(session._id, { revokedAt: args.now });
     }
     return { revoked: session !== null };
   },

@@ -47,7 +47,7 @@ export const registerPushToken = mutation({
   },
   handler: async (ctx, args) => {
     requireApprovedWriteTarget();
-    const { account } = await requireSession(ctx);
+    const { account, session } = await requireSession(ctx);
     const deviceToken = args.deviceToken.toLowerCase();
     if (!deviceTokenPattern.test(deviceToken) || deviceToken.length % 2 !== 0) {
       fail("INVALID_DEVICE_TOKEN");
@@ -61,6 +61,7 @@ export const registerPushToken = mutation({
     if (existing) {
       await ctx.db.patch(existing._id, {
         accountId: account._id,
+        sessionId: session.sessionId,
         environment: args.environment,
         timeZone: args.timeZone,
         updatedAt,
@@ -69,6 +70,7 @@ export const registerPushToken = mutation({
     }
     await ctx.db.insert("pushTokens", {
       accountId: account._id,
+      sessionId: session.sessionId,
       deviceToken,
       environment: args.environment,
       timeZone: args.timeZone,

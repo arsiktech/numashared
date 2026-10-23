@@ -196,6 +196,8 @@ export const receive = internalMutation({
     requireApprovedWriteTarget();
     const link = await ctx.db.query("cardSyncLinks").withIndex("by_key_hash", (q) => q.eq("keyHash", args.keyHash)).unique();
     if (!link || link.revokedAt !== undefined) return { status: 401, error: "CARD_SYNC_KEY_INVALID" };
+    const account = await ctx.db.get(link.accountId);
+    if (!account || account.deletionStartedAt !== undefined) return { status: 401, error: "CARD_SYNC_KEY_INVALID" };
     const pot = await ctx.db.query("pots").withIndex("by_pot_id", (q) => q.eq("potId", link.potId)).unique();
     if (!pot || pot.deletingAt !== undefined || pot.archivedAtSequence !== undefined) return { status: 410, error: "HOUSEHOLD_GONE" };
     const membership = await ctx.db.query("potMembers")

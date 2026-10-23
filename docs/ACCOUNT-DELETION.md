@@ -12,7 +12,7 @@ are no-store, source-rate-limited, and keep credentials in the JSON body.
 Deletion is fail-closed and bounded:
 
 1. Mark the account as deleting so access tokens, refresh, and new Apple sessions
-   cannot add data during erasure.
+   cannot add data during erasure, including writes using an existing card-sync key.
 2. Revoke the encrypted Apple refresh token and record that revocation locally.
 3. Delete authored-text sidecars in batches, advancing redaction revisions.
 4. Process one membership at a time. Shared pots append an auditable ownership
@@ -31,5 +31,13 @@ artifact has been purged. A crash before the server-complete marker retries the
 same receipt-capable request; a crash after it skips the server and resumes only
 local cleanup. After the purge the app clears the credential, removes the
 recovery file, creates a fresh accountless identity, and returns to Welcome.
+Expo keeps its pending request with the initiating account ID in secure storage.
+Recovery refuses a different signed-in account rather than attaching its credential
+to saved consent. A same-account rotated credential can retry, and a signed-out
+retry can recover an existing server receipt. Local cleanup removes only the
+initiating account and never clears a replacement account session. Archived Expo
+readers continue applying authorized text erasures even when the active-only
+roster rejects them.
+
 Prepared CSV files are invalidated whenever a newer ledger or text revision
 arrives, so a stale in-app share link cannot outlive redaction.

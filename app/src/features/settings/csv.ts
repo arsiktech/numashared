@@ -19,6 +19,8 @@ export function plainAmount(cents: number, currency: string) {
   return `${neg ? '-' : ''}${whole}${frac}`;
 }
 
+// CSV quoting protects delimiters, not spreadsheet expression interpretation.
+const spreadsheetText = (v: string) => (/^[\t\r]|^[\s\u0000-\u001f]*[=+\-@]/u.test(v) ? `'${v}` : v);
 const cell = (v: string) => (/[",\n\r]/.test(v) ? `"${v.replace(/"/g, '""')}"` : v);
 
 function recordDate(r: LedgerRecord) {
@@ -82,7 +84,7 @@ export function buildCsv(h: Household, records: LedgerRecord[]) {
     const status = r.voided ? 'voided' : r.revisions.length > 1 ? 'edited' : 'shared';
     return [recordDate(r), what, category, amt(amount), paidBy, split, status, notes.join('; '), person(r.createdBy)];
   });
-  return [HEADER, ...rows].map((row) => row.map(cell).join(',')).join('\n');
+  return [HEADER, ...rows].map((row) => row.map((value, column) => cell(column === 3 ? value : spreadsheetText(value))).join(',')).join('\n');
 }
 
 export const csvFileName = (h: Household) =>

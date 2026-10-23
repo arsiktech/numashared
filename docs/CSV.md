@@ -1,4 +1,17 @@
-# CSV event-log export
+# CSV exports
+
+## Expo ledger export
+
+The current Expo client exports nine ledger columns. Text cells beginning with
+`=`, `+`, `-`, `@`, a tab or a carriage return receive a leading apostrophe before
+CSV delimiter quoting. Formula prefixes following whitespace or control characters
+are protected too. This applies to titles, notes, names and other display text.
+The amount column remains an exact numeric decimal, including negative values.
+Quotes, commas and embedded newlines retain their normal CSV escaping. This
+literal-text policy does not change ledger content and does not guarantee how a
+spreadsheet transforms a file after import or re-saving.
+
+## Legacy Swift event-log export
 
 Settings exports one UTF-8 CSV file with a byte-order mark and RFC 4180 quoting.
 Every field is quoted, rows end with CRLF, and one data row represents one

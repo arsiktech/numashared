@@ -23,7 +23,7 @@ import {
 } from "../app/src/sync/engine";
 import { isUuidv7 } from "../app/src/sync/uuid";
 import { toWire } from "../app/src/sync/mapping";
-import { runDeletion, type PendingDeletion } from "../app/src/sync/accountDeletion";
+import { runDeletion, type DeletionDeps, type PendingDeletion } from "../app/src/sync/accountDeletion";
 import { hashRefreshToken } from "./lib/sessionTokens";
 import terminalCodes from "../contracts/event-terminal-codes.json";
 import { TERMINAL_EVENT_CODES } from "../app/src/sync/terminal";
@@ -585,6 +585,42 @@ describe("app sync engine against the backend", () => {
     }));
     expect(left.accounts).toEqual([]);
     expect(left.pots).toEqual([]);
+  });
+
+  test("saved deletion consent cannot select a newly signed-in account on recovery", async () => {
+    vi.stubEnv("NUMA_SHARED_AUTH_KEY_ID", "client-sync");
+    vi.stubEnv("NUMA_SHARED_AUTH_PRIVATE_KEY_PKCS8_PEM", "unused: deletion signs nothing");
+    const t = convexTest(schema, modules);
+    await signIn(t, "ana");
+    await signIn(t, "leo");
+    const tokenB = "synthetic-leo-refresh-token-0000000000000000000000";
+    await t.run(async (ctx) => {
+      const s = await ctx.db.query("sessions").withIndex("by_session_id", (q) => q.eq("sessionId", "session-leo-0000001")).unique();
+      await ctx.db.patch(s!._id, { refreshTokenHash: await hashRefreshToken(tokenB, "client-sync-test-token-hash-secret-32-bytes") });
+    });
+    let saved: PendingDeletion | null = null;
+    let session = { accountId: "account-ana", refreshToken: "synthetic-ana" };
+    let offline = true;
+    const post = vi.fn(async <R,>(path: string, body: unknown): Promise<R> => {
+      if (offline) throw new Error("offline before admission");
+      const response = await t.fetch(path, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
+      if (!response.ok) throw new Error(await response.text());
+      return await response.json() as R;
+    });
+    const deps: DeletionDeps = { post: post as DeletionDeps["post"], read: async () => saved, write: async (p: PendingDeletion | null) => { saved = p; },
+      session: () => session, purgeLocal: vi.fn(async () => {}) };
+    await expect(runDeletion(deps)).rejects.toThrow("offline before admission");
+    const original = saved;
+    session = { accountId: "account-leo", refreshToken: tokenB };
+    offline = false;
+    await expect(runDeletion(deps)).rejects.toThrow("ACCOUNT_DELETION_ACCOUNT_MISMATCH");
+    expect(post).toHaveBeenCalledTimes(1);
+    expect(saved).toEqual(original);
+    expect(deps.purgeLocal).not.toHaveBeenCalled();
+    const rows = await t.run(async (ctx) => ({ accounts: await ctx.db.query("accounts").collect(), progress: await ctx.db.query("accountDeletionProgress").collect() }));
+    expect(rows.accounts).toHaveLength(2);
+    expect(rows.accounts.every((a) => a.deletionStartedAt === undefined)).toBe(true);
+    expect(rows.progress).toEqual([]);
   });
 
   test("people and households made by mistake can be removed while nobody relies on them", async () => {

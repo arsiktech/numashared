@@ -46,6 +46,8 @@ test('tokenless logout removes this session registration, preserving other devic
   await f.b.mutation(register, tokenArgs('b'));
   expect(await f.t.mutation(logout, { refreshTokenHash: hashA, now })).toEqual({ revoked: true });
   expect((await f.rows()).map((x) => x.deviceToken).sort()).toEqual(['b'.repeat(64), 'c'.repeat(64)]);
+  const targets = await f.t.query(makeFunctionReference<'query'>('notifications:pushTokensForAccounts'), { accountIds: [f.accounts.a] });
+  expect(targets).toEqual([expect.objectContaining({ deviceToken: 'c'.repeat(64) })]);
   await expect(f.a.mutation(register, tokenArgs('a'))).rejects.toThrow('AUTH_SESSION_REVOKED');
   expect(await f.t.mutation(logout, { refreshTokenHash: hashA, now })).toEqual({ revoked: true });
 });

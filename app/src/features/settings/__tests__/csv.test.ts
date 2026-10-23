@@ -7,7 +7,7 @@ const { buildCsv } = await import('../csv');
 const household: Household = {
   id: 'household', name: 'Fixture', currency: 'EUR', createdAt: 1, youId: 'author',
   people: [{ id: 'author', name: 'Author', groupId: 'group', joined: true }],
-  groups: [{ id: 'group', color: 'citrus', memberIds: ['author'] }], events: [], seen: {},
+  groups: [{ id: 'group', color: 'citrus', memberIds: ['author'] }], events: [], seen: {}, inviteCode: 'ABC234',
 };
 function record(title: string, note = 'ordinary note'): LedgerRecord {
   return {
