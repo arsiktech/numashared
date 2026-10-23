@@ -42,6 +42,35 @@ describe('account deletion', () => {
     expect(ids).toEqual([first.requestId, first.requestId]);
   });
 
+  test('recovery never submits a different account credential with saved consent', async () => {
+    const { deps, saved } = harness(async () => { throw new Error('offline before admission'); });
+    await expect(runDeletion(deps)).rejects.toThrow('offline before admission');
+    const pending = saved();
+    deps.session = () => ({ accountId: 'acc-2', refreshToken: 'r2' });
+    await expect(runDeletion(deps)).rejects.toThrow('ACCOUNT_DELETION_ACCOUNT_MISMATCH');
+    expect(deps.post).toHaveBeenCalledTimes(1);
+    expect(saved()).toEqual(pending);
+    expect(deps.purgeLocal).not.toHaveBeenCalled();
+  });
+
+  test('same-account recovery uses the rotated credential', async () => {
+    let calls = 0;
+    const { deps } = harness(async () => { if (++calls === 1) throw new Error('offline'); return { deleted: true } as never; });
+    await expect(runDeletion(deps)).rejects.toThrow('offline');
+    deps.session = () => ({ accountId: 'acc-1', refreshToken: 'rotated-r1' });
+    await runDeletion(deps);
+    expect(deps.post).toHaveBeenLastCalledWith('/auth/account/delete', expect.objectContaining({ refreshToken: 'rotated-r1' }));
+  });
+
+  test('receipt recovery without a session sends no credential', async () => {
+    let calls = 0;
+    const { deps } = harness(async () => { if (++calls === 1) throw new Error('lost response'); return { deleted: true } as never; });
+    await expect(runDeletion(deps)).rejects.toThrow('lost response');
+    deps.session = () => null;
+    await runDeletion(deps);
+    expect(deps.post).toHaveBeenLastCalledWith('/auth/account/delete', expect.objectContaining({ refreshToken: '' }));
+  });
+
   test('after the server finished, a restart only redoes the local cleanup', async () => {
     const { deps, saved } = harness(async () => ({ deleted: true }) as never);
     deps.purgeLocal = vi.fn(async () => { throw new Error('crash'); });

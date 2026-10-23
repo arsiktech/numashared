@@ -17,6 +17,21 @@ vi.mock('../engine', () => ({ base64url: () => '' }));
 const auth = await import('../auth');
 
 describe('session generation', () => {
+  test('failed server logout keeps the credential for push-removal retry', async () => {
+    vi.resetModules();
+    const retryAuth = await import('../auth');
+    keychain.set('numa-shared.session.v1', JSON.stringify({ accountId: 'A', refreshToken: 'r1', refreshExpiresAt: Date.now() + 86_400_000 }));
+    await retryAuth.loadSession();
+    vi.stubGlobal('fetch', vi.fn(async () => { throw new Error('offline'); }));
+    await expect(retryAuth.signOutSession()).rejects.toThrow('NETWORK_UNAVAILABLE');
+    expect(retryAuth.currentSession()?.accountId).toBe('A');
+    expect(keychain.has('numa-shared.session.v1')).toBe(true);
+    vi.stubGlobal('fetch', vi.fn(async () => ({ ok: true, json: async () => ({ revoked: true }) })));
+    await retryAuth.signOutSession();
+    expect(retryAuth.currentSession()).toBeNull();
+    vi.unstubAllGlobals();
+  });
+
   test('sign-out during a refresh stays signed out', async () => {
     keychain.set('numa-shared.session.v1', JSON.stringify({ accountId: 'A', refreshToken: 'r1', refreshExpiresAt: Date.now() + 86_400_000 }));
     let finishRefresh!: () => void;
