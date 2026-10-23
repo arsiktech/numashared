@@ -41,7 +41,9 @@ export async function runDeletion(deps: DeletionDeps, now = Date.now()): Promise
   }
   if (!pending.serverDone) {
     // After a completed deletion the refresh token no longer works, but the receipt answers by id.
-    const token = deps.session()?.refreshToken ?? '';
+    const session = deps.session();
+    if (session && session.accountId !== pending.accountId) throw new DeletionError('ACCOUNT_DELETION_ACCOUNT_MISMATCH');
+    const token = session?.refreshToken ?? '';
     const result = await deps.post<{ deleted: boolean }>('/auth/account/delete', {
       refreshToken: token, requestId: pending.requestId, originatingTimeZone: pending.timeZone,
     });

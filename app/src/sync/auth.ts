@@ -323,11 +323,11 @@ export async function writeDeletion(p: PendingDeletion | null): Promise<void> {
   else await SecureStore.deleteItemAsync(DELETION_KEY);
 }
 
-/** Ends the session on the server (best effort) and forgets it here. */
+/** Ends the session and its push registration before forgetting the retry credential. */
 export async function signOutSession(): Promise<void> {
   const s = session ?? await loadSession();
   if (s) {
-    try { await post('/auth/logout', { refreshToken: s.refreshToken }); } catch { /* the session expires anyway */ }
+    await post('/auth/logout', { refreshToken: s.refreshToken });
   }
   await setSession(null);
 }

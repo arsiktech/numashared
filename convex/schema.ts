@@ -287,6 +287,8 @@ export default defineSchema({
   // 410 Unregistered response and SIWA revocation both drop tokens (P3.4 fan-out).
   pushTokens: defineTable({
     accountId: v.id("accounts"),
+    // Optional only for registrations created before session-bound logout cleanup.
+    sessionId: v.optional(v.string()),
     deviceToken: v.string(),
     environment: v.union(v.literal("sandbox"), v.literal("production")),
     timeZone: v.string(),

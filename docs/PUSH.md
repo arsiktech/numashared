@@ -32,6 +32,12 @@ The iPhone notification delegate validates `route` and the UUIDv7 `potId`, asks 
 - The app checks existing notification authorization only after an authenticated pot is available. It never presents the system prompt at launch.
 - The first accepted membership in a multi-member synced pot is the contextual prompt point. People also provides an explicit **Allow notifications** action and the only per-pot setting, **Mute this pot**.
 - An already-authorized app registers with APNs once per launch. The lowercase device token, APNs environment, and current IANA time zone are then registered through the serialized authenticated client. The same token moving to another account is re-pointed server-side.
+- Registration binds the token to the authenticated session on the server. Logout
+  atomically removes that session's registrations while revoking the session, even
+  when the client has no process-local token. Other session-bound devices stay
+  registered. Legacy registrations without a session binding are removed for that
+  account conservatively and re-register on a later authenticated launch. Expo
+  retains its credential for retry when server logout fails.
 - App-delegate callbacks queue tokens and notification routes until `AppModel` is connected. Registration failures expose generic retry copy and never log the token or Apple error details.
 - The checked-in development entitlement enables sandbox registration. Distribution signing supplies the production APNs environment; physical delivery is verified in the release smoke.
 

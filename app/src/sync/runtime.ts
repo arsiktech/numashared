@@ -305,9 +305,11 @@ const deletion: DeletionDeps = {
   write: writeDeletion,
   session: () => currentSession(),
   purgeLocal: async (accountId) => {
-    disconnect();
     forgetAccount(accountId);
-    await forgetSession();
+    if (currentSession()?.accountId === accountId) {
+      disconnect();
+      await forgetSession();
+    }
   },
 };
 

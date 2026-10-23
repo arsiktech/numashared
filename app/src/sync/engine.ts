@@ -386,7 +386,15 @@ export async function pull(backend: Backend, access: Access, householdId: ID, op
     after = page.nextAfterSequence;
     if (!page.hasMore) break;
   }
-  const roster = opts.archived ? null : await backend.query<RosterEntry[]>('members:listRoster', { potId: householdId });
+  let roster: RosterEntry[] | null = null;
+  if (!opts.archived) {
+    try {
+      roster = await backend.query<RosterEntry[]>('members:listRoster', { potId: householdId });
+    } catch (error) {
+      // Archived readers retain their frozen history, but must still receive later erasures.
+      if (failureOf(error).code !== 'MEMBERSHIP_ARCHIVED') throw error;
+    }
+  }
 
   const h0 = access.get(householdId)!;
   const shape = (events: ListedEvent[]): Household => {

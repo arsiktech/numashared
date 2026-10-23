@@ -23,7 +23,7 @@ import {
 } from "../app/src/sync/engine";
 import { isUuidv7 } from "../app/src/sync/uuid";
 import { toWire } from "../app/src/sync/mapping";
-import { runDeletion, type PendingDeletion } from "../app/src/sync/accountDeletion";
+import { runDeletion, type DeletionDeps, type PendingDeletion } from "../app/src/sync/accountDeletion";
 import { hashRefreshToken } from "./lib/sessionTokens";
 import terminalCodes from "../contracts/event-terminal-codes.json";
 import { TERMINAL_EVENT_CODES } from "../app/src/sync/terminal";
@@ -587,6 +587,42 @@ describe("app sync engine against the backend", () => {
     expect(left.pots).toEqual([]);
   });
 
+  test("saved deletion consent cannot select a newly signed-in account on recovery", async () => {
+    vi.stubEnv("NUMA_SHARED_AUTH_KEY_ID", "client-sync");
+    vi.stubEnv("NUMA_SHARED_AUTH_PRIVATE_KEY_PKCS8_PEM", "unused: deletion signs nothing");
+    const t = convexTest(schema, modules);
+    await signIn(t, "ana");
+    await signIn(t, "leo");
+    const tokenB = "synthetic-leo-refresh-token-0000000000000000000000";
+    await t.run(async (ctx) => {
+      const s = await ctx.db.query("sessions").withIndex("by_session_id", (q) => q.eq("sessionId", "session-leo-0000001")).unique();
+      await ctx.db.patch(s!._id, { refreshTokenHash: await hashRefreshToken(tokenB, "client-sync-test-token-hash-secret-32-bytes") });
+    });
+    let saved: PendingDeletion | null = null;
+    let session = { accountId: "account-ana", refreshToken: "synthetic-ana" };
+    let offline = true;
+    const post = vi.fn(async <R,>(path: string, body: unknown): Promise<R> => {
+      if (offline) throw new Error("offline before admission");
+      const response = await t.fetch(path, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
+      if (!response.ok) throw new Error(await response.text());
+      return await response.json() as R;
+    });
+    const deps: DeletionDeps = { post: post as DeletionDeps["post"], read: async () => saved, write: async (p: PendingDeletion | null) => { saved = p; },
+      session: () => session, purgeLocal: vi.fn(async () => {}) };
+    await expect(runDeletion(deps)).rejects.toThrow("offline before admission");
+    const original = saved;
+    session = { accountId: "account-leo", refreshToken: tokenB };
+    offline = false;
+    await expect(runDeletion(deps)).rejects.toThrow("ACCOUNT_DELETION_ACCOUNT_MISMATCH");
+    expect(post).toHaveBeenCalledTimes(1);
+    expect(saved).toEqual(original);
+    expect(deps.purgeLocal).not.toHaveBeenCalled();
+    const rows = await t.run(async (ctx) => ({ accounts: await ctx.db.query("accounts").collect(), progress: await ctx.db.query("accountDeletionProgress").collect() }));
+    expect(rows.accounts).toHaveLength(2);
+    expect(rows.accounts.every((a) => a.deletionStartedAt === undefined)).toBe(true);
+    expect(rows.progress).toEqual([]);
+  });
+
   test("people and households made by mistake can be removed while nobody relies on them", async () => {
     const t = convexTest(schema, modules);
     const ana = await signIn(t, "ana");
@@ -644,6 +680,58 @@ describe("app sync engine against the backend", () => {
     await expect(t.run(async (ctx) => (await ctx.db.query("potMembers").collect()).filter((m) => m.potId === second).length))
       .resolves.toBe(1);
     await expect(deleteHouseholdOnline(ana, phoneA, second)).rejects.toThrow("HOUSEHOLD_HAS_MEMBERS");
+  });
+
+  test("archived readers still apply erased text after the author completes deletion", async () => {
+    vi.stubEnv("NUMA_SHARED_AUTH_KEY_ID", "client-sync");
+    vi.stubEnv("NUMA_SHARED_AUTH_PRIVATE_KEY_PKCS8_PEM", "unused: deletion signs nothing");
+    const t = convexTest(schema, modules);
+    await fenceBuild11(t);
+    const ana = await signIn(t, "ana");
+    const leo = await signIn(t, "leo");
+    const mia = await signIn(t, "mia");
+    const phoneA = phone(), phoneB = phone();
+    phoneA.put(localHousehold());
+    const id = await startSync(ana, phoneA, "h_local");
+    await pull(ana, phoneA, id);
+    await issueInvites(ana, phoneA, id);
+    const a = phoneA.get(id)!;
+    const leoId = a.people.find((p) => p.name === "Leo")!.id;
+    for (const [name, backend, device] of [["Leo", leo, phoneB], ["Mia", mia, phone()]] as const) {
+      const memberId = a.people.find((p) => p.name === name)!.id;
+      const preview = await resolveInvite("http://127.0.0.1:3211", a.sync!.invites![memberId].code,
+        ((url: string, init?: RequestInit) => t.fetch(new URL(url).pathname, init)) as typeof fetch);
+      if (preview.status !== "active") throw new Error("fixture invite not active");
+      await claimInvite(backend, device, preview);
+    }
+    expect(JSON.stringify(phoneB.get(id)!.events)).toContain("Apples, bread and coffee");
+    await ana.mutation("members:archiveMember", { potId: id, event: {
+      eventId: "01890f5e-7b00-7000-8000-00000000f901", potId: id, actorMemberId: a.youId,
+      occurredAtMillis: BigInt(Date.now()), originatingTimeZone: "Europe/Madrid", schemaVersion: 2n,
+      payload: { kind: "memberArchived", memberId: leoId }, textFields: [], authoredText: [],
+    } });
+    await expect(leo.query("members:listRoster", { potId: id })).rejects.toThrow("MEMBERSHIP_ARCHIVED");
+    const frozen = await leo.query<Array<{ lastSequence: bigint; isArchived: boolean }>>("pots:listMyPots", {});
+    expect(frozen[0].isArchived).toBe(false);
+    const before = balances(phoneB.get(id)!);
+    const refreshToken = "synthetic-delete-ana-refresh-token-0000000000000000";
+    await t.run(async (ctx) => {
+      const s = await ctx.db.query("sessions").withIndex("by_session_id", (q) => q.eq("sessionId", "session-ana-0000001")).unique();
+      await ctx.db.patch(s!._id, { refreshTokenHash: await hashRefreshToken(refreshToken, "client-sync-test-token-hash-secret-32-bytes") });
+    });
+    const res = await t.fetch("/auth/account/delete", { method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ refreshToken, requestId: "01890f5e-7b00-7000-8000-00000000f902", originatingTimeZone: "Europe/Madrid" }) });
+    expect(await res.json()).toMatchObject({ deleted: true });
+    expect(await t.run(async (ctx) => (await ctx.db.query("accounts").collect()).some((x) => x.publicAccountId === "account-ana"))).toBe(false);
+    const text = await leo.query<{ changes: unknown[] }>("events:listTextChangesWithSkippedRevisions", { potId: id, afterRevision: 0n });
+    expect(text.changes.length).toBeGreaterThan(0);
+    await pull(leo, phoneB, id);
+    const b = phoneB.get(id)!;
+    expect(JSON.stringify(b.events)).not.toContain("Apples, bread and coffee");
+    expect(JSON.stringify(reduce(b).records)).not.toContain("Apples, bread and coffee");
+    expect(b.sync!.lastTextRev).toBeGreaterThan(0);
+    expect(BigInt(b.sync!.lastSeq)).toBe(frozen[0].lastSequence);
+    expect(balances(b)).toEqual(before);
   });
 
   test("a deletion that takes several calls closes the household first", async () => {
@@ -741,6 +829,35 @@ describe("card sync", () => {
     await ana.mutation("cardSync:unlink", { potId: id });
     expect((await post(t, KEY, [{ id: "tx-9", card: "4242", occurredAt: "2026-10-01T10:00:00Z", merchant: "x", amount: "1.00", currency: "EUR" }])).status).toBe(401);
     expect(await ana.query("cardSync:status", { potId: id })).toBeNull();
+  });
+
+  test("fresh card writes stop at the account deletion fence before membership removal", async () => {
+    const t = convexTest(schema, modules);
+    await fenceBuild11(t);
+    const ana = await signIn(t, "ana");
+    const phoneA = phone();
+    phoneA.put({ ...localHousehold(), events: [] });
+    const id = await startSync(ana, phoneA, "h_local");
+    await pull(ana, phoneA, id);
+    const a = phoneA.get(id)!;
+    const otherGroup = a.groups.find((g) => g.memberIds.length === 1)!.id;
+    await ana.mutation("cardSync:link", { potId: id, keyHash: await sha256(KEY), timeZone: "Europe/Madrid",
+      cards: [{ last4: "4242", forUnitId: otherGroup, label: "Fixture" }] });
+    const spend = { card: "4242", occurredAt: "2026-09-30T18:04:51Z", merchant: "Fixture merchant", amount: "5.33", currency: "EUR" };
+    expect((await post(t, KEY, [{ ...spend, id: "before-fence" }])).status).toBe(200);
+    const begun = await t.mutation(makeFunctionReference<"mutation">("accountDeletion:begin"), {
+      refreshTokenHash: "refresh-ana", requestId: "01890f5e-7b00-7000-8000-00000000f903", now: Date.now(),
+    });
+    expect(begun.authorized).toBe(true);
+    const accountId = await t.run(async (ctx) => (await ctx.db.query("accounts").collect())[0]._id);
+    await t.mutation(makeFunctionReference<"mutation">("redaction:eraseAuthoredTextForAccount"), { accountId });
+    const before = await t.run(async (ctx) => ({ events: await ctx.db.query("events").collect(), spends: await ctx.db.query("cardSyncSpends").collect() }));
+    const result = await post(t, KEY, [{ ...spend, id: "after-fence" }]);
+    expect(result.status).toBe(401);
+    expect(await result.json()).toMatchObject({ error: "CARD_SYNC_KEY_INVALID" });
+    expect(await t.run(async (ctx) => ctx.db.query("eventTexts").collect())).toEqual([]);
+    expect(await t.run(async (ctx) => ({ events: await ctx.db.query("events").collect(), spends: await ctx.db.query("cardSyncSpends").collect() }))).toEqual(before);
+    expect(await t.run(async (ctx) => ctx.db.query("potMembers").collect())).toEqual(expect.arrayContaining([expect.objectContaining({ accountId, status: "active" })]));
   });
 
   test("refunds take money back off the spend they belong to; cancellations void it", async () => {
