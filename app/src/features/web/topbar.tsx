@@ -5,6 +5,7 @@ import { requestHistorySearch } from '@/features/history/search';
 import { useEffect, useRef } from 'react';
 import { View } from 'react-native';
 import { useRouter } from 'expo-router';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { activeHousehold, useStore, yourGroup } from '@/store/store';
 import { openSheet, useUI } from '@/store/ui';
 import { ChevDown, Plus, Search } from '@/ui/icons';
@@ -24,6 +25,8 @@ export function WebTopBar() {
   const routerRef = useRef(router);
   routerRef.current = router;
   const desk = layout === 'desk';
+  // On iPad the bar sits under the status bar, so it grows by the top inset. Browsers report 0.
+  const top = useSafeAreaInsets().top;
 
   useEffect(() => {
     if (!isWeb || typeof window === 'undefined') return;
@@ -44,7 +47,7 @@ export function WebTopBar() {
   if (!h) return null;
   const mine = tone(yourGroup(h));
   return (
-    <View accessibilityRole="header" style={{ height: 60, flexDirection: 'row', alignItems: 'center', gap: 12, paddingHorizontal: 20,
+    <View accessibilityRole="header" style={{ height: 60 + top, paddingTop: top, flexDirection: 'row', alignItems: 'center', gap: 12, paddingHorizontal: 20,
       borderBottomWidth: 1, borderBottomColor: c.hair, backgroundColor: c.bg }}>
       <Press noScale onPress={() => router.navigate('/home')} accessibilityRole="link" accessibilityLabel="Numa Shared, Home"
         style={{ flexDirection: 'row', alignItems: 'center', gap: 10, minHeight: 44 }}>
