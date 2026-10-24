@@ -23,7 +23,9 @@ variables privately, then run `npm run android:bundle`:
 - `NUMA_ANDROID_KEYSTORE`, `NUMA_ANDROID_KEY_ALIAS` with alias `upload`
 - `NUMA_ANDROID_STORE_PASSWORD`, `NUMA_ANDROID_KEY_PASSWORD`
 - `NUMA_ANDROID_AAB_OUTPUT`
-- `EXPO_PUBLIC_CONVEX_URL`, `EXPO_PUBLIC_CONVEX_SITE_URL`, `EXPO_PUBLIC_SITE_URL`
+- Optional URL overrides: `EXPO_PUBLIC_CONVEX_URL`, `EXPO_PUBLIC_CONVEX_SITE_URL`,
+  `EXPO_PUBLIC_SITE_URL`. Leave all three unset for the production defaults in
+  `app/src/sync/config.ts`.
 - `EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID` for Google sign-in
 
 The script disables dotenv loading, regenerates Android and builds `bundleRelease`.
@@ -119,7 +121,7 @@ No store-console operation is part of the local build command.
    app-signing key. Record the Play app-signing fingerprints privately and complete
    the matching Android OAuth client above before authentication testing.
 3. Start with internal testing. Upload the approved production-configured AAB,
-   versionName `2.0.0`, versionCode `20`, or a higher unused code if 20 was already
+   versionName `2.0.0`, versionCode `21`, or a higher unused code if 21 was already
    uploaded. Add release notes that do not imply payments are sent.
 4. Complete the store listing, icon, feature graphic, phone/tablet screenshots,
    support contact and privacy policy. Use the actual current legal URLs and
