@@ -14,6 +14,15 @@ export function useHousehold() {
 export const nameOf = (h: Household, g: Group | ID) =>
   groupName(typeof g === 'string' ? h.groups.find((x) => x.id === g)! : g, h.people, h.youId);
 
+/** A group's name after a verb: "Sam paid you", "Alex owes you + Sam". */
+export const objectName = (h: Household, g: Group | ID) => nameOf(h, g).replace(/^You\b/, 'you');
+
+/** A repayment's title: "Sam paid you", "You paid Alex + Jo", "You + Sam paid Mia". */
+export function settlementTitle(h: Household, r: LedgerRecord) {
+  const s = r.settlement!;
+  return `${nameOf(h, s.fromGroupId)} paid ${objectName(h, s.toGroupId)}`;
+}
+
 export const personName = (h: Household, id: ID, viewerAware = true) =>
   viewerAware && id === h.youId ? 'You' : h.people.find((p) => p.id === id)?.name ?? 'Someone';
 

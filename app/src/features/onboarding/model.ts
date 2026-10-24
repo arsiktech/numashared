@@ -25,6 +25,12 @@ export const currencyLabel = (code: string) => {
   return c ? `${c.name} (${c.code})` : code;
 };
 
+/** The household name field starts empty and shows this as its placeholder. */
+export const DEFAULT_HOUSEHOLD_NAME = 'Our place';
+
+/** The name a new household gets: what was typed, or the placeholder when nothing was. */
+export const householdTitle = (typed: string) => typed.trim() || DEFAULT_HOUSEHOLD_NAME;
+
 export type Arrangement = ID[][];
 
 export { maxGroupSize } from '@/sync/contract';

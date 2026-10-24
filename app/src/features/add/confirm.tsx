@@ -9,8 +9,7 @@ import { Banner, BannerText, Chip, CTA, haptic, T, TextButton } from '@/ui/primi
 import { useSheet } from '@/ui/sheet';
 import { useTheme } from '@/ui/theme';
 import { fonts, isWeb } from '@/ui/tokens';
-import { clock, money, personName, recordTitle, relativeDay } from '../hooks';
-import { settlementTitle } from '../records';
+import { clock, money, personName, recordTitle, relativeDay, settlementTitle } from '../hooks';
 
 /** "€6.50 · You paid · Today 12:10". */
 export function recordSummary(h: Household, r: LedgerRecord) {

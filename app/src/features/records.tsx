@@ -8,7 +8,7 @@ import { CategoryIcon, Repay, House } from '@/ui/icons';
 import { Badge, OrbView, Press, T } from '@/ui/primitives';
 import { useTheme } from '@/ui/theme';
 import { fonts } from '@/ui/tokens';
-import { effectText, money, personName, recordTitle, relativeDay } from './hooks';
+import { effectText, money, personName, recordTitle, relativeDay, settlementTitle } from './hooks';
 
 export function RecordRow({ h, r, hide, fresh, last, onPress }: {
   h: Household; r: LedgerRecord; hide?: boolean; fresh?: boolean; last?: boolean; onPress?: () => void;
@@ -66,14 +66,6 @@ export function RecordRow({ h, r, hide, fresh, last, onPress }: {
 function lastBy(r: LedgerRecord, type: 'voided') {
   const e = [...r.timeline].reverse().find((t) => t.type === type);
   return e && 'by' in e ? e.by : undefined;
-}
-
-export function settlementTitle(h: Household, r: LedgerRecord) {
-  const s = r.settlement!;
-  const from = h.groups.find((g) => g.id === s.fromGroupId)!;
-  const to = h.groups.find((g) => g.id === s.toGroupId)!;
-  const name = (g: typeof from) => (g.memberIds.includes(h.youId) ? (g.memberIds.length > 1 ? 'You + ' + h.people.find((p) => p.id === g.memberIds.find((m) => m !== h.youId))!.name : 'You') : g.memberIds.map((m) => h.people.find((p) => p.id === m)!.name).join(' + '));
-  return `${name(from)} paid ${name(to)}`;
 }
 
 /** The orb: measures where it sits so the sheet can grow out of it. */
