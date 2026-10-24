@@ -1,4 +1,4 @@
-// ARS-118 native check: at the accessibility text sizes Home lost its balance and Add its keypad.
+// At the accessibility text sizes Home lost its balance and Add its keypad.
 import { describe, expect, test } from 'vitest';
 import { cappedSize, isLargeText, LARGE_TEXT_SCALE, TEXT_CAP } from '../textScale';
 
