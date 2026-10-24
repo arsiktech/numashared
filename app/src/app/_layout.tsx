@@ -1,6 +1,6 @@
 import '../polyfills';
 import { useEffect, useState } from 'react';
-import { View } from 'react-native';
+import { KeyboardAvoidingView, View } from 'react-native';
 import { Stack } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import { useFonts } from 'expo-font';
@@ -11,7 +11,7 @@ import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { hydrate } from '@/store/store';
 import { startSyncRuntime } from '@/sync/runtime';
 import { ThemeProvider, useTheme } from '@/ui/theme';
-import { fontFiles } from '@/ui/tokens';
+import { fontFiles, isAndroid } from '@/ui/tokens';
 import { SheetHost } from '@/sheets/host';
 import { sheetBackdrop } from '@/ui/sheet';
 import { UndoLane } from '@/ui/lane';
@@ -47,15 +47,19 @@ function Shell() {
     transform: [{ scale: 1 - 0.07 * sheetBackdrop.value }],
   }));
   return (
-    <View style={{ flex: 1, backgroundColor: '#000000' }}>
-      <StatusBar style={isDark ? 'light' : 'dark'} />
-      <Animated.View style={[{ flex: 1, backgroundColor: c.bg, overflow: 'hidden' }, behind]}>
-        <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: c.bg }, animation: 'default' }} />
-      </Animated.View>
-      <UndoLane />
-      <SheetHost />
-      <Celebrate />
-      <Toast />
-    </View>
+    // Android edge-to-edge does not resize the root for the IME. Include overlays so sheet CTAs
+    // avoid it too. iOS keeps the existing per-screen padding behavior.
+    <KeyboardAvoidingView style={{ flex: 1, backgroundColor: '#000000' }} behavior={isAndroid ? 'padding' : undefined} enabled={isAndroid}>
+      <View style={{ flex: 1 }}>
+        <StatusBar style={isDark ? 'light' : 'dark'} />
+        <Animated.View style={[{ flex: 1, backgroundColor: c.bg, overflow: 'hidden' }, behind]}>
+          <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: c.bg }, animation: 'default' }} />
+        </Animated.View>
+        <UndoLane />
+        <SheetHost />
+        <Celebrate />
+        <Toast />
+      </View>
+    </KeyboardAvoidingView>
   );
 }

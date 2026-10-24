@@ -7,7 +7,8 @@ test('Android resizes the screen and sheet host above the keyboard without chang
   const screen = fs.readFileSync(`${root}src/features/onboarding/chrome.tsx`, 'utf8');
   const config = JSON.parse(fs.readFileSync(`${root}app.json`, 'utf8'));
   expect(config.expo.android.softwareKeyboardLayoutMode).toBe('resize');
-  expect(shell).toMatch(/<KeyboardAvoidingView[^>]*behavior=\{isAndroid \? 'height' : undefined\}[^>]*enabled=\{isAndroid\}/);
+  expect(shell).toMatch(/<KeyboardAvoidingView[^>]*behavior=\{isAndroid \? 'padding' : undefined\}[^>]*enabled=\{isAndroid\}/);
+  expect(shell).toMatch(/enabled=\{isAndroid\}>\s*<View style=\{\{ flex: 1 \}\}>/);
   expect(shell.indexOf('<SheetHost />')).toBeLessThan(shell.indexOf('</KeyboardAvoidingView>'));
   expect(screen).toContain("behavior={isIOS ? 'padding' : undefined}");
 });

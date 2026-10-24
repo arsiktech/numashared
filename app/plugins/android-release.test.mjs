@@ -5,10 +5,10 @@ const require = createRequire(import.meta.url);
 const plugin = require('./with-android-release.js');
 
 describe('Android release configuration', () => {
-  test('uses versionCode 20 without changing the iOS build', () => {
+  test('uses versionCode 21 without changing the iOS build', () => {
     const { expo } = JSON.parse(readFileSync(new URL('../app.json', import.meta.url), 'utf8'));
     expect(expo.version).toBe('2.0.0');
-    expect(expo.android.versionCode).toBe(20);
+    expect(expo.android.versionCode).toBe(21);
     expect(expo.android.package).toBe('tech.arsik.numashared');
     expect(expo.ios.buildNumber).toBe('14');
   });
