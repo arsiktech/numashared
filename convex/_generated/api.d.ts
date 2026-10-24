@@ -9,6 +9,9 @@
  */
 
 import type * as accountDeletion from "../accountDeletion.js";
+import type * as agentAccess from "../agentAccess.js";
+import type * as agentData from "../agentData.js";
+import type * as agentMcp from "../agentMcp.js";
 import type * as apns from "../apns.js";
 import type * as authSessions from "../authSessions.js";
 import type * as cardSync from "../cardSync.js";
@@ -17,6 +20,7 @@ import type * as events from "../events.js";
 import type * as http from "../http.js";
 import type * as identityHttp from "../identityHttp.js";
 import type * as iso4217 from "../iso4217.js";
+import type * as lib_agentTools from "../lib/agentTools.js";
 import type * as lib_access from "../lib/access.js";
 import type * as lib_accountWriteQuota from "../lib/accountWriteQuota.js";
 import type * as lib_apnsTransport from "../lib/apnsTransport.js";
@@ -59,6 +63,9 @@ import type {
 
 declare const fullApi: ApiFromModules<{
   accountDeletion: typeof accountDeletion;
+  agentAccess: typeof agentAccess;
+  agentData: typeof agentData;
+  agentMcp: typeof agentMcp;
   apns: typeof apns;
   authSessions: typeof authSessions;
   cardSync: typeof cardSync;
@@ -68,6 +75,7 @@ declare const fullApi: ApiFromModules<{
   identityHttp: typeof identityHttp;
   iso4217: typeof iso4217;
   "lib/access": typeof lib_access;
+  "lib/agentTools": typeof lib_agentTools;
   "lib/accountWriteQuota": typeof lib_accountWriteQuota;
   "lib/apnsTransport": typeof lib_apnsTransport;
   "lib/appendEvents": typeof lib_appendEvents;
