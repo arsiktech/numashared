@@ -3504,6 +3504,22 @@ describe("Backend event and multi-user foundation", () => {
         timeZone: "Europe/Madrid",
         updatedAt: 2,
       });
+      const connectionId = await ctx.db.insert("agentConnections", {
+        accountId: deleting._id,
+        name: "Agent",
+        keyHash: "b".repeat(64),
+        keyHint: "nsag_abcd",
+        createdAt: 2,
+        windowStartedAt: 2,
+        windowCount: 0,
+      });
+      await ctx.db.insert("agentActivity", {
+        accountId: deleting._id,
+        connectionId,
+        tool: "get_balances",
+        ok: true,
+        at: 2,
+      });
       return { deleting: deleting._id, remaining: remaining._id };
     });
 
@@ -3576,6 +3592,10 @@ describe("Backend event and multi-user foundation", () => {
         deletingAccount: await ctx.db.get(accountIds.deleting),
         deletingTokens: (await ctx.db.query("pushTokens").collect())
           .filter((token) => token.accountId === accountIds.deleting),
+        agentRows: [
+          ...(await ctx.db.query("agentConnections").collect()),
+          ...(await ctx.db.query("agentActivity").collect()),
+        ],
         deletingText: (await ctx.db.query("eventTexts").collect())
           .filter((text) => text.authorAccountId === accountIds.deleting),
       };
@@ -3592,6 +3612,7 @@ describe("Backend event and multi-user foundation", () => {
     );
     expect(retained.deletingAccount).toBeNull();
     expect(retained.deletingTokens).toEqual([]);
+    expect(retained.agentRows).toEqual([]);
     expect(retained.deletingText).toEqual([]);
     await expect(t.query(accountDeletionReceipt, { requestId, now })).resolves.toEqual({
       complete: true,
