@@ -170,7 +170,7 @@ function Move({ h, t, mine, hide, onRecord }: { h: Household; t: Transfer; mine:
   return (
     <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 14, paddingHorizontal: 16, borderRadius: 18, backgroundColor: c.card,
       borderWidth: yours ? 2 : 1, borderColor: yours ? c.ink : c.hair }}
-      accessibilityLabel={`${nameOf(h, from)} pay ${nameOf(h, to)} ${money(h, t.amount, hide)}`}>
+      accessibilityLabel={`${nameOf(h, from)} owes ${nameOf(h, to)} ${money(h, t.amount, hide)}`}>
       <View style={{ flex: 1, minWidth: 0 }}>
         <Pair h={h} from={from} to={to} dot={(g) => tone(g).deep} />
         <T style={{ fontFamily: fonts.display, fontSize: 26, letterSpacing: -0.8, marginTop: 2, fontVariant: ['tabular-nums'] }}>{money(h, t.amount, hide)}</T>

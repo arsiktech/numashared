@@ -399,6 +399,15 @@ export const processNextPot = internalMutation({
       state: "archived",
       updatedAt: args.now,
     });
+    // A card link names its account, cards and labels; it goes with the account even though the
+    // household stays for the others. Spends it already added remain ordinary shared records.
+    const links = await ctx.db
+      .query("cardSyncLinks")
+      .withIndex("by_pot", (index) => index.eq("potId", pot.potId))
+      .collect();
+    for (const link of links) {
+      if (link.accountId === account._id) await ctx.db.delete(link._id);
+    }
     await ctx.db.delete(membership._id);
     return {
       complete: false,

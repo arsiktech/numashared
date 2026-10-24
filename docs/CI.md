@@ -16,6 +16,12 @@ push to `main`:
 Never add a self-hosted runner: this repository is public, so pull requests from
 forks would run code on it.
 
+## Android
+
+Android uses Expo prebuild-on-demand, not a committed native project. See
+[Android release](ANDROID.md) for local signing, isolated emulator QA and the
+remaining Google Cloud, Firebase and Play Console setup.
+
 ## Verification by implementation
 
 The Expo app in [`app/`](../app/README.md) is current. The app and backend jobs
