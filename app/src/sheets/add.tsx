@@ -1,6 +1,9 @@
 // The Add sheet: one sentence ("You paid €52.80 for Groceries") on the payer's color, a keypad,
 // and a paper receipt with the split, what it changes, and the orange Add button. The same sheet
 // edits an expense (dark "Save changes") and, on a desk, becomes a popover without a keypad.
+// At the accessibility text sizes the amount and keypad stay pinned above the Add button and the
+// rest of the sentence and the split scroll above them, so nothing is cut off and the amount
+// stays in view while typing. A short screen (a phone in landscape) scrolls the whole sheet instead.
 import { useEffect, useMemo, useRef, useState, type Dispatch, type ReactNode, type SetStateAction } from 'react';
 import { TextInput, View, type TextStyle } from 'react-native';
 import { applyKey, categoryLabel, currencyDigits, formatMoney, inputFromCents, parseInput, typeAmount, type Key } from '@/core';
@@ -12,9 +15,10 @@ import { CategoryIcon, Plus, Warn } from '@/ui/icons';
 import { BigAmount, Keypad, SplitBar, Word, type SplitSegment } from '@/ui/money-ui';
 import { Avatar, Banner, BannerText, CTA, haptic, Press, T, TChip } from '@/ui/primitives';
 import { saveGuard, Sheet, SheetScrollView, useSheet } from '@/ui/sheet';
-import { isShortSheet, SHORT_KEY_HEIGHT } from '@/features/add/layout';
+import { isShortSheet, pinsKeypad, SHORT_KEY_HEIGHT } from '@/features/add/layout';
 import { useTheme } from '@/ui/theme';
 import { alpha, fonts, isWeb, type GroupTone } from '@/ui/tokens';
+import { cappedSize, TEXT_CAP } from '@/ui/textScale';
 import { initials, nameOf, personName, useHousehold } from '@/features/hooks';
 import {
   activeGroups, CATEGORIES, changeLine, draftFromSplit, draftShares, equalDraft, isCustom, percentLabel, simulate,
@@ -93,7 +97,7 @@ function AddSheetFor({ h, spec, onClosed }: { h: Household } & SheetProps<'add'>
 function AddBody({ h, spec, draft, set, t, pop }: {
   h: Household; spec: Extract<OpenSheet, { type: 'add' }>; draft: Draft; set: Dispatch<SetStateAction<Draft>>; t: GroupTone; pop: boolean;
 }) {
-  const { c, tone, height: screenH, width: screenW } = useTheme();
+  const { c, tone, height: screenH, width: screenW, fontScale, largeText } = useTheme();
   const { close } = useSheet();
   const isTop = useUI((u) => u.sheets[u.sheets.length - 1]?.key === spec.key);
   const ledger = ledgerOf(h);
@@ -301,12 +305,16 @@ function AddBody({ h, spec, draft, set, t, pop }: {
     out: draft.split.out.includes(g.id),
   }));
 
+  // A phone (or narrow window) at an accessibility text size; the desk popover keeps its own layout.
+  const large = largeText && !pop;
   const ctaLabel = error === 'save' ? 'Try again' : amount <= 0 ? 'Type an amount' : edit ? 'Save changes' : `Add ${money(amount)}`;
 
-  const receipt = (
-    <Receipt tone={t} desk={pop}>
+  // The split bar's labels grow up to TEXT_CAP.label, so the bar grows with them.
+  const barH = large ? Math.round(44 * Math.min(fontScale, TEXT_CAP.label)) : pop || screenH < 740 ? 50 : 54;
+  const split = (
+    <>
       <ReceiptHead left={rhead.left} right={rhead.right} onRight={rhead.onRight} />
-      <SplitBar segments={segments} amount={amount} currency={cur} focusId={exact?.id ?? null} height={pop || screenH < 740 ? 50 : 54}
+      <SplitBar segments={segments} amount={amount} currency={cur} focusId={exact?.id ?? null} height={barH}
         showKnobs={amount > 0 && !exact} onToggle={toggleGroup} onExact={startExact}
         onShares={(s) => { setExact(null); set((d) => ({ ...d, split: { ...d.split, custom: s, customFor: amount } })); }} />
       <AfterRow left={afterLeft} lead={line.lead} strong={line.strong} />
@@ -317,9 +325,17 @@ function AddBody({ h, spec, draft, set, t, pop }: {
             : <BannerText kind="bad" strong="This can’t be saved." rest={error} />}
         </Banner>
       ) : null}
-      <CTA variant={edit ? 'primary' : 'add'} label={ctaLabel} disabled={!canSave} onPress={save}
-        accessibilityLabel={amount > 0 ? (edit ? `Save changes, ${money(amount)}` : `Add ${money(amount)}`) : 'Type an amount first'}
-        right={pop && canSave && !edit ? <Kbd paper label="↵" /> : undefined} />
+    </>
+  );
+  const cta = (
+    <CTA variant={edit ? 'primary' : 'add'} label={ctaLabel} disabled={!canSave} onPress={save}
+      accessibilityLabel={amount > 0 ? (edit ? `Save changes, ${money(amount)}` : `Add ${money(amount)}`) : 'Type an amount first'}
+      right={pop && canSave && !edit ? <Kbd paper label="↵" /> : undefined} />
+  );
+  const receipt = (
+    <Receipt tone={t} desk={pop}>
+      {split}
+      {cta}
       {pop ? <T style={{ textAlign: 'center', fontSize: 12.5, fontFamily: fonts.medium, color: c.ink2 }}>Type the amount, Tab to the note, Enter to {edit ? 'save' : 'add'}.</T> : null}
     </Receipt>
   );
@@ -330,41 +346,52 @@ function AddBody({ h, spec, draft, set, t, pop }: {
   const lineStyle = { flexDirection: 'row', alignItems: 'center', gap: 10, minHeight: pop ? 44 : wordSize > 26 ? 52 : 46, flexWrap: 'wrap' } as const;
   const sentenceText: TextStyle = { fontFamily: fonts.display, fontSize: wordSize, lineHeight: wordSize * 1.18, letterSpacing: -wordSize * 0.02, color: t.ink };
   const contentW = (pop ? 420 : Math.min(screenW, isWeb ? 560 : screenW)) - 44;
-  const amtBase = pop ? 56 : screenH < 740 ? 66 : 84;
-  const amtSize = amountSize(amtBase, contentW, formatMoney(amount, cur, { symbol: false }));
+  const amtBase = large ? 48 : pop ? 56 : screenH < 740 ? 66 : 84;
+  // The amount is sized for the width with the system text size included (up to a cap), then drawn at exactly that size.
+  const amtSize = amountSize(cappedSize(amtBase, fontScale, TEXT_CAP.display), contentW, formatMoney(amount, cur, { symbol: false }));
   const payerName = personName(h, draft.payerId);
   const payerOpen = panel === 'payer';
   const catOpen = panel === 'category' || panel === 'newcat';
 
+  const payerLine = (
+    <View style={lineStyle}>
+      <Word color={t.ink} size={wordSize} open={payerOpen} onPress={() => { haptic.tick(); setPanel(payerOpen ? null : 'payer'); }}
+        accessibilityLabel={`Paid by ${payerName}. ${payerOpen ? 'Close the list' : 'Change'}`}
+        leading={<Avatar initials={initials(h, draft.payerId)} tone={t} ink size={pop ? 32 : 38} />}>
+        {payerName}
+      </Word>
+      <T maxFontSizeMultiplier={TEXT_CAP.sentence} style={sentenceText}>paid</T>
+    </View>
+  );
+  const amountView = (
+    <Press noScale onPress={() => { setExact(null); if (catOpen) setPanel(null); }} style={{ alignSelf: 'flex-start', marginTop: pop ? 2 : 4, marginBottom: 2 }}
+      accessibilityLabel={`Amount ${money(amount)}${edit && original && amount !== original.amount ? `, was ${money(original.amount)}` : ''}. Type to change`}>
+      <BigAmount cents={amount} currency={cur} size={amtSize} scaled color={t.ink} caret={!exact && !noteEditing && panel !== 'newcat'} typed={draft.input} />
+    </Press>
+  );
+  const wasLine = edit && original && amount !== original.amount ? (
+    <T style={{ fontFamily: fonts.semibold, fontSize: 15, color: t.ink, opacity: 0.75, marginTop: -2 }}>
+      was <T style={{ fontFamily: fonts.semibold, fontSize: 15, color: t.ink, textDecorationLine: 'line-through' }}>{money(original.amount)}</T>
+    </T>
+  ) : null;
+  const categoryLine = (
+    <View style={lineStyle}>
+      <T maxFontSizeMultiplier={TEXT_CAP.sentence} style={sentenceText}>for</T>
+      {/* The guessed category is what gets saved, so it reads as chosen, not as a faded hint. */}
+      <Word color={t.ink} size={wordSize} open={catOpen}
+        onPress={() => { haptic.tick(); setExact(null); setPanel(catOpen ? null : 'category'); }}
+        accessibilityLabel={`Category: ${what}. ${catOpen ? 'Close the list' : 'Change'}`}
+        leading={draft.title.trim() ? undefined : <CategoryIcon category={draft.category} size={pop ? 22 : 26} color={t.ink} />}>
+        {what}
+      </Word>
+    </View>
+  );
   const sentence = (
     <View>
-      <View style={lineStyle}>
-        <Word color={t.ink} size={wordSize} open={payerOpen} onPress={() => { haptic.tick(); setPanel(payerOpen ? null : 'payer'); }}
-          accessibilityLabel={`Paid by ${payerName}. ${payerOpen ? 'Close the list' : 'Change'}`}
-          leading={<Avatar initials={initials(h, draft.payerId)} tone={t} ink size={pop ? 32 : 38} />}>
-          {payerName}
-        </Word>
-        <T style={sentenceText}>paid</T>
-      </View>
-      <Press noScale onPress={() => { setExact(null); if (catOpen) setPanel(null); }} style={{ alignSelf: 'flex-start', marginTop: pop ? 2 : 4, marginBottom: 2 }}
-        accessibilityLabel={`Amount ${money(amount)}${edit && original && amount !== original.amount ? `, was ${money(original.amount)}` : ''}. Type to change`}>
-        <BigAmount cents={amount} currency={cur} size={amtSize} color={t.ink} caret={!exact && !noteEditing && panel !== 'newcat'} typed={draft.input} />
-      </Press>
-      {edit && original && amount !== original.amount ? (
-        <T style={{ fontFamily: fonts.semibold, fontSize: 15, color: t.ink, opacity: 0.75, marginTop: -2 }}>
-          was <T style={{ fontFamily: fonts.semibold, fontSize: 15, color: t.ink, textDecorationLine: 'line-through' }}>{money(original.amount)}</T>
-        </T>
-      ) : null}
-      <View style={lineStyle}>
-        <T style={sentenceText}>for</T>
-        {/* The guessed category is what gets saved, so it reads as chosen, not as a faded hint. */}
-        <Word color={t.ink} size={wordSize} open={catOpen}
-          onPress={() => { haptic.tick(); setExact(null); setPanel(catOpen ? null : 'category'); }}
-          accessibilityLabel={`Category: ${what}. ${catOpen ? 'Close the list' : 'Change'}`}
-          leading={draft.title.trim() ? undefined : <CategoryIcon category={draft.category} size={pop ? 22 : 26} color={t.ink} />}>
-          {what}
-        </Word>
-      </View>
+      {payerLine}
+      {amountView}
+      {wasLine}
+      {categoryLine}
     </View>
   );
 
@@ -411,12 +438,13 @@ function AddBody({ h, spec, draft, set, t, pop }: {
   const showSuggestions = suggestions.length > 0 && (draft.input === '' || draft.sugKey !== null);
   const dateRow = <DateRow tone={t} date={draft.date} onPick={(date, stayOpen) => { haptic.tick(); set((d) => ({ ...d, date })); if (!stayOpen) setPanel(null); }} />;
 
-  const grid = <CategoryGrid tone={t} value={draft.title.trim() ? null : draft.category} custom={!!draft.title.trim()} compact={pop}
+  const grid = <CategoryGrid tone={t} value={draft.title.trim() ? null : draft.category} custom={!!draft.title.trim()} compact={pop} large={large}
     onPick={pickCategory} onNew={() => { setNewCat(draft.title); setPanel('newcat'); }} />;
   const newField = <NewCategory tone={t} value={newCat} onChange={setNewCat} onDone={commitNewCategory} onBack={() => setPanel('category')} />;
 
   const head = (
-    <SheetTop title={edit ? 'Edit expense' : 'New expense'} tone={t} onCancel={() => close()} date={draft.date}
+    // At the accessibility sizes the title gives its row to Cancel and the date; the sheet keeps it as its spoken label.
+    <SheetTop title={large ? '' : edit ? 'Edit expense' : 'New expense'} tone={t} onCancel={() => close()} date={draft.date}
       dateOpen={panel === 'date'} onDate={() => { haptic.tick(); setPanel(panel === 'date' ? null : 'date'); }} desk={pop} />
   );
 
@@ -452,6 +480,32 @@ function AddBody({ h, spec, draft, set, t, pop }: {
   const keypadArea = panel === 'category' ? <View style={{ paddingHorizontal: 10, paddingTop: 6 }}>{grid}</View>
     : panel === 'newcat' ? <View style={{ paddingHorizontal: 10, paddingTop: 6 }}>{newField}</View>
     : null;
+
+  if (pinsKeypad(large, screenH)) {
+    const picking = panel === 'category' || panel === 'newcat';
+    return (
+      <View style={{ flex: 1 }}>
+        {head}
+        <SheetScrollView style={{ flex: 1 }} contentContainerStyle={{ paddingBottom: 12 }} keyboardShouldPersistTaps="handled">
+          <View style={{ paddingHorizontal: 22, paddingTop: 6 }}>
+            {payerLine}
+            {wasLine}
+            {categoryLine}
+            {picking ? <View style={{ marginTop: 12 }}>{panel === 'category' ? grid : newField}</View> : null}
+            {slot ? <View style={{ marginTop: 12 }}>{slot}</View> : null}
+          </View>
+          <View style={{ marginHorizontal: 16, marginTop: 16, padding: 16, borderRadius: 22, backgroundColor: c.bg, gap: 12 }}>{split}</View>
+        </SheetScrollView>
+        {picking ? null : (
+          <View style={{ paddingHorizontal: 12, paddingTop: 4, borderTopWidth: 1, borderTopColor: alpha(t.ink, 0.12) }}>
+            <View style={{ paddingHorizontal: 10 }}>{amountView}</View>
+            <Keypad onKey={(k) => onKey(k as Key)} color={t.ink} height={52} allowDot={currencyDigits(cur) > 0} />
+          </View>
+        )}
+        <Receipt tone={t}>{cta}</Receipt>
+      </View>
+    );
+  }
 
   // Short screens (a phone in landscape): everything scrolls, with a keypad of fixed height, so
   // the keypad and Save are never cut off.
@@ -500,11 +554,14 @@ function AddBody({ h, spec, draft, set, t, pop }: {
 
 // ---------- category picker ----------
 
-function CategoryGrid({ tone: t, value, custom, onPick, onNew, compact }: {
-  tone: GroupTone; value: Category | null; custom: boolean; onPick: (c: Category) => void; onNew: () => void; compact?: boolean;
+function CategoryGrid({ tone: t, value, custom, onPick, onNew, compact, large }: {
+  tone: GroupTone; value: Category | null; custom: boolean; onPick: (c: Category) => void; onNew: () => void; compact?: boolean; large?: boolean;
 }) {
   const h = compact ? 56 : 66;
-  const cell = { flexBasis: '30%', flexGrow: 1, height: h, borderRadius: 16, alignItems: 'center', justifyContent: 'center', gap: 5 } as const;
+  // At the accessibility sizes each category is a full-width row, icon beside its name.
+  const cell = large
+    ? { flexBasis: '100%', minHeight: 56, paddingVertical: 8, paddingHorizontal: 16, borderRadius: 16, flexDirection: 'row', alignItems: 'center', gap: 12 } as const
+    : { flexBasis: '30%', flexGrow: 1, height: h, borderRadius: 16, alignItems: 'center', justifyContent: 'center', gap: 5 } as const;
   return (
     <View accessibilityRole="radiogroup" accessibilityLabel="Category" style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
       {CATEGORIES.map((cat) => {

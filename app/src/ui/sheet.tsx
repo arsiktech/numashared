@@ -213,7 +213,7 @@ export function Sheet({ origin, onClosed, children, background, height = 'full',
 export function SheetHead({ left, title, right, color }: { left?: ReactNode; title?: string; right?: ReactNode; color?: string }) {
   const { c } = useTheme();
   return (
-    <View style={{ height: 46, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 10 }}>
+    <View style={{ minHeight: 46, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 10 }}>
       <View style={{ minWidth: 76, alignItems: 'flex-start' }}>{left}</View>
       {title ? (
         <Animated.Text accessibilityRole="header" style={{ fontFamily: 'Instrument-600', fontSize: 17, color: color ?? c.ink }}>{title}</Animated.Text>

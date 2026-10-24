@@ -8,6 +8,7 @@ import {
 import * as Haptics from 'expo-haptics';
 import Svg, { Defs, LinearGradient, RadialGradient, Rect, Stop, Circle as SvgCircle, Ellipse } from 'react-native-svg';
 import { fonts, orb, radius, type, alpha, isWeb } from './tokens';
+import { TEXT_CAP } from './textScale';
 import { useTheme } from './theme';
 import { Plus } from './icons';
 import type { GroupTone } from './tokens';
@@ -55,7 +56,7 @@ export function Pill({ label, onPress, light, icon, style, textStyle, accessibil
   const { c } = useTheme();
   return (
     <Press onPress={onPress} accessibilityLabel={accessibilityLabel ?? label}
-      style={[s.pill, { height: small ? 40 : 44, backgroundColor: light ? c.chip : c.ink }, style]}>
+      style={[s.pill, { minHeight: small ? 40 : 44, backgroundColor: light ? c.chip : c.ink }, style]}>
       {icon}
       <T style={[{ fontFamily: fonts.semibold, fontSize: 16, color: light ? c.ink : c.bg }, textStyle]}>{label}</T>
     </Press>
@@ -91,7 +92,7 @@ export function CTA({ label, onPress, variant = 'primary', disabled, icon, acces
         </View>
       ) : null}
       {icon}
-      <T style={{ fontFamily: variant === 'add' ? fonts.bold : fonts.semibold, fontSize: variant === 'add' ? 19 : 17, color: fg, textAlign: 'center', flexShrink: 1 }}>{label}</T>
+      <T maxFontSizeMultiplier={TEXT_CAP.label} style={{ fontFamily: variant === 'add' ? fonts.bold : fonts.semibold, fontSize: variant === 'add' ? 19 : 17, color: fg, textAlign: 'center', flexShrink: 1 }}>{label}</T>
       {right}
     </Press>
   );
@@ -153,7 +154,7 @@ export function TChip({ label, amount, on, onPress, tone, small, leading, access
   return (
     <Press onPress={onPress} accessibilityRole="button" accessibilityState={{ selected: !!on }}
       accessibilityLabel={accessibilityLabel ?? (amount ? `${label}, ${amount}` : label)} style={s.target}>
-      <View style={[s.tchip, { height: small ? 32 : 36, paddingHorizontal: small ? 12 : 14, backgroundColor: on ? tone.ink : alpha(tone.ink, 0.09) }]}>
+      <View style={[s.tchip, { minHeight: small ? 32 : 36, paddingHorizontal: small ? 12 : 14, backgroundColor: on ? tone.ink : alpha(tone.ink, 0.09) }]}>
         {leading}
         <T style={{ fontFamily: fonts.semibold, fontSize: small ? 14 : 14.5, color: on ? tone.band : tone.ink }}>{label}</T>
         {amount ? <T style={{ fontFamily: fonts.medium, fontSize: 14.5, color: on ? tone.band : tone.ink, opacity: 0.72 }}>{amount}</T> : null}
@@ -180,7 +181,8 @@ export function Avatar({ initials, tone, size = 26, ink }: { initials: string; t
   return (
     <View style={{ width: size, height: size, borderRadius: size / 2, alignItems: 'center', justifyContent: 'center',
       backgroundColor: ink ? tone.ink : tone.band, borderWidth: ink ? 0 : 2, borderColor: c.bg }}>
-      <T style={{ fontFamily: fonts.bold, fontSize: size * 0.44, color: ink ? tone.band : tone.ink }}>{initials}</T>
+      {/* Initials are drawn to fit their fixed circle, so they don't grow with the text size. */}
+      <T maxFontSizeMultiplier={1} style={{ fontFamily: fonts.bold, fontSize: size * 0.44, color: ink ? tone.band : tone.ink }}>{initials}</T>
     </View>
   );
 }
@@ -194,7 +196,7 @@ export function Badge({ label, kind = 'plain' }: { label: string; kind?: 'plain'
   const bg = kind === 'void' ? c.badBg : kind === 'pending' ? c.warnBg : c.chip;
   const fg = kind === 'void' ? c.bad : kind === 'pending' ? c.warn : c.ink2;
   return (
-    <View style={{ height: 20, paddingHorizontal: 7, borderRadius: radius.badge, backgroundColor: bg, justifyContent: 'center' }}>
+    <View style={{ minHeight: 20, paddingHorizontal: 7, borderRadius: radius.badge, backgroundColor: bg, justifyContent: 'center' }}>
       <T style={{ fontFamily: fonts.semibold, fontSize: 11.5, color: fg }}>{label}</T>
     </View>
   );
@@ -279,15 +281,15 @@ export function ListItem({ label, sub, value, onPress, right, danger, last, lead
 }
 
 export const s = StyleSheet.create({
-  pill: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, paddingHorizontal: 18, borderRadius: radius.pill, alignSelf: 'flex-start' },
+  pill: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, paddingHorizontal: 18, paddingVertical: 4, borderRadius: radius.pill, alignSelf: 'flex-start' },
   cta: { minHeight: 56, paddingVertical: 8, paddingHorizontal: 20, borderRadius: radius.cta, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 10, overflow: 'hidden' },
   ctaAddShadow: { shadowColor: '#C8401F', shadowOpacity: 0.26, shadowRadius: 9, shadowOffset: { width: 0, height: 8 }, elevation: 4 },
   iconBtn: { width: 44, height: 44, borderRadius: 22, alignItems: 'center', justifyContent: 'center' },
   textBtn: { minHeight: 44, minWidth: 44, paddingHorizontal: 6, flexDirection: 'row', alignItems: 'center', gap: 4 },
   // A 44 x 44 pt touch target around a smaller visual control.
   target: { minHeight: 44, minWidth: 44, justifyContent: 'center', alignItems: 'center' },
-  tchip: { flexDirection: 'row', alignItems: 'center', gap: 6, borderRadius: 18 },
-  chip: { height: 36, paddingHorizontal: 14, flexDirection: 'row', alignItems: 'center', gap: 6 },
+  tchip: { flexDirection: 'row', alignItems: 'center', gap: 6, borderRadius: 18, paddingVertical: 4 },
+  chip: { minHeight: 36, paddingVertical: 4, paddingHorizontal: 14, flexDirection: 'row', alignItems: 'center', gap: 6 },
 });
 
 export { type };
