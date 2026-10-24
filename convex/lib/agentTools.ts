@@ -88,11 +88,13 @@ export const agentTools: AgentTool[] = [
       if (limit !== undefined && (typeof limit !== "number" || !Number.isFinite(limit))) {
         throw new AgentInputError("limit must be a number");
       }
+      const beforeSequence = optionalText(args, "before_sequence");
+      const recordId = optionalText(args, "record_id");
       return io.read("records", {
         potId: text(args, "household"),
         ...(limit === undefined ? {} : { limit }),
-        ...(optionalText(args, "before_sequence") === undefined ? {} : { beforeSequence: optionalText(args, "before_sequence") }),
-        ...(optionalText(args, "record_id") === undefined ? {} : { recordId: optionalText(args, "record_id") }),
+        ...(beforeSequence === undefined ? {} : { beforeSequence }),
+        ...(recordId === undefined ? {} : { recordId }),
       });
     },
   },
