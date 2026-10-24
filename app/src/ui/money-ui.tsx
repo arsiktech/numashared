@@ -7,22 +7,25 @@ import { Backspace, ChevDown, ChevUp } from './icons';
 import { haptic, Press, T } from './primitives';
 import { useTheme } from './theme';
 import { alpha, fonts, orb, type GroupTone } from './tokens';
+import { TEXT_CAP } from './textScale';
 
 /** "€52.80" with ghosted decimals and an optional caret, as in the Add sheet. */
-export function BigAmount({ cents, currency, size = 84, color, caret, typed, accessibilityLabel }: {
-  cents: Cents; currency: string; size?: number; color: string; caret?: boolean; typed?: string; accessibilityLabel?: string;
+/** `scaled`: the size already includes the system text size, so the text doesn't grow again. */
+export function BigAmount({ cents, currency, size = 84, color, caret, typed, accessibilityLabel, scaled }: {
+  cents: Cents; currency: string; size?: number; color: string; caret?: boolean; typed?: string; accessibilityLabel?: string; scaled?: boolean;
 }) {
+  const cap = scaled ? 1 : undefined;
   const parts = splitDisplay(cents, currency);
   const label = accessibilityLabel ?? `Amount ${formatMoney(cents, currency)}`;
   const shownWhole = typed !== undefined ? typed.split('.')[0] || '0' : parts.whole;
   const typedDec = typed !== undefined && typed.includes('.') ? typed.split('.')[1] : undefined;
   return (
     <View accessible accessibilityLabel={label} style={{ flexDirection: 'row', alignItems: 'flex-end' }}>
-      <T style={{ fontFamily: fonts.display, fontSize: size * 0.55, lineHeight: size * 0.95, color, marginRight: 4 }}>{parts.symbol}</T>
-      <T style={{ fontFamily: fonts.display, fontSize: size, lineHeight: size * 1.06, letterSpacing: -size * 0.035, color, fontVariant: ['tabular-nums'] }}>
+      <T maxFontSizeMultiplier={cap} style={{ fontFamily: fonts.display, fontSize: size * 0.55, lineHeight: size * 0.95, color, marginRight: 4 }}>{parts.symbol}</T>
+      <T maxFontSizeMultiplier={cap} style={{ fontFamily: fonts.display, fontSize: size, lineHeight: size * 1.06, letterSpacing: -size * 0.035, color, fontVariant: ['tabular-nums'] }}>
         {groupThousands(shownWhole)}
         {parts.decimals !== null ? (
-          <T style={{ fontFamily: fonts.display, fontSize: size, color, opacity: typedDec !== undefined ? 1 : 0.38 }}>
+          <T maxFontSizeMultiplier={cap} style={{ fontFamily: fonts.display, fontSize: size, color, opacity: typedDec !== undefined ? 1 : 0.38 }}>
             {'.'}{typedDec !== undefined ? typedDec.padEnd(parts.decimals.length, '0').slice(0, parts.decimals.length) : parts.decimals}
           </T>
         ) : null}
@@ -47,7 +50,7 @@ export function Keypad({ onKey, color, height = 56, allowDot = true }: {
           {k ? (
             <Pressable onPress={() => { haptic.tap(); onKey(k); }} accessibilityRole="button" accessibilityLabel={k === 'back' ? 'Delete' : k === '.' ? 'Decimal point' : k}
               style={({ pressed }) => [{ height, alignItems: 'center', justifyContent: 'center', borderRadius: 14 }, pressed ? { backgroundColor: alpha(color, 0.1) } : null]}>
-              {k === 'back' ? <Backspace size={26} color={color} /> : <T style={{ fontSize: 28, color, fontFamily: fonts.regular }}>{k}</T>}
+              {k === 'back' ? <Backspace size={26} color={color} /> : <T maxFontSizeMultiplier={TEXT_CAP.sentence} style={{ fontSize: 28, color, fontFamily: fonts.regular }}>{k}</T>}
             </Pressable>
           ) : <View style={{ height }} />}
         </View>
@@ -66,7 +69,7 @@ export function Word({ children, onPress, color, open, chevron = true, leading, 
       style={{ flexDirection: 'row', alignItems: 'center', gap: 6, minHeight: 44 }}>
       {leading}
       <View style={{ borderBottomWidth: 3, borderBottomColor: alpha(color, 0.32), paddingBottom: 2 }}>
-        <T style={{ fontFamily: fonts.display, fontSize: size, lineHeight: size * 1.18, letterSpacing: -size * 0.02, color: placeholder ? alpha(color, 0.55) : color }}>{children}</T>
+        <T maxFontSizeMultiplier={TEXT_CAP.sentence} style={{ fontFamily: fonts.display, fontSize: size, lineHeight: size * 1.18, letterSpacing: -size * 0.02, color: placeholder ? alpha(color, 0.55) : color }}>{children}</T>
       </View>
       {chevron ? (open ? <ChevUp size={18} color={alpha(color, 0.55)} /> : <ChevDown size={18} color={alpha(color, 0.55)} />) : null}
     </Press>
@@ -117,8 +120,8 @@ export function SplitBar({ segments, amount, currency, onShares, onToggle, onExa
           style={{ width: widths[i] || undefined, flexGrow: width ? 0 : 1, height, borderRadius: 10, backgroundColor: sg.tone.band, opacity: sg.out ? 0.4 : 1,
             paddingHorizontal: 10, justifyContent: 'center', overflow: 'hidden',
             borderWidth: focusId === sg.groupId ? 3 : 0, borderColor: c.ink }}>
-          <T numberOfLines={1} style={{ fontFamily: fonts.semibold, fontSize: 13, color: sg.tone.ink }}>{sg.name}</T>
-          <T numberOfLines={1} style={{ fontFamily: fonts.bold, fontSize: 16, color: sg.tone.ink, fontVariant: ['tabular-nums'] }}>
+          <T numberOfLines={1} maxFontSizeMultiplier={TEXT_CAP.label} style={{ fontFamily: fonts.semibold, fontSize: 13, color: sg.tone.ink }}>{sg.name}</T>
+          <T numberOfLines={1} maxFontSizeMultiplier={TEXT_CAP.label} style={{ fontFamily: fonts.bold, fontSize: 16, color: sg.tone.ink, fontVariant: ['tabular-nums'] }}>
             {sg.out ? 'out' : formatMoney(sg.share, currency)}
           </T>
         </Press>

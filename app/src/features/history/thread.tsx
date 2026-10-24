@@ -13,8 +13,8 @@ import { ArrowBack, Back, CategoryIcon, Check, Checks, Close, Search } from '@/u
 import { Avatar, Press, T } from '@/ui/primitives';
 import { useTheme } from '@/ui/theme';
 import { alpha, fonts, isAndroid, isWeb } from '@/ui/tokens';
-import { OrbButton, settlementTitle } from '../records';
-import { clock, effectLine, initials, money, personName, recordTitle, useHousehold } from '../hooks';
+import { OrbButton } from '../records';
+import { clock, effectLine, initials, money, personName, recordTitle, settlementTitle, useHousehold } from '../hooks';
 import {
   dayLabel, FILTERS, isMine, METHOD_LABEL, openingLine, sameDay, seenBy, splitLabel, threadItems,
   type Filter, type ThreadItem,
