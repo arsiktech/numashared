@@ -3,7 +3,7 @@
 // edits an expense (dark "Save changes") and, on a desk, becomes a popover without a keypad.
 // At the accessibility text sizes the amount and keypad stay pinned above the Add button and the
 // rest of the sentence and the split scroll above them, so nothing is cut off and the amount
-// stays in view while typing.
+// stays in view while typing. A short screen (a phone in landscape) scrolls the whole sheet instead.
 import { useEffect, useMemo, useRef, useState, type Dispatch, type ReactNode, type SetStateAction } from 'react';
 import { TextInput, View, type TextStyle } from 'react-native';
 import { applyKey, categoryLabel, currencyDigits, formatMoney, inputFromCents, parseInput, typeAmount, type Key } from '@/core';
@@ -15,7 +15,7 @@ import { CategoryIcon, Plus, Warn } from '@/ui/icons';
 import { BigAmount, Keypad, SplitBar, Word, type SplitSegment } from '@/ui/money-ui';
 import { Avatar, Banner, BannerText, CTA, haptic, Press, T, TChip } from '@/ui/primitives';
 import { saveGuard, Sheet, SheetScrollView, useSheet } from '@/ui/sheet';
-import { isShortSheet, SHORT_KEY_HEIGHT } from '@/features/add/layout';
+import { isShortSheet, pinsKeypad, SHORT_KEY_HEIGHT } from '@/features/add/layout';
 import { useTheme } from '@/ui/theme';
 import { alpha, fonts, isWeb, type GroupTone } from '@/ui/tokens';
 import { cappedSize, TEXT_CAP } from '@/ui/textScale';
@@ -481,7 +481,7 @@ function AddBody({ h, spec, draft, set, t, pop }: {
     : panel === 'newcat' ? <View style={{ paddingHorizontal: 10, paddingTop: 6 }}>{newField}</View>
     : null;
 
-  if (large) {
+  if (pinsKeypad(large, screenH)) {
     const picking = panel === 'category' || panel === 'newcat';
     return (
       <View style={{ flex: 1 }}>
