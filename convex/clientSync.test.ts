@@ -860,6 +860,42 @@ describe("card sync", () => {
     expect(await t.run(async (ctx) => ctx.db.query("potMembers").collect())).toEqual(expect.arrayContaining([expect.objectContaining({ accountId, status: "active" })]));
   });
 
+  test("a departing account's card link is removed while the household stays for the others", async () => {
+    vi.stubEnv("NUMA_SHARED_AUTH_KEY_ID", "client-sync");
+    vi.stubEnv("NUMA_SHARED_AUTH_PRIVATE_KEY_PKCS8_PEM", "unused: deletion signs nothing");
+    const t = convexTest(schema, modules);
+    await fenceBuild11(t);
+    const ana = await signIn(t, "ana");
+    const leo = await signIn(t, "leo");
+    const phoneA = phone(), phoneB = phone();
+    phoneA.put({ ...localHousehold(), events: [] });
+    const id = await startSync(ana, phoneA, "h_local");
+    await pull(ana, phoneA, id);
+    await issueInvites(ana, phoneA, id);
+    const a = phoneA.get(id)!;
+    const leoId = a.people.find((p) => p.name === "Leo")!.id;
+    const preview = await resolveInvite("http://127.0.0.1:3211", a.sync!.invites![leoId].code,
+      ((url: string, init?: RequestInit) => t.fetch(new URL(url).pathname, init)) as typeof fetch);
+    if (preview.status !== "active") throw new Error("fixture invite not active");
+    await claimInvite(leo, phoneB, preview);
+    const otherGroup = a.groups.find((g) => g.memberIds.length === 1)!.id;
+    await ana.mutation("cardSync:link", { potId: id, keyHash: await sha256(KEY), timeZone: "Europe/Madrid",
+      cards: [{ last4: "4242", forUnitId: otherGroup, label: "Fixture" }] });
+    expect((await post(t, KEY, [{ id: "kept", card: "4242", occurredAt: "2026-09-30T18:04:51Z", merchant: "Fixture", amount: "5.33", currency: "EUR" }])).status).toBe(200);
+    const refreshToken = "synthetic-card-link-ana-refresh-token-000000000000";
+    await t.run(async (ctx) => {
+      const s = await ctx.db.query("sessions").withIndex("by_session_id", (q) => q.eq("sessionId", "session-ana-0000001")).unique();
+      await ctx.db.patch(s!._id, { refreshTokenHash: await hashRefreshToken(refreshToken, "client-sync-test-token-hash-secret-32-bytes") });
+    });
+    const res = await t.fetch("/auth/account/delete", { method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ refreshToken, requestId: "01890f5e-7b00-7000-8000-00000000f904", originatingTimeZone: "Europe/Madrid" }) });
+    expect(await res.json()).toMatchObject({ deleted: true });
+    const left = await t.run(async (ctx) => ({ pots: await ctx.db.query("pots").collect(), links: await ctx.db.query("cardSyncLinks").collect() }));
+    expect(left.pots).toHaveLength(1);
+    expect(left.links).toEqual([]);
+    expect((await post(t, KEY, [{ id: "after", card: "4242", occurredAt: "2026-10-01T10:00:00Z", merchant: "x", amount: "1.00", currency: "EUR" }])).status).toBe(401);
+  });
+
   test("refunds take money back off the spend they belong to; cancellations void it", async () => {
     const t = convexTest(schema, modules);
     await fenceBuild11(t);

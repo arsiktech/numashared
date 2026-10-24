@@ -104,7 +104,8 @@ function PhoneHome({ freshIds }: { freshIds: Set<string> }) {
           if (item.kind === 'gap') {
             return (
               <View style={{ height: gap }}>
-                <Animated.View style={[{ position: 'absolute', left: 0, right: 0, top: -insets.top, opacity: 0 }, touchCopy]}>{bands}</Animated.View>
+                {/* Nearly, not fully, transparent: iOS ignores touches on views at or near zero opacity. */}
+                <Animated.View style={[{ position: 'absolute', left: 0, right: 0, top: -insets.top, opacity: 0.02 }, touchCopy]}>{bands}</Animated.View>
               </View>
             );
           }
