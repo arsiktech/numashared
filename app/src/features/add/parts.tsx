@@ -52,7 +52,7 @@ function DateChip({ tone, date, open, onPress }: { tone: GroupTone; date: string
   return (
     <Press onPress={onPress} accessibilityLabel={`Date: ${dateSpoken(date)}. Change`} accessibilityState={{ expanded: open }}
       hitSlop={6}
-      style={{ height: 32, paddingLeft: 12, paddingRight: 9, borderRadius: 16, flexDirection: 'row', alignItems: 'center', gap: 4,
+      style={{ minHeight: 32, paddingVertical: 2, paddingLeft: 12, paddingRight: 9, borderRadius: 16, flexDirection: 'row', alignItems: 'center', gap: 4,
         backgroundColor: open ? tone.ink : alpha(tone.ink, 0.09) }}>
       <T style={{ fontFamily: fonts.semibold, fontSize: 14, color: open ? tone.band : tone.ink }}>{dateLabel(date)}</T>
       {open ? <ChevUp size={14} color={tone.band} /> : <ChevDown size={14} color={tone.ink} />}
@@ -122,7 +122,7 @@ export function GroupAvatar({ h, group, tone, size = 38, ink }: { h: Household; 
   const text = groupInitials(h, group);
   return (
     <View style={{ width: size, height: size, borderRadius: size / 2, alignItems: 'center', justifyContent: 'center', backgroundColor: ink ? tone.ink : tone.band }}>
-      <T style={{ fontFamily: fonts.bold, fontSize: size * (text.length > 1 ? 0.34 : 0.42), color: ink ? tone.band : tone.ink }}>{text}</T>
+      <T maxFontSizeMultiplier={1} style={{ fontFamily: fonts.bold, fontSize: size * (text.length > 1 ? 0.34 : 0.42), color: ink ? tone.band : tone.ink }}>{text}</T>
     </View>
   );
 }
@@ -147,13 +147,15 @@ export function NoteLine({ tone, value, onChange, editing, setEditing, inputRef,
     );
   }
   const empty = !value.trim();
+  const { largeText } = useTheme();
   return (
     <Press noScale onPress={() => setEditing(true)} accessibilityLabel={empty ? 'Add a note, optional' : `Note: ${value}. Edit`} style={[box, style]}>
       <Pencil size={18} color={alpha(tone.ink, 0.7)} />
-      <T numberOfLines={1} style={{ flex: 1, fontFamily: fonts.medium, fontSize: 16, color: empty ? alpha(tone.ink, 0.68) : tone.ink }}>
+      <T numberOfLines={largeText ? 2 : 1} style={{ flex: 1, fontFamily: fonts.medium, fontSize: 16, color: empty ? alpha(tone.ink, 0.68) : tone.ink }}>
         {empty ? placeholder : value}
       </T>
-      {hint ? <Kbd tone={tone} label={hint} /> : empty ? <T style={{ fontSize: 13, color: tone.ink, opacity: 0.7 }}>optional</T> : null}
+      {/* At the accessibility sizes "optional" stays in the spoken label and gives its room to the note. */}
+      {hint ? <Kbd tone={tone} label={hint} /> : empty && !largeText ? <T style={{ fontSize: 13, color: tone.ink, opacity: 0.7 }}>optional</T> : null}
     </Press>
   );
 }
@@ -179,8 +181,8 @@ export function Receipt({ children, tone, desk }: { children: ReactNode; tone: G
 export function ReceiptHead({ left, right, onRight, rightLabel }: { left: string; right?: string; onRight?: () => void; rightLabel?: string }) {
   const { c } = useTheme();
   return (
-    <View style={{ minHeight: 20, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 12, paddingHorizontal: 2 }}>
-      <T style={{ flexShrink: 1, fontFamily: fonts.semibold, fontSize: 13, color: c.ink2 }}>{left}</T>
+    <View style={{ minHeight: 20, flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between', columnGap: 12, rowGap: 4, paddingHorizontal: 2 }}>
+      <T style={{ fontFamily: fonts.semibold, fontSize: 13, color: c.ink2 }}>{left}</T>
       {right ? (
         onRight ? (
           <Press onPress={onRight} accessibilityLabel={rightLabel ?? right} hitSlop={12} style={{ minHeight: 20, justifyContent: 'center' }}>

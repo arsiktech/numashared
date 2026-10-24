@@ -112,10 +112,10 @@ function PhoneHome({ freshIds }: { freshIds: Set<string> }) {
           if (item.kind === 'head') {
             return (
               <Animated.View style={[{ backgroundColor: c.bg, paddingHorizontal: 22, paddingTop: 14, overflow: 'hidden' }, corners]}>
-                <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', height: 44 }}>
+                <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', minHeight: 44, flexWrap: 'wrap', columnGap: 12 }}>
                   {docked ? (
                     <Press accessibilityRole="button" accessibilityLabel="Back to balances" onPress={() => { list.current?.scrollToOffset({ offset: 0, animated: true }); setDocked(false); }}
-                      style={{ height: 44, flexDirection: 'row', alignItems: 'center', gap: 4, marginLeft: -4 }}>
+                      style={{ minHeight: 44, flexDirection: 'row', alignItems: 'center', gap: 4, marginLeft: -4 }}>
                       <ChevDown size={18} color={c.ink} />
                       <T style={{ fontSize: 16, fontFamily: fonts.medium }}>Balances</T>
                     </Press>
@@ -124,7 +124,7 @@ function PhoneHome({ freshIds }: { freshIds: Set<string> }) {
                   )}
                   {docked ? <T accessibilityRole="header" style={{ fontFamily: fonts.bold, fontSize: 17 }}>History</T> : null}
                   {ledger.records.length ? (
-                    <Press accessibilityRole="button" accessibilityLabel="Search history" onPress={search} style={{ height: 44, minWidth: docked ? 92 : undefined, flexDirection: 'row', alignItems: 'center', justifyContent: 'flex-end', gap: 6 }}>
+                    <Press accessibilityRole="button" accessibilityLabel="Search history" onPress={search} style={{ minHeight: 44, minWidth: docked ? 92 : undefined, flexDirection: 'row', alignItems: 'center', justifyContent: 'flex-end', gap: 6 }}>
                       <Search size={18} color={c.ink} />
                       {docked ? null : <T style={{ fontSize: 16, fontFamily: fonts.medium }}>Search</T>}
                     </Press>

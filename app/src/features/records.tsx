@@ -13,7 +13,7 @@ import { effectText, money, personName, recordTitle, relativeDay, settlementTitl
 export function RecordRow({ h, r, hide, fresh, last, onPress }: {
   h: Household; r: LedgerRecord; hide?: boolean; fresh?: boolean; last?: boolean; onPress?: () => void;
 }) {
-  const { c, tone } = useTheme();
+  const { c, tone, largeText } = useTheme();
   const title = recordTitle(r);
   let tile: { bg: string; fg: string; icon: React.ReactNode };
   let sub = '';
@@ -39,6 +39,12 @@ export function RecordRow({ h, r, hide, fresh, last, onPress }: {
   }
   const edited = r.revisions.length > 1;
   const note = r.kind === 'expense' && r.expense!.note && !r.voided ? r.expense!.note : null;
+  const amountBlock = (
+    <View style={{ alignItems: largeText ? 'flex-start' : 'flex-end', marginTop: largeText ? 4 : 0 }}>
+      <T style={{ fontFamily: fonts.semibold, fontSize: 16, fontVariant: ['tabular-nums'], color: r.voided ? c.ink3 : c.ink, textDecorationLine: r.voided ? 'line-through' : 'none' }}>{money(h, amount, hide)}</T>
+      <T style={{ fontSize: 13, color: c.ink2, marginTop: 2 }}>{effectText(h, r, hide)}</T>
+    </View>
+  );
   return (
     <Press noScale onPress={onPress} accessibilityLabel={`${r.kind === 'settlement' ? settlementTitle(h, r) : title}, ${money(h, amount, hide)}, ${note ? `“${note}”, ` : ''}${sub}, ${effectText(h, r, hide)}${edited ? ', edited' : ''}${r.flagged ? ', flagged' : ''}`}
       style={{ flexDirection: 'row', alignItems: 'center', gap: 12, minHeight: 64, paddingVertical: 8,
@@ -46,19 +52,18 @@ export function RecordRow({ h, r, hide, fresh, last, onPress }: {
         marginHorizontal: fresh ? -22 : 0, paddingHorizontal: fresh ? 22 : 0 }}>
       <View style={{ width: 40, height: 40, borderRadius: 20, backgroundColor: tile.bg, alignItems: 'center', justifyContent: 'center' }}>{tile.icon}</View>
       <View style={{ flex: 1, minWidth: 0 }}>
-        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-          <T numberOfLines={1} style={{ fontFamily: fonts.semibold, fontSize: 16, flexShrink: 1, color: r.voided ? c.ink3 : c.ink, textDecorationLine: r.voided ? 'line-through' : 'none' }}>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, flexWrap: largeText ? 'wrap' : 'nowrap' }}>
+          <T numberOfLines={largeText ? 3 : 1} style={{ fontFamily: fonts.semibold, fontSize: 16, flexShrink: 1, color: r.voided ? c.ink3 : c.ink, textDecorationLine: r.voided ? 'line-through' : 'none' }}>
             {r.kind === 'settlement' ? settlementTitle(h, r) : title}
           </T>
           {edited && !r.voided ? <Badge label="Edited" /> : null}
           {r.flagged ? <Badge label="Flagged" kind="pending" /> : null}
         </View>
-        <T numberOfLines={1} style={{ fontSize: 13.5, color: c.ink2, marginTop: 2 }}>{note ? `“${note}” · ${sub}` : sub}</T>
+        <T numberOfLines={largeText ? 3 : 1} style={{ fontSize: 13.5, color: c.ink2, marginTop: 2 }}>{note ? `“${note}” · ${sub}` : sub}</T>
+        {/* At the accessibility text sizes the amount moves under the title, so neither is cut short. */}
+        {largeText ? amountBlock : null}
       </View>
-      <View style={{ alignItems: 'flex-end' }}>
-        <T style={{ fontFamily: fonts.semibold, fontSize: 16, fontVariant: ['tabular-nums'], color: r.voided ? c.ink3 : c.ink, textDecorationLine: r.voided ? 'line-through' : 'none' }}>{money(h, amount, hide)}</T>
-        <T style={{ fontSize: 13, color: c.ink2, marginTop: 2 }}>{effectText(h, r, hide)}</T>
-      </View>
+      {largeText ? null : amountBlock}
     </Press>
   );
 }
