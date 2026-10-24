@@ -10,9 +10,9 @@ import { todayISO } from '@/store/ids';
 import { Warn } from '@/ui/icons';
 import { BigAmount, Keypad, Word } from '@/ui/money-ui';
 import { Banner, BannerText, CTA, haptic, T, TChip } from '@/ui/primitives';
-import { saveGuard, Sheet, useSheet } from '@/ui/sheet';
+import { saveGuard, Sheet, SheetScrollView, useSheet } from '@/ui/sheet';
 import { useTheme } from '@/ui/theme';
-import { fonts, isWeb, type GroupTone } from '@/ui/tokens';
+import { fonts, isAndroid, isWeb, type GroupTone } from '@/ui/tokens';
 import { nameOf, useHousehold } from '@/features/hooks';
 import { simulate, spokenName, standingLine, type Line } from '@/features/add/draft';
 import {
@@ -213,10 +213,8 @@ function RepayBody({ h, spec, groups, setGroups, t }: {
     </ChipRow>
   ) : null;
 
-  return (
-    <View style={{ flex: 1 }}>
-      <SheetTop title="Record a repayment" tone={t} onCancel={() => close()} date={date} dateOpen={panel === 'date'}
-        onDate={() => { haptic.tick(); setPanel(panel === 'date' ? null : 'date'); }} />
+  const form = (
+    <>
       <View style={{ paddingHorizontal: 22, paddingTop: 6 }}>
         <View style={lineStyle}>
           <Word color={t.ink} size={wordSize} open={panel === 'from'} onPress={() => { haptic.tick(); setPanel(panel === 'from' ? null : 'from'); }}
@@ -251,9 +249,21 @@ function RepayBody({ h, spec, groups, setGroups, t }: {
           style={{ marginTop: 10 }} onSubmit={isWeb ? save : undefined} />
         </> : null}
       </View>
-      <View style={{ flex: 1, minHeight: 0, overflow: 'hidden', justifyContent: 'flex-end', paddingHorizontal: 12, paddingTop: 6 }} onLayout={(e) => setMidH(e.nativeEvent.layout.height)}>
+      <View style={{ flex: 1, minHeight: isAndroid ? 4 * 44 + 8 : 0, overflow: 'hidden', justifyContent: 'flex-end', paddingHorizontal: 12, paddingTop: 6 }} onLayout={(e) => setMidH(e.nativeEvent.layout.height)}>
         <Keypad onKey={(k) => onKey(k as Key)} color={t.ink} height={keyHeight(screenH * 0.9, midH)} allowDot={currencyDigits(cur) > 0} />
       </View>
+    </>
+  );
+
+  return (
+    <View style={{ flex: 1 }}>
+      <SheetTop title="Record a repayment" tone={t} onCancel={() => close()} date={date} dateOpen={panel === 'date'}
+        onDate={() => { haptic.tick(); setPanel(panel === 'date' ? null : 'date'); }} />
+      {isAndroid ? (
+        <SheetScrollView style={{ flex: 1 }} contentContainerStyle={{ flexGrow: 1 }} keyboardShouldPersistTaps="handled">
+          {form}
+        </SheetScrollView>
+      ) : form}
       <Receipt tone={t}>
         <ReceiptHead left={headText} />
         <AfterRow left={afterLeft} lead={line.lead} strong={line.strong} />
