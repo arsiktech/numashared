@@ -71,6 +71,18 @@ test('concurrent retries share one pending claim and adoption retries preserve i
   expect(mutations).toBe(1); expect(f.b.get(f.potId)?.youId).toBe(id(2));
 });
 
+test('missing membership metadata never reopens a known read-only copy', async () => {
+  const f = await fixture();
+  const copy = f.a.get(f.potId)!;
+  f.a.put({ ...copy, sync: { ...copy.sync!, frozen: true } });
+  const pots = await f.owner.query<PotSummary[]>('pots:listMyPots', {});
+  const legacy = pots.map(({ membershipStatus: _status, ...pot }) => pot);
+  await adoptPots(f.owner, f.a, legacy);
+  expect(f.a.get(f.potId)!.sync!.frozen).toBe(true);
+  await adoptPots(f.owner, f.a, pots);
+  expect(f.a.get(f.potId)!.sync!.frozen).toBe(false);
+});
+
 const membershipEvent = (n: number, potId: string, payload: Record<string, unknown>) => ({ eventId: id(n), potId, actorMemberId: id(1), occurredAtMillis: BigInt(Date.now()), originatingTimeZone: 'Europe/Madrid', schemaVersion: 2n, payload, textFields: [], authoredText: [] });
 
 test('archived membership adopts a frozen snapshot, catches redactions, and never reads future history or writes', async () => {

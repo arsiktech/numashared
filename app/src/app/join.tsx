@@ -12,7 +12,7 @@ import { Brand, Field, Screen, ScreenHeader } from '@/features/onboarding/chrome
 import { cleanCode, showCode } from '@/features/onboarding/model';
 import { explainFailure, SignInButtons, useSession, useSignInOptions } from '@/features/account/session';
 import { useStore } from '@/store/store';
-import { failureOf, type InvitePreview } from '@/sync/engine';
+import { claimInviteWithRecheck, failureOf, type InvitePreview } from '@/sync/engine';
 import { joinWithInvite, lookUpInvite, requestSync } from '@/sync/runtime';
 
 type Active = Extract<InvitePreview, { status: 'active' }>;
@@ -57,26 +57,22 @@ export default function Join() {
     if (result.status === 'active') haptic.success(); else haptic.warn();
   };
 
-  const join = async (p: Active, retried = false): Promise<void> => {
+  const join = async (p: Active): Promise<void> => {
     setBusy(true);
     setError(null);
     try {
-      const result = await joinWithInvite(p);
+      const outcome = await claimInviteWithRecheck(p, joinWithInvite, () => lookUpInvite(link ?? code), setPreview);
+      setPreview(outcome.preview);
+      const result = outcome.result;
+      if (!result) return;
       if (result.status === 'joined') { haptic.success(); router.replace('/home'); return; }
       setWaiting(true);
     } catch (e) {
       const f = failureOf(e);
       if (f.code === 'ALREADY_MEMBER') { await requestSync(); router.replace('/home'); return; }
-      if (f.code === 'MEMBER_ALREADY_CLAIMED' || f.code === 'INVITE_INVALID') { setPreview({ status: 'used' }); return; }
-      if (f.code === 'INVITE_EXPIRED') { setPreview({ status: 'expired' }); return; }
-      if (f.code === 'INVITE_TICKET_INVALID' && !retried) {
-        // The check is only good for a few minutes: check again and carry on.
-        const fresh = await lookUpInvite(link ?? code);
-        setPreview(fresh);
-        if (fresh.status === 'active') { await join(fresh, true); return; }
-        return;
-      }
-      setError(explainFailure(f.code));
+      if (f.code === 'INVITE_TICKET_STALE' || f.code === 'INVITE_TICKET_INVALID') setPreview(null);
+      setError(f.code === 'INVITE_TICKET_STALE' || f.code === 'INVITE_TICKET_INVALID'
+        ? 'That invite check expired. Check the code again.' : explainFailure(f.code));
     } finally {
       setBusy(false);
     }

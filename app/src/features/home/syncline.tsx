@@ -34,7 +34,9 @@ export function SyncLine() {
   let text = 'Saved on this device';
   let onPress: (() => void) | undefined;
   let a11y: string | undefined;
-  if (undoOpen) {
+  if (h.sync?.frozen) {
+    text = 'Read-only history';
+  } else if (undoOpen) {
     icon = <Clock size={15} color={c.ink2} />;
     text = 'Saved · Undo is open for a few seconds';
   } else if (h.sync?.paused) {

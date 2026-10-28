@@ -19,6 +19,8 @@ import { isUuidv7, uuidv7 } from './uuid';
 import type { ListedEvent, TextField, WireEvent, WireSettlementGroup } from './wire';
 
 export interface Backend {
+  /** Stable account binding for adapters whose object identity survives a session change. */
+  readonly accountId?: string;
   query<T = unknown>(name: string, args: Record<string, unknown>): Promise<T>;
   mutation<T = unknown>(name: string, args: Record<string, unknown>): Promise<T>;
 }
@@ -330,6 +332,7 @@ export async function flush(backend: Backend, access: Access, householdId: ID, n
   for (;;) {
     const h = access.get(householdId);
     if (!h?.sync || h.sync.setup) return 'waiting';
+    if (h.sync.frozen) return 'paused';
     if (h.sync.paused) return 'paused';
     const next = h.events.find((e) => e.seq === undefined);
     if (!next) return 'done';
@@ -387,7 +390,8 @@ export async function pull(backend: Backend, access: Access, householdId: ID, op
     if (!page.hasMore) break;
   }
   let roster: RosterEntry[] | null = null;
-  if (!opts.archived) {
+  const frozen = opts.archived ?? start.sync.frozen ?? false;
+  if (!frozen) {
     try {
       roster = await backend.query<RosterEntry[]>('members:listRoster', { potId: householdId });
     } catch (error) {
@@ -474,14 +478,25 @@ export type PotSummary = {
   lastSequence: bigint;
   lastTextRevision: bigint;
   isArchived: boolean;
+  /** Membership archival is distinct from archival of the whole household. */
+  membershipStatus?: 'active' | 'archived';
 };
+
+export const isFrozenPot = (pot: PotSummary) => pot.membershipStatus === 'archived' || pot.isArchived;
 
 /** Brings in households this account belongs to that are not on this device yet. */
 export async function adoptPots(backend: Backend, access: Access, pots?: PotSummary[]): Promise<ID[]> {
   const list = pots ?? await backend.query<PotSummary[]>('pots:listMyPots', {});
   const added: ID[] = [];
   for (const pot of list) {
-    if (pot.isArchived || access.get(pot.potId)) continue;
+    const cached = access.get(pot.potId);
+    const frozen = isFrozenPot(pot) || (pot.membershipStatus === undefined && cached?.sync?.frozen === true);
+    if (cached) {
+      if (cached.sync && Boolean(cached.sync.frozen) !== frozen) {
+        access.put({ ...cached, sync: { ...cached.sync, frozen } });
+      }
+      continue;
+    }
     const skeleton: Household = {
       id: pot.potId,
       name: 'Household',
@@ -493,7 +508,7 @@ export async function adoptPots(backend: Backend, access: Access, pots?: PotSumm
       events: [],
       seen: {},
       inviteCode: '',
-      sync: { role: pot.role, schema: pot.minimumReaderSchemaVersion >= 2n ? 2 : 1, lastSeq: 0, lastTextRev: 0 },
+      sync: { role: pot.role, schema: pot.minimumReaderSchemaVersion >= 2n ? 2 : 1, lastSeq: 0, lastTextRev: 0, ...(frozen ? { frozen } : {}) },
     };
     // Build it fully before showing it.
     const staging: Household[] = [skeleton];
@@ -547,49 +562,82 @@ export function base64url(bytes: Uint8Array): string {
 
 export const newInviteCode = () => Array.from(random(6), (b) => CODE_ALPHABET[b & 31]).join('');
 
-/**
- * Makes sure every invited person who hasn't joined has a personal invite code (owner only).
- * Each code works once, for that person, for about a month.
- */
-export async function issueInvites(backend: Backend, access: Access, householdId: ID, now = Date.now()): Promise<void> {
+type InviteMetadata = { inviteId: string; kind: string; pendingMemberId?: string; expiresAt: number };
+export const INVITE_RECHECK_MS = 60_000;
+export const inviteUsable = (invite: InviteInfo | undefined, now = Date.now()) => Boolean(
+  invite?.issued && invite.state === 'active' && invite.code && invite.token
+  && invite.expiresAt > now && invite.checkedAt !== undefined && now >= invite.checkedAt && now - invite.checkedAt < INVITE_RECHECK_MS,
+);
+const invitePasses = new WeakMap<Access, Map<ID, { promise: Promise<void>; replaceMemberId?: ID }>>();
+
+/** Reconciles metadata and issues missing first codes. Only an explicit action replaces one. */
+export function issueInvites(backend: Backend, access: Access, householdId: ID, now = Date.now(), replacement?: { memberId: ID; inviteId: ID }): Promise<void> {
+  const replaceMemberId = replacement?.memberId;
+  let passes = invitePasses.get(access);
+  if (!passes) { passes = new Map(); invitePasses.set(access, passes); }
+  const pending = passes.get(householdId);
+  if (pending) return replaceMemberId && pending.replaceMemberId !== replaceMemberId
+    ? pending.promise.then(() => issueInvites(backend, access, householdId, now, replacement)) : pending.promise;
+  const pass = reconcileAndIssueInvites(backend, access, householdId, now, replacement).finally(() => passes!.delete(householdId));
+  passes.set(householdId, { promise: pass, replaceMemberId });
+  return pass;
+}
+
+async function reconcileAndIssueInvites(backend: Backend, access: Access, householdId: ID, now: number, replacement?: { memberId: ID; inviteId: ID }): Promise<void> {
   const h = access.get(householdId);
-  if (!h?.sync || h.sync.setup || h.sync.role !== 'owner') return;
+  if (!h?.sync || h.sync.setup || h.sync.frozen || h.sync.role !== 'owner') return;
+  if (!h.people.some(p => p.id !== h.youId && !p.joined && !p.archived)) return;
+  const metadata = () => backend.query<InviteMetadata[]>('members:listInvites', { potId: householdId });
+  let live = await metadata();
+  const save = (personId: ID, invite: InviteInfo) => {
+    const latest = access.get(householdId);
+    if (latest?.sync && latest.youId === h.youId && latest.sync.accountId === h.sync!.accountId) {
+      access.put({ ...latest, sync: { ...latest.sync, invites: { ...latest.sync.invites, [personId]: invite } } });
+    }
+  };
   for (const person of h.people) {
     const cur = access.get(householdId)!;
     if (person.id === cur.youId || person.joined || person.archived) continue;
     const existing = cur.sync!.invites?.[person.id];
-    if (existing && existing.expiresAt > now + DAY && existing.issued) continue;
-    const invite: InviteInfo = existing && !existing.issued && existing.expiresAt > now + DAY
+    const remote = live.find(x => x.kind === 'perMember' && x.pendingMemberId === person.id && x.expiresAt > now);
+    const replacing = replacement?.memberId === person.id && replacement.inviteId === existing?.inviteId
+      && (!remote || remote.inviteId === replacement.inviteId);
+    // This also reconciles a lost issue reply without resending or consuming quota.
+    if (remote && existing?.inviteId === remote.inviteId && existing.code && existing.token && (!replacing || !existing.issued)) {
+      save(person.id, { ...existing, issued: true, state: 'active', checkedAt: now });
+      continue;
+    }
+    if (remote && !replacing) {
+      save(person.id, { inviteId: remote.inviteId, expiresAt: remote.expiresAt, code: '', token: '', issued: false, state: 'elsewhere', checkedAt: now });
+      continue;
+    }
+    if (!remote && existing && (existing.issued || existing.state || existing.expiresAt <= now) && !replacing) {
+      save(person.id, { ...existing, code: '', token: '', issued: false, state: existing.expiresAt <= now ? 'expired' : 'unavailable', checkedAt: now });
+      continue;
+    }
+    if (remote && replacing) {
+      await backend.mutation('members:revokeInvite', { potId: householdId, inviteId: remote.inviteId });
+    }
+    const invite: InviteInfo = existing && !existing.issued && !existing.state && existing.expiresAt > now
       ? existing
       : { inviteId: uuidv7(now), code: newInviteCode(), token: base64url(random(32)), expiresAt: now + 29 * DAY };
-    access.put({ ...cur, sync: { ...cur.sync!, invites: { ...cur.sync!.invites, [person.id]: invite } } });
-    const send = () => backend.mutation('members:issueInvite', {
-      potId: householdId, inviteId: invite.inviteId, kind: 'perMember', pendingMemberId: person.id,
-      token: invite.token, code: invite.code, expiresAt: invite.expiresAt,
-    });
+    save(person.id, invite);
     try {
-      await send();
+      await backend.mutation('members:issueInvite', {
+        potId: householdId, inviteId: invite.inviteId, kind: 'perMember', pendingMemberId: person.id,
+        token: invite.token, code: invite.code, expiresAt: invite.expiresAt,
+      });
     } catch (error) {
       const f = failureOf(error);
-      if (f.retryable) throw new SyncError(f);
-      if (f.code === 'INVITE_PENDING_MEMBER_ALREADY_ACTIVE') {
-        // Another device issued this person's code; its code isn't readable here. Replace it.
-        const live = await backend.query<{ inviteId: string; kind: string; pendingMemberId?: string }[]>('members:listInvites', { potId: householdId });
-        for (const old of live.filter((x) => x.kind === 'perMember' && x.pendingMemberId === person.id)) {
-          await backend.mutation('members:revokeInvite', { potId: householdId, inviteId: old.inviteId });
-        }
-        await send();
-      } else {
-        const latest = access.get(householdId)!;
-        const invites = { ...latest.sync!.invites };
-        delete invites[person.id];
-        access.put({ ...latest, sync: { ...latest.sync!, invites } });
-        if (f.code === 'MEMBER_ALREADY_CLAIMED') continue;
-        throw new SyncError(f);
-      }
+      if (f.retryable) throw new SyncError(f); // retain exact staged secrets for retry
+      if (f.code !== 'INVITE_PENDING_MEMBER_ALREADY_ACTIVE' && f.code !== 'MEMBER_ALREADY_CLAIMED') throw new SyncError(f);
+      // A competing device won. Never cancel its new code in a background/retry pass.
     }
-    const latest = access.get(householdId)!;
-    access.put({ ...latest, sync: { ...latest.sync!, invites: { ...latest.sync!.invites, [person.id]: { ...invite, issued: true } } } });
+    live = await metadata();
+    const confirmed = live.find(x => x.inviteId === invite.inviteId && x.expiresAt > now);
+    save(person.id, confirmed
+      ? { ...invite, issued: true, state: 'active', checkedAt: now }
+      : { ...invite, code: '', token: '', issued: false, state: live.some(x => x.pendingMemberId === person.id && x.expiresAt > now) ? 'elsewhere' : 'unavailable', checkedAt: now });
   }
 }
 
@@ -616,18 +664,84 @@ export async function resolveInvite(siteUrl: string, input: string, fetchImpl: t
   }
 }
 
+type ClaimReceipt = { potId: string; memberId: string };
+type ClaimAttempt = {
+  event: { eventId: ID; occurredAtMillis: bigint; originatingTimeZone: string; schemaVersion: bigint };
+  pending?: Promise<ClaimReceipt>;
+  receipt?: ClaimReceipt;
+};
+// Memory only: do not add a bearer ticket to device persistence. A timeout only ends the
+// screen's wait, not the claim. Keep its exact event and receipt until that account is done.
+const claimAttempts = new WeakMap<Access, Map<string | Backend, Map<string, ClaimAttempt>>>();
+
 /** Claims a previewed invite. Personal codes join straight away; household links wait for the owner. */
 export async function claimInvite(backend: Backend, access: Access, preview: Extract<InvitePreview, { status: 'active' }>, now = Date.now()): Promise<{ status: 'joined'; householdId: ID } | { status: 'pending' }> {
   if (preview.kind === 'potLink') {
     await backend.mutation('members:claimPotLinkInviteWithTicket', { ticket: preview.claimTicket });
     return { status: 'pending' };
   }
-  const res = await backend.mutation<{ potId: string; memberId: string }>('members:claimPerMemberInviteWithTicket', {
-    ticket: preview.claimTicket,
-    event: { eventId: uuidv7(now), occurredAtMillis: BigInt(now), originatingTimeZone: wireTimeZone(), schemaVersion: BigInt(preview.minimumReaderSchemaVersion) },
-  });
+  let accounts = claimAttempts.get(access);
+  if (!accounts) { accounts = new Map(); claimAttempts.set(access, accounts); }
+  const scope = backend.accountId ?? backend;
+  let attempts = accounts.get(scope);
+  if (!attempts) { attempts = new Map(); accounts.set(scope, attempts); }
+  let attempt = attempts.get(preview.claimTicket);
+  if (!attempt) {
+    // Bound memory without evicting an ambiguous in-flight attempt.
+    if (attempts.size >= 64) {
+      const completed = [...attempts].find(([, a]) => a.receipt && !a.pending);
+      if (completed) attempts.delete(completed[0]);
+      else throw new SyncError({ code: 'CLAIM_RECOVERY_PENDING', retryable: true });
+    }
+    attempt = { event: { eventId: uuidv7(now), occurredAtMillis: BigInt(now), originatingTimeZone: wireTimeZone(), schemaVersion: BigInt(preview.minimumReaderSchemaVersion) } };
+    attempts.set(preview.claimTicket, attempt);
+  }
+  if (!attempt.receipt && !attempt.pending) {
+    const current = attempt;
+    current.pending = backend.mutation<ClaimReceipt>('members:claimPerMemberInviteWithTicket', {
+      ticket: preview.claimTicket, event: current.event,
+    }).then((receipt) => { current.receipt = receipt; return receipt; }).catch((error) => {
+      // A definitive refusal is safe to recheck. Transport failure may hide a commit.
+      if (!failureOf(error).retryable) attempts!.delete(preview.claimTicket);
+      throw error;
+    }).finally(() => { current.pending = undefined; });
+  }
+  const res = attempt.receipt ?? await attempt.pending!;
+  // Never turn ALREADY_MEMBER/used into success by adopting an unrelated membership: only
+  // the exact account-bound server receipt identifies the household this attempt joined.
   await adoptPots(backend, access);
   return { status: 'joined', householdId: res.potId };
+}
+
+/** One fresh public check may replace a stale preview, never extend its lifetime or loop. */
+export async function claimInviteWithRecheck(
+  preview: Extract<InvitePreview, { status: 'active' }>,
+  claim: (preview: Extract<InvitePreview, { status: 'active' }>) => ReturnType<typeof claimInvite>,
+  recheck: () => Promise<InvitePreview>,
+  onPreview?: (preview: InvitePreview) => void,
+): Promise<{ preview: InvitePreview; result?: Awaited<ReturnType<typeof claimInvite>> }> {
+  let active = preview;
+  let checked = false;
+  for (;;) {
+    try { return { preview: active, result: await claim(active) }; }
+    catch (error) {
+      const f = failureOf(error);
+      if ((f.code === 'INVITE_TICKET_STALE' || f.code === 'INVITE_TICKET_INVALID') && !checked) {
+        checked = true;
+        const fresh = await recheck();
+        onPreview?.(fresh); // retain the new exact ticket even if its subsequent reply is lost
+        if (fresh.status !== 'active') return { preview: fresh };
+        active = fresh;
+        continue;
+      }
+      const state = f.code === 'INVITE_EXPIRED' ? 'expired'
+        : f.code === 'INVITE_REVOKED' ? 'revoked'
+        : f.code === 'INVITE_USED' || f.code === 'MEMBER_ALREADY_CLAIMED' ? 'used'
+        : f.code === 'INVITE_INVALID' ? 'invalid' : null;
+      if (state) return { preview: { status: state } };
+      throw error;
+    }
+  }
 }
 
 // ---------- structural changes (online only) ----------

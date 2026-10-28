@@ -116,7 +116,12 @@ export type Household = {
   sync?: SyncMeta;
 };
 
-export type InviteInfo = { inviteId: ID; code: string; token: string; expiresAt: number; issued?: boolean };
+export type InviteInfo = {
+  inviteId: ID; code: string; token: string; expiresAt: number; issued?: boolean;
+  /** Metadata only on another device; invalidated secrets are never offered for sharing. */
+  state?: 'active' | 'unavailable' | 'elsewhere' | 'expired';
+  checkedAt?: number;
+};
 
 export type SyncMeta = {
   /** The account this copy belongs to. Only that account's session shows it. */
@@ -128,6 +133,8 @@ export type SyncMeta = {
   /** Pull cursors. */
   lastSeq: number;
   lastTextRev: number;
+  /** Authorized frozen snapshot: read history and erasures, but never send writes. */
+  frozen?: boolean;
   /** Set when the server refused something that needs a person to sort out. */
   paused?: { code: string; at: number };
   /** Per-person invites this device issued (owner only). */
