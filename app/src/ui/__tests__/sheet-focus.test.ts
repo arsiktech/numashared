@@ -8,6 +8,11 @@ class Control {
   disabled = false;
   hidden = false;
   visibility = 'visible';
+  inert = false;
+  attributes = new Map<string, string>();
+  getAttribute(name: string) { return this.attributes.get(name) ?? null; }
+  setAttribute(name: string, value: string) { this.attributes.set(name, value); }
+  removeAttribute(name: string) { this.attributes.delete(name); }
   children: Control[] = [];
   constructor(readonly ownerDocument: FocusDocument) {}
   contains(node: unknown): boolean { return node === this || this.children.some((child) => child.contains(node)); }
@@ -108,6 +113,8 @@ test('nested sheets keep foreground ownership and return to the exact opener', (
   const child = new Control(doc), childButton = new Control(doc);
   child.tabIndex = -1; child.children = [childButton];
   const releaseChild = own(child, note);
+  expect(root.inert).toBe(true);
+  expect(root.getAttribute('aria-hidden')).toBe('true');
   expect(ownsSheetFocus(dom(root))).toBe(false);
   expect(ownsSheetFocus(dom(child))).toBe(true);
   last.focus(); expect(doc.activeElement).toBe(child);
@@ -118,6 +125,8 @@ test('nested sheets keep foreground ownership and return to the exact opener', (
   if (ownsSheetFocus(dom(child))) escapeSheet(event, childClose);
   expect(parentClose).not.toHaveBeenCalled(); expect(childClose).toHaveBeenCalledOnce();
   releaseChild(); expect(doc.activeElement).toBe(note);
+  expect(root.inert).toBe(false);
+  expect(root.getAttribute('aria-hidden')).toBeNull();
   expect(ownsSheetFocus(dom(root))).toBe(true);
   releaseParent(); expect(doc.activeElement).toBe(opener);
   expect([...doc.listeners.values()].every((listeners) => listeners.size === 0)).toBe(true);
@@ -129,6 +138,21 @@ test('removing a background sheet does not take focus from the foreground sheet'
   const releaseParent = own(root, opener), child = new Control(doc);
   own(child, note); releaseParent();
   expect(doc.activeElement).toBe(child);
+});
+
+test('covered sheet attributes are restored even when a background sheet is removed first', () => {
+  const { doc, root, opener, note } = fixture();
+  root.setAttribute('aria-hidden', 'false');
+  const releaseParent = own(root, opener), middle = new Control(doc), top = new Control(doc);
+  const releaseMiddle = own(middle, note), releaseTop = own(top, middle);
+  expect(root.inert).toBe(true); expect(middle.inert).toBe(true);
+  releaseMiddle();
+  expect(middle.inert).toBe(false); expect(middle.getAttribute('aria-hidden')).toBeNull();
+  expect(doc.activeElement).toBe(top); expect(root.inert).toBe(true);
+  releaseTop();
+  expect(root.inert).toBe(false); expect(root.getAttribute('aria-hidden')).toBe('false');
+  expect(doc.activeElement).toBe(root);
+  releaseParent(); expect(doc.activeElement).toBe(opener);
 });
 
 test('closing a nested sheet falls back to its parent when the opener cannot take focus', () => {

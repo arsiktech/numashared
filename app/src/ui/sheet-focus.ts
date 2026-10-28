@@ -1,6 +1,27 @@
 // The outer dialog survives the animated panel replacement on web.
 const sheets: HTMLElement[] = [];
 export const ownsSheetFocus = (root: HTMLElement) => sheets.at(-1) === root;
+const coveredSheets = new Map<HTMLElement, { inert: boolean; hidden: string | null }>();
+
+function restoreSheetAccess(root: HTMLElement) {
+  const previous = coveredSheets.get(root);
+  if (!previous) return;
+  root.inert = previous.inert;
+  if (previous.hidden === null) root.removeAttribute('aria-hidden');
+  else root.setAttribute('aria-hidden', previous.hidden);
+  coveredSheets.delete(root);
+}
+
+function updateSheetAccess() {
+  for (const root of sheets) {
+    if (ownsSheetFocus(root)) restoreSheetAccess(root);
+    else if (!coveredSheets.has(root)) {
+      coveredSheets.set(root, { inert: root.inert, hidden: root.getAttribute('aria-hidden') });
+      root.inert = true;
+      root.setAttribute('aria-hidden', 'true');
+    }
+  }
+}
 
 /** Escape dismisses a sheet in one step, including from a text field. */
 export function escapeSheet(e: Pick<KeyboardEvent, 'key' | 'defaultPrevented' | 'isComposing' | 'preventDefault' | 'stopPropagation'>, close: () => void) {
@@ -71,6 +92,7 @@ export function takeSheetFocus(root: HTMLElement, opener: HTMLElement | null): (
   observer?.observe(root, { childList: true, subtree: true });
   if (root.contains(doc.activeElement)) last = doc.activeElement as HTMLElement;
   else root.focus({ preventScroll: true });
+  updateSheetAccess();
 
   return () => {
     const wasTop = ownsSheetFocus(root);
@@ -79,6 +101,8 @@ export function takeSheetFocus(root: HTMLElement, opener: HTMLElement | null): (
     observer?.disconnect();
     const index = sheets.lastIndexOf(root);
     if (index >= 0) sheets.splice(index, 1);
+    restoreSheetAccess(root);
+    updateSheetAccess();
     if (!wasTop) return;
     const parent = sheets.at(-1);
     const target = opener?.isConnected && (!parent || parent.contains(opener)) ? opener : parent;
