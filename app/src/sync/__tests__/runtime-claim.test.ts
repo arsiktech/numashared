@@ -2,7 +2,7 @@ import { afterEach, beforeEach, expect, test, vi } from 'vitest';
 import type { Household } from '../../core/types';
 const h = vi.hoisted(() => ({
   accountId: 'account-a', households: [] as Household[], calls: [] as Record<string, unknown>[],
-  resolve: null as null | ((value: unknown) => void), switches: [] as string[], clients: 0,
+  resolve: null as null | ((value: unknown) => void), switches: [] as string[], clients: 0, stale: false,
   auth: [] as ((options: { forceRefreshToken: boolean }) => Promise<string | null>)[],
 }));
 vi.mock('react-native', () => ({ Platform: { OS: 'web' }, AppState: { addEventListener() {} } }));
@@ -14,6 +14,7 @@ vi.mock('convex/browser', () => ({ ConvexClient: class {
   async query() { return []; }
   mutation(_ref: unknown, args: Record<string, unknown>) {
     h.calls.push(args);
+    if (h.stale) return Promise.reject({ data: { code: 'INVITE_TICKET_STALE', retryable: false } });
     if (h.accountId === 'account-b') return Promise.reject({ data: { code: 'INVITE_INVALID', retryable: false } });
     return new Promise(resolve => { h.resolve = resolve; });
   }
@@ -33,7 +34,7 @@ vi.mock('../auth', () => ({
 }));
 vi.mock('../config', () => ({ CONVEX_URL: 'https://sync.invalid', SITE_URL: 'https://site.invalid' }));
 const preview = { status: 'active', kind: 'perMember', potName: 'Synthetic', expiresAt: 1800000000000, minimumReaderSchemaVersion: 2, claimTicket: 'synthetic-ticket' } as const;
-beforeEach(() => { vi.resetModules(); vi.useFakeTimers(); h.accountId = 'account-a'; h.households = []; h.calls = []; h.resolve = null; h.switches = []; h.clients = 0; h.auth = []; });
+beforeEach(() => { vi.resetModules(); vi.useFakeTimers(); h.accountId = 'account-a'; h.households = []; h.calls = []; h.resolve = null; h.switches = []; h.clients = 0; h.auth = []; h.stale = false; });
 afterEach(() => { vi.clearAllTimers(); vi.useRealTimers(); });
 
 test('a screen timeout leaves one exact pending claim available to Retry', async () => {
@@ -57,4 +58,36 @@ test('a late claim reply cannot adopt or navigate another account', async () => 
   expect(h.households).toEqual([]); expect(h.switches).toEqual([]);
   await expect(runtime.joinWithInvite(preview)).rejects.toMatchObject({ data: { code: 'INVITE_INVALID' } });
   expect(h.calls).toHaveLength(2); expect(h.calls[1]).not.toEqual(h.calls[0]); expect(h.clients).toBe(2);
+});
+
+test('a stale-preview recheck cannot claim or navigate after the account changes', async () => {
+  const runtime = await import('../runtime');
+  h.stale = true;
+  type Preview = Omit<typeof preview, 'claimTicket'> & { claimTicket: string };
+  let release!: (value: Preview) => void;
+  const recheck = vi.fn(() => new Promise<Preview>(resolve => { release = resolve; }));
+  const remember = vi.fn();
+  const pending = runtime.joinWithInviteRecheck(preview, recheck, remember);
+  const failure = expect(pending).rejects.toMatchObject({ data: { code: 'ACCOUNT_CHANGED' } });
+  await vi.waitFor(() => expect(recheck).toHaveBeenCalledTimes(1));
+  h.accountId = 'account-b'; h.stale = false;
+  release({ ...preview, claimTicket: 'fresh-ticket' });
+  await failure;
+  expect(h.calls).toHaveLength(1);
+  expect(remember).not.toHaveBeenCalled();
+  expect(h.households).toEqual([]); expect(h.switches).toEqual([]);
+});
+
+test('a stale-preview recheck still joins once when its original account remains active', async () => {
+  const runtime = await import('../runtime');
+  h.stale = true;
+  const fresh = { ...preview, claimTicket: 'fresh-ticket' };
+  const remember = vi.fn();
+  const pending = runtime.joinWithInviteRecheck(preview, async () => { h.stale = false; return fresh; }, remember);
+  await vi.waitFor(() => expect(h.calls).toHaveLength(2));
+  h.resolve!({ potId: 'synthetic-pot', memberId: 'synthetic-member' });
+  await expect(pending).resolves.toEqual({ preview: fresh, result: { status: 'joined', householdId: 'synthetic-pot' } });
+  expect(remember).toHaveBeenCalledExactlyOnceWith(fresh);
+  expect(h.calls).toHaveLength(2); expect(h.clients).toBe(1);
+  expect(h.switches).toEqual(['synthetic-pot']);
 });

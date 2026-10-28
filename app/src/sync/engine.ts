@@ -589,10 +589,12 @@ async function reconcileAndIssueInvites(backend: Backend, access: Access, househ
   if (!h.people.some(p => p.id !== h.youId && !p.joined && !p.archived)) return;
   const metadata = () => backend.query<InviteMetadata[]>('members:listInvites', { potId: householdId });
   let live = await metadata();
-  const save = (personId: ID, invite: InviteInfo) => {
+  const save = (personId: ID, invite: InviteInfo | undefined) => {
     const latest = access.get(householdId);
     if (latest?.sync && latest.youId === h.youId && latest.sync.accountId === h.sync!.accountId) {
-      access.put({ ...latest, sync: { ...latest.sync, invites: { ...latest.sync.invites, [personId]: invite } } });
+      const invites = { ...latest.sync.invites };
+      if (invite) invites[personId] = invite; else delete invites[personId];
+      access.put({ ...latest, sync: { ...latest.sync, invites } });
     }
   };
   for (const person of h.people) {
@@ -630,7 +632,10 @@ async function reconcileAndIssueInvites(backend: Backend, access: Access, househ
     } catch (error) {
       const f = failureOf(error);
       if (f.retryable) throw new SyncError(f); // retain exact staged secrets for retry
-      if (f.code !== 'INVITE_PENDING_MEMBER_ALREADY_ACTIVE' && f.code !== 'MEMBER_ALREADY_CLAIMED') throw new SyncError(f);
+      if (f.code !== 'INVITE_PENDING_MEMBER_ALREADY_ACTIVE' && f.code !== 'MEMBER_ALREADY_CLAIMED') {
+        save(person.id, undefined); // the server definitively refused these staged credentials
+        throw new SyncError(f);
+      }
       // A competing device won. Never cancel its new code in a background/retry pass.
     }
     live = await metadata();

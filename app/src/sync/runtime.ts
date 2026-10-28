@@ -12,7 +12,7 @@ import { CONVEX_URL, SITE_URL } from './config';
 import { refreshContract } from './contract';
 import {
   base64url, isFrozenPot, inviteUsable, INVITE_RECHECK_MS,
-  addPersonOnline, adoptPots, deleteHouseholdOnline, removePersonOnline, claimInvite, failureOf, flush, issueInvites, leaveOnline, promote, pull,
+  addPersonOnline, adoptPots, deleteHouseholdOnline, removePersonOnline, claimInvite, claimInviteWithRecheck, failureOf, flush, issueInvites, leaveOnline, promote, pull,
   regroupOnline, renameOnline, resolveInvite, resume, retryReasons, stageSync, SEND_DELAY_MS,
   type Access, type Backend, type InvitePreview, type PotSummary,
 } from './engine';
@@ -252,7 +252,7 @@ export async function lookUpInvite(code: string): Promise<InvitePreview> {
   return resolveInvite(SITE_URL, code);
 }
 
-export async function joinWithInvite(preview: Extract<InvitePreview, { status: 'active' }>) {
+function bindInviteClaim() {
   if (!currentSession()) throw new NeedsSignIn();
   connect();
   const accountId = currentSession()!.accountId;
@@ -269,10 +269,39 @@ export async function joinWithInvite(preview: Extract<InvitePreview, { status: '
     query: async (name, args) => { assertAccount(); const result = await joiningClient.query(ref(name), args as never); assertAccount(); return result as never; },
     mutation: async (name, args) => { assertAccount(); const result = await joiningClient.mutation(ref(name), args as never); assertAccount(); return result as never; },
   };
-  const result = await within(claimInvite(bound, access, preview), 30_000);
-  assertAccount();
-  if (result.status === 'joined') switchHousehold(result.householdId);
-  return result;
+  return {
+    assertAccount,
+    claim: async (preview: Extract<InvitePreview, { status: 'active' }>) => {
+      assertAccount();
+      const result = await within(claimInvite(bound, access, preview), 30_000);
+      assertAccount();
+      if (result.status === 'joined') switchHousehold(result.householdId);
+      return result;
+    },
+  };
+}
+
+export async function joinWithInvite(preview: Extract<InvitePreview, { status: 'active' }>) {
+  return bindInviteClaim().claim(preview);
+}
+
+/** A refreshed preview belongs to the same account and client as the original Join action. */
+export async function joinWithInviteRecheck(
+  preview: Extract<InvitePreview, { status: 'active' }>,
+  recheck: () => Promise<InvitePreview>,
+  onPreview?: (preview: InvitePreview) => void,
+) {
+  const { claim, assertAccount } = bindInviteClaim();
+  try {
+    return await claimInviteWithRecheck(preview, claim, async () => {
+      assertAccount();
+      const fresh = await recheck();
+      assertAccount();
+      return fresh;
+    }, onPreview);
+  } finally {
+    assertAccount();
+  }
 }
 
 // ---------- card sync (convex/cardSync.ts) ----------

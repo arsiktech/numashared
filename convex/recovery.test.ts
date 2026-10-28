@@ -176,6 +176,29 @@ test('explicit replacement is idempotent after a lost issue reply and consumes q
   for (const row of after.invites) { expect(row).not.toHaveProperty('code'); expect(row).not.toHaveProperty('token'); }
 });
 
+test('a definitively rejected invite code is retired so Retry can issue a distinct code', async () => {
+  const f = await fixture();
+  await f.owner.mutation('members:addPendingMember', { potId: f.potId, displayName: 'Second guest',
+    event: membershipEvent(210, f.potId, { kind: 'memberAdded', memberId: id(6), unitId: id(7), role: 'member' }) });
+  await pull(f.owner, f.a, f.potId);
+  const h = f.a.get(f.potId)!;
+  const rejected = { inviteId: id(211), code: f.invite.code, token: 'synthetic-distinct-token-at-least-32-bytes', expiresAt: f.invite.expiresAt };
+  f.a.put({ ...h, sync: { ...h.sync!, invites: { ...h.sync!.invites, [id(6)]: rejected } } });
+  const quota = () => f.t.run(async ctx => (await ctx.db.query('accountWriteQuotas').collect()).filter(q => q.scope === 'inviteIssue'));
+  const before = await quota();
+  await expect(issueInvites(f.owner, f.a, f.potId)).rejects.toThrow('INVITE_CODE_UNAVAILABLE');
+  expect(f.a.get(f.potId)!.sync!.invites?.[id(6)]).toBeUndefined();
+  expect(await quota()).toEqual(before);
+  expect((await f.preview()).status).toBe('active');
+  await issueInvites(f.owner, f.a, f.potId);
+  const issued = f.a.get(f.potId)!.sync!.invites![id(6)];
+  expect(issued).toMatchObject({ issued: true, state: 'active' });
+  expect(issued.code).not.toBe(rejected.code); expect(issued.inviteId).not.toBe(rejected.inviteId);
+  expect((await quota())[0].count).toBe(before[0].count + 1n);
+  expect((await f.preview()).status).toBe('active');
+  expect(await f.owner.query('members:listInvites', { potId: f.potId })).toHaveLength(2);
+});
+
 test('stale unconsumed tickets are distinct, cannot admit, and a fresh check recovers without extending TTL', async () => {
   const f = await fixture(); const now = Date.now();
   const metadata = { eventId: id(201), occurredAtMillis: BigInt(now), originatingTimeZone: 'Europe/Madrid', schemaVersion: 2n };

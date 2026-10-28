@@ -12,8 +12,8 @@ import { Brand, Field, Screen, ScreenHeader } from '@/features/onboarding/chrome
 import { cleanCode, showCode } from '@/features/onboarding/model';
 import { explainFailure, SignInButtons, useSession, useSignInOptions } from '@/features/account/session';
 import { useStore } from '@/store/store';
-import { claimInviteWithRecheck, failureOf, type InvitePreview } from '@/sync/engine';
-import { joinWithInvite, lookUpInvite, requestSync } from '@/sync/runtime';
+import { failureOf, type InvitePreview } from '@/sync/engine';
+import { joinWithInviteRecheck, lookUpInvite, requestSync } from '@/sync/runtime';
 
 type Active = Extract<InvitePreview, { status: 'active' }>;
 
@@ -61,7 +61,7 @@ export default function Join() {
     setBusy(true);
     setError(null);
     try {
-      const outcome = await claimInviteWithRecheck(p, joinWithInvite, () => lookUpInvite(link ?? code), setPreview);
+      const outcome = await joinWithInviteRecheck(p, () => lookUpInvite(link ?? code), setPreview);
       setPreview(outcome.preview);
       const result = outcome.result;
       if (!result) return;
