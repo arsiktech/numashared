@@ -180,6 +180,9 @@ function DataGroup() {
       {h?.sync && !h.sync.setup ? (
         <SRow label="Card sync" sub="Add spends on chosen cards by themselves" icon={<View />} onPress={() => router.push('/settings/card-sync')} />
       ) : null}
+      {h?.sync && !h.sync.setup ? (
+        <SRow label="AI agents" sub="Let an assistant read your balances. It can't change anything" icon={<View />} onPress={() => router.push('/settings/agents')} />
+      ) : null}
       <SNote>History is permanent. Edits and voids stay visible to everyone.</SNote>
     </SGroup>
   );

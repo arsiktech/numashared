@@ -44,6 +44,8 @@ const accountSweep: Array<TableNames> = [
   "refreshTokenHistory",
   "accountWriteQuotas",
   "pushTokens",
+  "agentActivity",
+  "agentConnections",
   "appleIdentityNotifications",
 ];
 

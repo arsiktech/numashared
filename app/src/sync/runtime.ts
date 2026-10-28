@@ -273,6 +273,28 @@ export const cardSync = {
 /** Where the sync script sends spends. */
 export const CARD_SYNC_URL = `${SITE_URL}/card-sync/spends`;
 
+// ---------- AI agent access (convex/agentAccess.ts) ----------
+
+export type AgentConnection = { id: string; name: string; hint: string; potId: string | null; createdAt: number; lastUsedAt: number | null };
+export type AgentActivity = { id: string; agent: string; tool: string; ok: boolean; error: string | null; at: number };
+
+/** Where an agent connects. The secret goes after the slash. */
+export const AGENT_URL = `${SITE_URL}/mcp`;
+
+export const agents = {
+  list: () => within(backend.query<AgentConnection[]>('agentAccess:listMine', {})),
+  activity: () => within(backend.query<AgentActivity[]>('agentAccess:recentActivity', {})),
+  /** Connects a read-only agent. The secret is made here and shown once; only its SHA-256 reaches the server. */
+  connect: async (name: string, potId: string | null): Promise<{ link: string }> => {
+    const Crypto = await import('expo-crypto');
+    const secret = `nsag_${base64url(Crypto.getRandomBytes(32))}`;
+    const keyHash = (await Crypto.digestStringAsync(Crypto.CryptoDigestAlgorithm.SHA256, secret, { encoding: Crypto.CryptoEncoding.HEX })).toLowerCase();
+    await within(backend.mutation('agentAccess:connect', { name, keyHash, keyHint: secret.slice(0, 9), ...(potId ? { potId } : {}) }));
+    return { link: `${AGENT_URL}/${secret}` };
+  },
+  disconnect: (id: string) => within(backend.mutation('agentAccess:disconnect', { id })),
+};
+
 /** Online-only household changes. Each throws when offline so the screen can say so. */
 export const online = {
   addPerson: (h: Household, name: string) => within(addPersonOnline(backend, access, h.id, name)).then((id) => { issueInvites(backend, access, h.id).catch(() => {}); return id; }),
