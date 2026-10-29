@@ -11,8 +11,8 @@ import { accessToken, currentSession, forgetSession, loadSession, post, readDele
 import { CONVEX_URL, SITE_URL } from './config';
 import { refreshContract } from './contract';
 import {
-  base64url,
-  addPersonOnline, adoptPots, deleteHouseholdOnline, removePersonOnline, claimInvite, failureOf, flush, issueInvites, leaveOnline, promote, pull,
+  base64url, isFrozenPot, inviteUsable, INVITE_RECHECK_MS,
+  addPersonOnline, adoptPots, deleteHouseholdOnline, removePersonOnline, claimInvite, claimInviteWithRecheck, failureOf, flush, issueInvites, leaveOnline, promote, pull,
   regroupOnline, renameOnline, resolveInvite, resume, retryReasons, stageSync, SEND_DELAY_MS,
   type Access, type Backend, type InvitePreview, type PotSummary,
 } from './engine';
@@ -54,6 +54,7 @@ const fnName = Symbol.for('functionName');
 const ref = (name: string) => ({ [fnName]: name }) as never;
 
 let client: ConvexClient | null = null;
+let connectedAccountId: string | null = null;
 let unsubscribePots: (() => void) | null = null;
 let timer: ReturnType<typeof setInterval> | null = null;
 
@@ -86,6 +87,7 @@ const synced = () => getState().households.filter((h) => h.sync);
 let running: Promise<void> | null = null;
 let again = false;
 let latestPots: PotSummary[] | null = null;
+const inviteChecks = new Map<ID, number>();
 
 /** Runs a full sync now, or right after the one in progress. */
 export function requestSync(): Promise<void> {
@@ -115,10 +117,14 @@ async function syncOnce() {
         if (h.sync!.setup) await promote(backend, access, h.id);
         if (!pot && !h.sync!.setup) continue; // no longer a member: keep the local copy readable
         if (pot && (Number(pot.lastSequence) > h.sync!.lastSeq || Number(pot.lastTextRevision) > h.sync!.lastTextRev)) {
-          await pull(backend, access, h.id, { archived: pot.isArchived });
+          await pull(backend, access, h.id, { archived: isFrozenPot(pot) });
         }
+        if (pot && isFrozenPot(pot)) continue;
         await flush(backend, access, h.id);
-        if (h.sync!.role === 'owner') await issueInvites(backend, access, h.id);
+        if (h.sync!.role === 'owner' && Date.now() - (inviteChecks.get(h.id) ?? 0) >= INVITE_RECHECK_MS) {
+          inviteChecks.set(h.id, Date.now());
+          await issueInvites(backend, access, h.id);
+        }
       } catch (e) {
         const f = failureOf(e);
         if (!f.retryable) setStatus({ lastError: f.code });
@@ -135,17 +141,24 @@ async function syncOnce() {
 /** Sends queued events once their undo window has passed. */
 function tick() {
   const now = Date.now();
-  const due = synced().some((h) => !h.sync!.paused && h.events.some((e) => e.seq === undefined && now - e.at >= SEND_DELAY_MS));
+  const due = synced().some((h) => !h.sync!.frozen && !h.sync!.paused && h.events.some((e) => e.seq === undefined && now - e.at >= SEND_DELAY_MS));
   if (due) void requestSync();
 }
 
 // ---------- lifecycle ----------
 
 function connect() {
+  const accountId = currentSession()?.accountId ?? null;
+  if (client && connectedAccountId !== accountId) disconnect();
   if (client) return;
+  connectedAccountId = accountId;
   client = new ConvexClient(CONVEX_URL, { unsavedChangesWarning: false });
   client.setAuth(
-    async ({ forceRefreshToken }) => accessToken(forceRefreshToken),
+    async ({ forceRefreshToken }) => {
+      if (currentSession()?.accountId !== accountId) return null;
+      const token = await accessToken(forceRefreshToken);
+      return currentSession()?.accountId === accountId ? token : null;
+    },
     (isAuthenticated) => setStatus({ connected: isAuthenticated }),
   );
   unsubscribePots = client.onUpdate(ref('pots:listMyPots'), {} as never, (pots: PotSummary[]) => {
@@ -164,6 +177,9 @@ function disconnect() {
   timer = null;
   const c = client;
   client = null;
+  connectedAccountId = null;
+  latestPots = null;
+  inviteChecks.clear();
   void c?.close();
   setStatus({ signedIn: false, connected: false, busy: false, ready: false });
 }
@@ -236,12 +252,56 @@ export async function lookUpInvite(code: string): Promise<InvitePreview> {
   return resolveInvite(SITE_URL, code);
 }
 
-export async function joinWithInvite(preview: Extract<InvitePreview, { status: 'active' }>) {
+function bindInviteClaim() {
   if (!currentSession()) throw new NeedsSignIn();
   connect();
-  const result = await within(claimInvite(backend, access, preview), 30_000);
-  if (result.status === 'joined') switchHousehold(result.householdId);
-  return result;
+  const accountId = currentSession()!.accountId;
+  const joiningClient = client!;
+  const assertAccount = () => {
+    if (currentSession()?.accountId !== accountId || client !== joiningClient) {
+      throw { data: { code: 'ACCOUNT_CHANGED', retryable: true } };
+    }
+  };
+  // The background adapter follows the current session; a foreground claim must not.
+  // Check both sides of every await so a late reply cannot populate the next account.
+  const bound: Backend = {
+    accountId,
+    query: async (name, args) => { assertAccount(); const result = await joiningClient.query(ref(name), args as never); assertAccount(); return result as never; },
+    mutation: async (name, args) => { assertAccount(); const result = await joiningClient.mutation(ref(name), args as never); assertAccount(); return result as never; },
+  };
+  return {
+    assertAccount,
+    claim: async (preview: Extract<InvitePreview, { status: 'active' }>) => {
+      assertAccount();
+      const result = await within(claimInvite(bound, access, preview), 30_000);
+      assertAccount();
+      if (result.status === 'joined') switchHousehold(result.householdId);
+      return result;
+    },
+  };
+}
+
+export async function joinWithInvite(preview: Extract<InvitePreview, { status: 'active' }>) {
+  return bindInviteClaim().claim(preview);
+}
+
+/** A refreshed preview belongs to the same account and client as the original Join action. */
+export async function joinWithInviteRecheck(
+  preview: Extract<InvitePreview, { status: 'active' }>,
+  recheck: () => Promise<InvitePreview>,
+  onPreview?: (preview: InvitePreview) => void,
+) {
+  const { claim, assertAccount } = bindInviteClaim();
+  try {
+    return await claimInviteWithRecheck(preview, claim, async () => {
+      assertAccount();
+      const fresh = await recheck();
+      assertAccount();
+      return fresh;
+    }, onPreview);
+  } finally {
+    assertAccount();
+  }
 }
 
 // ---------- card sync (convex/cardSync.ts) ----------
@@ -282,6 +342,12 @@ export const online = {
   removePerson: (h: Household, personId: ID) => within(removePersonOnline(backend, access, h.id, personId)),
   deleteHousehold: (h: Household) => within(deleteHouseholdOnline(backend, access, h.id), 30_000),
   invites: (h: Household) => within(issueInvites(backend, access, h.id)),
+  invite: (h: Household, memberId: ID) => within((async () => {
+    await issueInvites(backend, access, h.id);
+    const invite = access.get(h.id)?.sync?.invites?.[memberId];
+    return inviteUsable(invite) ? invite! : null;
+  })()),
+  replaceInvite: (h: Household, memberId: ID, inviteId: ID) => within(issueInvites(backend, access, h.id, Date.now(), { memberId, inviteId })),
   retry: (h: Household) => { resume(access, h.id); return requestSync(); },
 };
 

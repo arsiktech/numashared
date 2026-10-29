@@ -15,6 +15,7 @@ import { CategoryIcon, Plus, Warn } from '@/ui/icons';
 import { BigAmount, Keypad, SplitBar, Word, type SplitSegment } from '@/ui/money-ui';
 import { Avatar, Banner, BannerText, CTA, haptic, Press, T, TChip } from '@/ui/primitives';
 import { saveGuard, Sheet, SheetScrollView, useSheet } from '@/ui/sheet';
+import { forwardSheetInputKey } from '@/ui/sheet-focus';
 import { isShortSheet, pinsKeypad, SHORT_KEY_HEIGHT } from '@/features/add/layout';
 import { useTheme } from '@/ui/theme';
 import { alpha, fonts, isWeb, type GroupTone } from '@/ui/tokens';
@@ -219,7 +220,7 @@ function AddBody({ h, spec, draft, set, t, pop }: {
     setTimeout(() => noteRef.current?.focus(), 0);
   };
 
-  useWebKeys(isTop && panel !== 'newcat', { onKey, onEnter: save, onTab: focusNote });
+  useWebKeys(isTop && panel !== 'newcat', { onKey, onEnter: save, onTab: details ? focusNote : undefined });
 
   const pickSuggestion = (s: Suggestion) => {
     haptic.tick();
@@ -472,10 +473,13 @@ function AddBody({ h, spec, draft, set, t, pop }: {
   let slot: ReactNode;
   if (panel === 'date') slot = dateRow;
   else if (panel === 'payer') slot = peopleRow;
-  else if (details && (catOpen || noteEditing)) slot = noteLine;
+  else if (!isWeb && details && (catOpen || noteEditing)) slot = noteLine;
   else if (edit && details) slot = reasonRow;
   else if (showSuggestions) slot = suggestionRow;
-  else slot = details ? noteLine : null;
+  else slot = !isWeb && details ? noteLine : null;
+
+  // Keep the web note in one position while picker and suggestion rows change.
+  const rows = isWeb ? <View style={{ gap: 12 }}>{details ? noteLine : null}{slot}</View> : slot;
 
   const keypadArea = panel === 'category' ? <View style={{ paddingHorizontal: 10, paddingTop: 6 }}>{grid}</View>
     : panel === 'newcat' ? <View style={{ paddingHorizontal: 10, paddingTop: 6 }}>{newField}</View>
@@ -492,7 +496,7 @@ function AddBody({ h, spec, draft, set, t, pop }: {
             {wasLine}
             {categoryLine}
             {picking ? <View style={{ marginTop: 12 }}>{panel === 'category' ? grid : newField}</View> : null}
-            {slot ? <View style={{ marginTop: 12 }}>{slot}</View> : null}
+            {rows ? <View style={{ marginTop: 12 }}>{rows}</View> : null}
           </View>
           <View style={{ marginHorizontal: 16, marginTop: 16, padding: 16, borderRadius: 22, backgroundColor: c.bg, gap: 12 }}>{split}</View>
         </SheetScrollView>
@@ -519,7 +523,7 @@ function AddBody({ h, spec, draft, set, t, pop }: {
         <SheetScrollView style={{ flex: 1 }} contentContainerStyle={{ paddingBottom: 12 }} keyboardShouldPersistTaps="handled">
           <View style={{ paddingHorizontal: 22, paddingTop: 6 }}>
             {sentence}
-            <View style={{ marginTop: 12 }}>{slot}</View>
+            <View style={{ marginTop: 12 }}>{rows}</View>
           </View>
           <View style={{ paddingHorizontal: 12, paddingTop: 8 }}>
             {keypadArea ?? <Keypad onKey={(k) => onKey(k as Key)} color={t.ink} height={SHORT_KEY_HEIGHT} allowDot={currencyDigits(cur) > 0} />}
@@ -536,7 +540,7 @@ function AddBody({ h, spec, draft, set, t, pop }: {
       {head}
       <View style={{ paddingHorizontal: 22, paddingTop: 6 }}>
         {sentence}
-        <View style={{ marginTop: 12 }}>{slot}</View>
+        <View style={{ marginTop: 12 }}>{rows}</View>
       </View>
       <View style={{ flex: 1, minHeight: 0, overflow: 'hidden', justifyContent: panel === 'category' || panel === 'newcat' ? 'flex-start' : 'flex-end', paddingHorizontal: 12, paddingTop: 8 }} onLayout={(e) => {
         const room = e.nativeEvent.layout.height;
@@ -586,13 +590,15 @@ function CategoryGrid({ tone: t, value, custom, onPick, onNew, compact, large }:
 function NewCategory({ tone: t, value, onChange, onDone, onBack }: {
   tone: GroupTone; value: string; onChange: (v: string) => void; onDone: () => void; onBack: () => void;
 }) {
+  const { escape } = useSheet();
   return (
     <View style={{ gap: 10 }}>
       <T style={{ fontFamily: fonts.semibold, fontSize: 14, color: t.ink }}>Name it</T>
       <View style={{ minHeight: 48, borderRadius: 14, paddingHorizontal: 14, justifyContent: 'center', backgroundColor: alpha(t.ink, 0.09) }}>
         <TextInput value={value} onChangeText={onChange} autoFocus placeholder="Pizza night" placeholderTextColor={alpha(t.ink, 0.55)} maxLength={40}
-          accessibilityLabel="Category name" returnKeyType="done" onSubmitEditing={onDone}
-          style={[{ minHeight: 48, fontFamily: fonts.semibold, fontSize: 18, color: t.ink, paddingVertical: 0 }, isWeb ? ({ outlineStyle: 'none' } as object) : null]} />
+          accessibilityLabel={isWeb ? 'Name it: category name' : 'Category name'} returnKeyType="done" onSubmitEditing={onDone}
+          onKeyPress={isWeb ? (e) => forwardSheetInputKey(e, escape) : undefined}
+          style={[{ minHeight: 48, fontFamily: fonts.semibold, fontSize: 18, color: t.ink, paddingVertical: 0 }, isWeb ? ({ outlineStyle: 'auto' } as object) : null]} />
       </View>
       <View style={{ flexDirection: 'row', gap: 8 }}>
         <TChip tone={t} on label="Done" onPress={onDone} />
