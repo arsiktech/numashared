@@ -45,6 +45,7 @@
     "start": "expo start",
     "ios": "expo run:ios",
     "android": "expo run:android",
+    "android:bundle": "node scripts/android-bundle.mjs",
     "web": "expo start --web",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",

@@ -152,10 +152,10 @@ function NotificationsRow() {
   const prefs = useStore((s) => s.prefs);
   const session = useSession();
   const canPush = !!session && !isAndroid && !isWeb;
-  const sub = canPush ? 'When someone adds, edits or repays' : session ? 'On iPhone for now' : 'After you sign in';
+  const sub = isAndroid ? 'Not available on Android yet' : canPush ? 'When someone adds, edits or repays' : session ? 'On iPhone for now' : 'After you sign in';
   return (
     <SRow label="Notifications" sub={sub} icon={<Bell size={22} color={c.ink2} />} a11y={`Notifications, ${sub}`} last
-      right={<Toggle label="Notifications" value={prefs.notifications && canPush} android={isAndroid}
+      right={isAndroid ? null : <Toggle label="Notifications" value={prefs.notifications && canPush} android={isAndroid}
         onChange={async (v) => {
           if (!canPush) { showToast(sub); return; }
           setPrefs({ notifications: v });
