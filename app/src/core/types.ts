@@ -132,6 +132,11 @@ export type SyncMeta = {
   paused?: { code: string; at: number };
   /** Per-person invites this device issued (owner only). */
   invites?: Record<ID, InviteInfo>;
+  /**
+   * People whose live code was made on another of the owner's devices. This device can't read
+   * that code, so it offers to make a new one here instead of showing a code that no longer works.
+   */
+  invitesElsewhere?: Record<ID, true>;
   /** Local events the server rejected for good, kept so the UI can say what didn't save. */
   rejected?: { eventId: ID; code: string; label: string; at: number }[];
   /** Server events this app can't show (made by a newer or older app). */
