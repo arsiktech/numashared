@@ -15,6 +15,7 @@ import {
   claimInvite,
   flush,
   issueInvites,
+  inviteUsable,
   pull,
   resolveInvite,
   startSync,
@@ -313,6 +314,57 @@ describe("app sync engine against the backend", () => {
     expect(a.sync!.invites![zoe].issued).toBe(true);
     await pull(leo, phoneB, id);
     expect(phoneB.get(id)!.people.some((p) => p.id === zoe)).toBe(true);
+  });
+
+  test("an owner's second device never leaves a dead code on show, and devices don't cancel each other's codes", async () => {
+    const t = convexTest(schema, modules);
+    await fenceBuild11(t);
+    const ana = await signIn(t, "ana");
+    const phoneA = phone();
+    phoneA.put(localHousehold());
+    const id = await startSync(ana, phoneA, "h_local");
+    await issueInvites(ana, phoneA, id);
+    const a = phoneA.get(id)!;
+    const leoId = a.people.find((p) => p.name === "Leo")!.id;
+    const miaId = a.people.find((p) => p.name === "Mia")!.id;
+    const fetchFromSite = ((url: string, init?: RequestInit) => t.fetch(new URL(url).pathname + new URL(url).search, init)) as typeof fetch;
+    const status = async (code: string) => (await resolveInvite("http://127.0.0.1:3211", code, fetchFromSite)).status;
+    const firstLeo = a.sync!.invites![leoId].code;
+    const firstMia = a.sync!.invites![miaId].code;
+
+    // The same owner signs in on another device. It can't read phone A's codes, so it says so
+    // and leaves them working.
+    const phoneA2 = phone();
+    phoneA2.put({ ...a, sync: { ...a.sync!, invites: undefined } });
+    await issueInvites(ana, phoneA2, id);
+    for (const p of [leoId, miaId]) {
+      expect(phoneA2.get(id)!.sync!.invites![p].state).toBe("elsewhere");
+      expect(inviteUsable(phoneA2.get(id)!.sync!.invites![p])).toBe(false);
+    }
+    expect(await status(firstLeo)).toBe("active");
+    expect(await status(firstMia)).toBe("active");
+
+    // Asked to, device 2 makes Leo a new code. Phone A then stops showing Leo's old one.
+    const leoElsewhere = phoneA2.get(id)!.sync!.invites![leoId].inviteId;
+    await issueInvites(ana, phoneA2, id, Date.now(), { memberId: leoId, inviteId: leoElsewhere });
+    const secondLeo = phoneA2.get(id)!.sync!.invites![leoId];
+    expect(inviteUsable(secondLeo)).toBe(true);
+    expect(phoneA2.get(id)!.sync!.invites![miaId].state).toBe("elsewhere");
+    expect(await status(firstLeo)).toBe("revoked");
+    expect(await status(secondLeo.code)).toBe("active");
+    await issueInvites(ana, phoneA, id);
+    expect(phoneA.get(id)!.sync!.invites![leoId].state).toBe("elsewhere");
+    expect(phoneA.get(id)!.sync!.invites![leoId].code).toBe("");
+    expect(phoneA.get(id)!.sync!.invites![miaId].code).toBe(firstMia);
+
+    // Further syncs on both devices keep every live code working.
+    for (let i = 0; i < 2; i++) {
+      await issueInvites(ana, phoneA, id);
+      await issueInvites(ana, phoneA2, id);
+    }
+    expect(await status(secondLeo.code)).toBe("active");
+    expect(await status(firstMia)).toBe("active");
+    expect(phoneA2.get(id)!.sync!.invites![leoId].code).toBe(secondLeo.code);
   });
 
   test("until Swift build 11 is fenced out, both ends keep its text and group-size contract", async () => {

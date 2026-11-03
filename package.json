@@ -17,6 +17,6 @@
     "convex": "1.42.1",
     "convex-test": "0.0.54",
     "typescript": "5.9.3",
-    "vitest": "4.1.11"
+    "vitest": "4.1.12"
   }
 }
