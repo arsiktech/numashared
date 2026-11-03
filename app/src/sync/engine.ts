@@ -547,49 +547,88 @@ export function base64url(bytes: Uint8Array): string {
 
 export const newInviteCode = () => Array.from(random(6), (b) => CODE_ALPHABET[b & 31]).join('');
 
+type LiveInvite = { inviteId: string; kind: string; pendingMemberId?: string; expiresAt: number };
+
 /**
  * Makes sure every invited person who hasn't joined has a personal invite code (owner only).
  * Each code works once, for that person, for about a month.
+ *
+ * The server keeps one live code per person and stores only its hash, so a code made on another
+ * of the owner's devices can't be shown here. Each run checks this device's codes against the
+ * server: a code that was replaced elsewhere is dropped, and that person is marked
+ * `invitesElsewhere` instead of showing a dead code. Only `replace` (the owner asking for a new
+ * code on this device) cancels a code another device made, so two devices never take turns
+ * cancelling each other's codes.
  */
-export async function issueInvites(backend: Backend, access: Access, householdId: ID, now = Date.now()): Promise<void> {
+export async function issueInvites(
+  backend: Backend, access: Access, householdId: ID, now = Date.now(), replace?: ID,
+): Promise<void> {
   const h = access.get(householdId);
   if (!h?.sync || h.sync.setup || h.sync.role !== 'owner') return;
-  for (const person of h.people) {
-    const cur = access.get(householdId)!;
-    if (person.id === cur.youId || person.joined || person.archived) continue;
-    const existing = cur.sync!.invites?.[person.id];
-    if (existing && existing.expiresAt > now + DAY && existing.issued) continue;
-    const invite: InviteInfo = existing && !existing.issued && existing.expiresAt > now + DAY
+  const pending = h.people.filter((p) => p.id !== h.youId && !p.joined && !p.archived);
+  if (!pending.length) return;
+  let live: LiveInvite[];
+  try {
+    live = await backend.query<LiveInvite[]>('members:listInvites', { potId: householdId });
+  } catch (error) {
+    throw new SyncError(failureOf(error));
+  }
+  const save = (personId: ID, invite: InviteInfo | null, elsewhere: boolean) => {
+    const latest = access.get(householdId)!;
+    const invites = { ...latest.sync!.invites };
+    const away = { ...latest.sync!.invitesElsewhere };
+    if (invite) invites[personId] = invite; else delete invites[personId];
+    if (elsewhere) away[personId] = true; else delete away[personId];
+    access.put({ ...latest, sync: { ...latest.sync!, invites, invitesElsewhere: away } });
+  };
+  for (const person of pending) {
+    const existing = access.get(householdId)!.sync!.invites?.[person.id];
+    const theirs = live.filter((x) => x.kind === 'perMember' && x.pendingMemberId === person.id && x.expiresAt > now);
+    const ours = existing ? theirs.find((x) => x.inviteId === existing.inviteId) : undefined;
+    const others = theirs.filter((x) => x !== ours);
+    const wanted = replace === person.id;
+    if (ours && existing && existing.expiresAt > now + DAY && !wanted && !others.length) {
+      // Still the live code. A send that reached the server but not the phone counts as issued.
+      if (!existing.issued || access.get(householdId)!.sync!.invitesElsewhere?.[person.id]) save(person.id, { ...existing, issued: true }, false);
+      continue;
+    }
+    if (others.length && !wanted) {
+      // Another device made the live code: don't show ours, and don't cancel theirs on our own.
+      save(person.id, null, true);
+      continue;
+    }
+    // Cancel what this new code replaces: our own expiring code, or (when asked) another device's.
+    for (const old of [...(ours ? [ours] : []), ...(wanted ? others : [])]) {
+      try {
+        await backend.mutation('members:revokeInvite', { potId: householdId, inviteId: old.inviteId });
+      } catch (error) {
+        const f = failureOf(error);
+        if (f.retryable) throw new SyncError(f);
+        if (f.code !== 'INVITE_ALREADY_USED') throw new SyncError(f);
+      }
+    }
+    const invite: InviteInfo = existing && !existing.issued && !ours && existing.expiresAt > now + DAY
       ? existing
       : { inviteId: uuidv7(now), code: newInviteCode(), token: base64url(random(32)), expiresAt: now + 29 * DAY };
-    access.put({ ...cur, sync: { ...cur.sync!, invites: { ...cur.sync!.invites, [person.id]: invite } } });
-    const send = () => backend.mutation('members:issueInvite', {
-      potId: householdId, inviteId: invite.inviteId, kind: 'perMember', pendingMemberId: person.id,
-      token: invite.token, code: invite.code, expiresAt: invite.expiresAt,
-    });
+    save(person.id, invite, false);
     try {
-      await send();
+      await backend.mutation('members:issueInvite', {
+        potId: householdId, inviteId: invite.inviteId, kind: 'perMember', pendingMemberId: person.id,
+        token: invite.token, code: invite.code, expiresAt: invite.expiresAt,
+      });
     } catch (error) {
       const f = failureOf(error);
       if (f.retryable) throw new SyncError(f);
       if (f.code === 'INVITE_PENDING_MEMBER_ALREADY_ACTIVE') {
-        // Another device issued this person's code; its code isn't readable here. Replace it.
-        const live = await backend.query<{ inviteId: string; kind: string; pendingMemberId?: string }[]>('members:listInvites', { potId: householdId });
-        for (const old of live.filter((x) => x.kind === 'perMember' && x.pendingMemberId === person.id)) {
-          await backend.mutation('members:revokeInvite', { potId: householdId, inviteId: old.inviteId });
-        }
-        await send();
-      } else {
-        const latest = access.get(householdId)!;
-        const invites = { ...latest.sync!.invites };
-        delete invites[person.id];
-        access.put({ ...latest, sync: { ...latest.sync!, invites } });
-        if (f.code === 'MEMBER_ALREADY_CLAIMED') continue;
-        throw new SyncError(f);
+        // Another device made a code a moment ago. Keep theirs; this device offers a new one.
+        save(person.id, null, true);
+        continue;
       }
+      save(person.id, null, false);
+      if (f.code === 'MEMBER_ALREADY_CLAIMED') continue;
+      throw new SyncError(f);
     }
-    const latest = access.get(householdId)!;
-    access.put({ ...latest, sync: { ...latest.sync!, invites: { ...latest.sync!.invites, [person.id]: { ...invite, issued: true } } } });
+    save(person.id, { ...invite, issued: true }, false);
   }
 }
 

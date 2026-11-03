@@ -111,8 +111,15 @@ function Codes({ h }: { h: Household }) {
 
 function CodeCard({ h, p }: { h: Household; p: Person }) {
   const { c } = useTheme();
+  const [busy, setBusy] = useState(false);
   const invite = h.sync!.invites?.[p.id];
   const ready = invite?.issued;
+  // The live code was made on another of your devices; it can't be shown here.
+  const elsewhere = !ready && !!h.sync!.invitesElsewhere?.[p.id];
+  const makeHere = async () => {
+    setBusy(true);
+    try { await online.newInvite(h, p.id); } catch (e) { showToast(explainFailure(failureOf(e).code)); } finally { setBusy(false); }
+  };
   const code = ready ? showCode(invite.code) : '';
   const link = ready ? `${PUBLIC_SITE_URL}/join/${invite.token}?code=${invite.code}` : '';
   return (
@@ -125,7 +132,7 @@ function CodeCard({ h, p }: { h: Household; p: Person }) {
         {ready ? (
           <T selectable accessibilityLabel={`${p.name}’s code ${invite.code.split('').join(' ')}`}
             style={{ fontFamily: fonts.semibold, fontSize: 24, letterSpacing: 3, fontVariant: ['tabular-nums'] }}>{code}</T>
-        ) : <T style={{ fontSize: 14, color: c.ink2 }}>Making a code…</T>}
+        ) : <T style={{ fontSize: 14, color: c.ink2 }}>{elsewhere && !busy ? 'Code is on another device' : 'Making a code…'}</T>}
       </View>
       {ready ? (
         <View style={{ flexDirection: 'row', gap: 10 }}>
@@ -135,6 +142,11 @@ function CodeCard({ h, p }: { h: Household; p: Person }) {
           <Pill light label="Copy code" style={{ flex: 1, height: 44, borderRadius: 22, alignSelf: 'auto' }} icon={<Copy size={17} color={c.ink} />}
             accessibilityLabel={`Copy ${p.name}’s code`} onPress={() => shareText(invite.code, 'Code copied')} />
         </View>
+      ) : elsewhere ? (
+        <Pill light label={busy ? 'Making a code…' : 'Make a new code here'}
+          style={{ height: 44, borderRadius: 22, alignSelf: 'auto' }}
+          accessibilityLabel={`Make a new code for ${p.name} here. The code made on your other device stops working.`}
+          onPress={busy ? undefined : makeHere} />
       ) : null}
     </View>
   );

@@ -282,6 +282,8 @@ export const online = {
   removePerson: (h: Household, personId: ID) => within(removePersonOnline(backend, access, h.id, personId)),
   deleteHousehold: (h: Household) => within(deleteHouseholdOnline(backend, access, h.id), 30_000),
   invites: (h: Household) => within(issueInvites(backend, access, h.id)),
+  /** Makes a new code for this person here, cancelling one made on another device. */
+  newInvite: (h: Household, personId: ID) => within(issueInvites(backend, access, h.id, Date.now(), personId)),
   retry: (h: Household) => { resume(access, h.id); return requestSync(); },
 };
 
