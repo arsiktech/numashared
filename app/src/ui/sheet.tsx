@@ -12,6 +12,7 @@ import type { Origin } from '@/store/ui';
 import { useTheme } from './theme';
 import { haptic } from './primitives';
 import { alpha, isWeb } from './tokens';
+import { escapeSheet, ownsSheetFocus, takeSheetFocus } from './sheet-focus';
 
 /**
  * How far a phone sheet covers the screen, 0 to 1. The app shell shrinks the screen behind by it,
@@ -19,8 +20,8 @@ import { alpha, isWeb } from './tokens';
  */
 export const sheetBackdrop = makeMutable(0);
 
-type SheetCtx = { close: (how?: 'down' | 'done') => void; scroll?: { native: NativeGesture; y: SharedValue<number> } };
-const Ctx = createContext<SheetCtx>({ close: () => {} });
+type SheetCtx = { close: (how?: 'down' | 'done') => void; escape: () => void; scroll?: { native: NativeGesture; y: SharedValue<number> } };
+const Ctx = createContext<SheetCtx>({ close: () => {}, escape: () => {} });
 export const useSheet = () => useContext(Ctx);
 
 /**
@@ -56,6 +57,8 @@ export function Sheet({ origin, onClosed, children, background, height = 'full',
   const drag = useSharedValue(0);
   const [phase, setPhase] = useState<'opening' | 'open' | 'closing'>('opening');
   const closing = useRef(false);
+  const focusRoot = useRef<View>(null);
+  const [focusReturn] = useState(() => isWeb && typeof document !== 'undefined' ? document.activeElement as HTMLElement | null : null);
   const bloom = !!origin && !reduceMotion;
 
   const R = origin ? Math.hypot(Math.max(origin.x, W - origin.x), Math.max(origin.y, H - origin.y)) + 8 : 0;
@@ -92,12 +95,21 @@ export function Sheet({ origin, onClosed, children, background, height = 'full',
 
   useEffect(() => {
     if (!isWeb) return;
+    const root = focusRoot.current as unknown as HTMLElement | null;
+    if (root) return takeSheetFocus(root, focusReturn);
+  }, [focusReturn]);
+
+  const escape = useCallback(() => {
+    const root = focusRoot.current as unknown as HTMLElement | null;
+    if (root && ownsSheetFocus(root)) close();
+  }, [close]);
+
+  useEffect(() => {
+    if (!isWeb) return;
     const onKey = (e: KeyboardEvent) => {
-      if (e.key !== 'Escape') return;
-      const el = document.activeElement as HTMLElement | null;
-      // Esc inside a text field leaves the field first; a second Esc closes the sheet.
-      if (el && (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA')) { el.blur(); return; }
-      close();
+      const root = focusRoot.current as unknown as HTMLElement | null;
+      if (!root || !ownsSheetFocus(root)) return;
+      escapeSheet(e, close);
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
@@ -153,18 +165,18 @@ export function Sheet({ origin, onClosed, children, background, height = 'full',
   const top = height === 'full' ? (isWeb ? Math.max(insets.top - 22, 10) + 12 : insets.top + 10) : undefined;
 
   const panelStyle: StyleProp<ViewStyle> = popover && origin
-    ? { position: 'absolute', width: 420, maxWidth: W - 24, left: Math.min(Math.max(16, origin.x - 300), W - 436), top: Math.max(16, Math.min(origin.y + origin.r + 12, H - 660)), borderRadius: 28, overflow: 'hidden',
+    ? { position: 'absolute', width: 420, maxWidth: W - 24, maxHeight: isWeb ? H - 32 : undefined, left: Math.min(Math.max(16, origin.x - 300), W - 436), top: Math.max(16, Math.min(origin.y + origin.r + 12, H - 660)), borderRadius: 28, overflow: 'hidden',
       backgroundColor: background ?? c.bg, shadowColor: '#141814', shadowOpacity: 0.28, shadowRadius: 40, shadowOffset: { width: 0, height: 30 } }
     : { position: 'absolute', left: 0, right: 0, bottom: 0, top, borderTopLeftRadius: 30, borderTopRightRadius: 30, overflow: 'hidden', backgroundColor: background ?? c.bg,
       // No alignSelf here: browsers apply align-self to absolute boxes and would shrink the sheet to
       // its content. Equal insets plus auto margins already center it under the max width.
       maxWidth: isWeb ? 560 : undefined, marginHorizontal: 'auto' as never };
 
-  const ctx = useMemo<SheetCtx>(() => ({ close, scroll: popover ? undefined : { native, y: scrollY } }), [close, popover, native, scrollY]);
+  const ctx = useMemo<SheetCtx>(() => ({ close, escape, scroll: popover ? undefined : { native, y: scrollY } }), [close, escape, popover, native, scrollY]);
   const panel = (
     // While it closes the sheet takes no more input, so a second tap can't act twice.
     <GestureDetector gesture={pan}>
-      <Animated.View style={[panelStyle, panelDrag, fadeIn]} accessibilityViewIsModal accessibilityLabel={label}
+      <Animated.View style={[panelStyle, panelDrag, fadeIn, isWeb && popover ? ({ overflowY: 'auto' } as object) : null]} accessibilityViewIsModal accessibilityLabel={isWeb ? undefined : label}
         pointerEvents={phase === 'closing' ? 'none' : 'auto'}>
         <Animated.View style={[{ flex: height === 'full' ? 1 : undefined }, content]}>
           <Ctx.Provider value={ctx}>
@@ -179,7 +191,9 @@ export function Sheet({ origin, onClosed, children, background, height = 'full',
   );
 
   return (
-    <View style={StyleSheet.absoluteFill} pointerEvents="box-none">
+    <View ref={focusRoot} style={StyleSheet.absoluteFill} pointerEvents="box-none"
+      role={isWeb ? 'dialog' : undefined} aria-modal={isWeb ? true : undefined}
+      accessibilityLabel={isWeb ? label : undefined} tabIndex={isWeb ? -1 : undefined}>
       <Animated.View style={[StyleSheet.absoluteFill, { backgroundColor: popover ? 'rgba(18,20,16,0.18)' : stacked ? 'rgba(0,0,0,0.22)' : c.scrim }, scrimStyle]}>
         <View style={StyleSheet.absoluteFill} onTouchEnd={() => close()} accessibilityLabel="Close" accessibilityRole="button" />
       </Animated.View>

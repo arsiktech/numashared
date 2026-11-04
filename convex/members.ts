@@ -268,7 +268,7 @@ async function existingMembershipEventSequence(
 type InviteCredentialLookup = {
   invite: Doc<"invites">;
   canCreate: boolean;
-  createFailureCode?: "INVITE_INVALID" | "INVITE_EXPIRED";
+  createFailureCode?: "INVITE_INVALID" | "INVITE_EXPIRED" | "INVITE_REVOKED" | "INVITE_USED" | "INVITE_TICKET_STALE";
 };
 
 function credentialLookup(
@@ -288,10 +288,12 @@ function credentialLookup(
     ...(canCreate
       ? {}
       : {
-        createFailureCode: credentialFresh
-          && invite.status === "active"
-          && inviteExpired
-          ? "INVITE_EXPIRED" as const
+        // Existing exact receipts are checked before this admission failure. An old
+        // ticket is not evidence that an otherwise active invite has been used.
+        createFailureCode: invite.status === "revoked" ? "INVITE_REVOKED" as const
+          : invite.status === "consumed" ? "INVITE_USED" as const
+          : inviteExpired ? "INVITE_EXPIRED" as const
+          : !credentialFresh ? "INVITE_TICKET_STALE" as const
           : "INVITE_INVALID" as const,
       }),
   };

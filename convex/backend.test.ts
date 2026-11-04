@@ -1467,7 +1467,7 @@ describe("Backend event and multi-user foundation", () => {
         token: rawToken,
         event: memberClaimMetadata({ ...memberClaimed, eventId: id(1_507) }),
       }),
-      "INVITE_INVALID",
+      "INVITE_USED",
     );
   });
 
@@ -1563,7 +1563,7 @@ describe("Backend event and multi-user foundation", () => {
         ticket: preview.claimTicket,
         event: memberClaimMetadata({ ...event, eventId: id(1_555) }),
       }),
-      "INVITE_INVALID",
+      "INVITE_USED",
     );
     await expect((await t.fetch("/join/CODE01", {
       method: "POST",
@@ -1671,7 +1671,7 @@ describe("Backend event and multi-user foundation", () => {
     })).resolves.toEqual({ status: "revoked" });
     await expectTerminalCode(
       outsider(t).mutation(claimPotLinkInvite, { token }),
-      "INVITE_INVALID",
+      "INVITE_REVOKED",
     );
     await expect((await t.fetch("/join/REVOK1", {
       method: "POST",
@@ -1726,7 +1726,7 @@ describe("Backend event and multi-user foundation", () => {
       outsider(t).mutation(claimPotLinkInviteWithTicket, {
         ticket: preview.claimTicket,
       }),
-      "INVITE_INVALID",
+      "INVITE_TICKET_STALE",
     );
     expect(await owner(t).query(listPendingClaims, { potId: ids.pot }))
       .toHaveLength(0);

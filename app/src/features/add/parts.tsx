@@ -8,7 +8,8 @@ import type { Group, Household } from '@/core/types';
 import { todayISO } from '@/store/ids';
 import { ChevDown, ChevUp, Close, Pencil } from '@/ui/icons';
 import { IconButton, Press, T, TChip, TextButton } from '@/ui/primitives';
-import { SheetHead } from '@/ui/sheet';
+import { SheetHead, useSheet } from '@/ui/sheet';
+import { forwardSheetInputKey } from '@/ui/sheet-focus';
 import { useTheme } from '@/ui/theme';
 import { alpha, fonts, isAndroid, isWeb, type GroupTone } from '@/ui/tokens';
 import { dateLabel, dateSpoken, daysAgoISO, groupInitials, shiftISO } from './draft';
@@ -134,20 +135,24 @@ export function NoteLine({ tone, value, onChange, editing, setEditing, inputRef,
   tone: GroupTone; value: string; onChange: (v: string) => void; editing: boolean; setEditing: (v: boolean) => void;
   inputRef?: RefObject<TextInput | null>; onSubmit?: () => void; hint?: string; placeholder?: string; style?: StyleProp<ViewStyle>;
 }) {
+  const { escape } = useSheet();
+  const { largeText } = useTheme();
   const box: ViewStyle = { flexDirection: 'row', alignItems: 'center', gap: 10, minHeight: 44, paddingHorizontal: 14, borderRadius: 14, backgroundColor: alpha(tone.ink, 0.09) };
-  if (editing) {
+  // A persistent web input lets the browser finish Tab navigation after blur.
+  if (isWeb || editing) {
     return (
       <View style={[box, style]}>
         <Pencil size={18} color={alpha(tone.ink, 0.7)} />
-        <TextInput ref={inputRef} value={value} onChangeText={onChange} autoFocus placeholder={placeholder} maxLength={140}
-          placeholderTextColor={alpha(tone.ink, 0.62)} accessibilityLabel="Note" returnKeyType="done"
+        <TextInput ref={inputRef} value={value} onChangeText={onChange} autoFocus={!isWeb && editing} placeholder={placeholder} maxLength={140}
+          placeholderTextColor={alpha(tone.ink, 0.62)} accessibilityLabel={isWeb ? `${placeholder}, optional` : 'Note'} returnKeyType="done"
+          onFocus={isWeb ? () => setEditing(true) : undefined}
           onBlur={() => setEditing(false)} onSubmitEditing={() => { setEditing(false); onSubmit?.(); }}
-          style={[{ flex: 1, minHeight: 44, fontFamily: fonts.medium, fontSize: 16, color: tone.ink, paddingVertical: 0 }, isWeb ? ({ outlineStyle: 'none' } as object) : null]} />
+          onKeyPress={isWeb ? (e) => forwardSheetInputKey(e, escape) : undefined}
+          style={[{ flex: 1, minHeight: 44, fontFamily: fonts.medium, fontSize: 16, color: tone.ink, paddingVertical: 0 }, isWeb ? ({ outlineStyle: 'auto' } as object) : null]} />
       </View>
     );
   }
   const empty = !value.trim();
-  const { largeText } = useTheme();
   return (
     <Press noScale onPress={() => setEditing(true)} accessibilityLabel={empty ? 'Add a note, optional' : `Note: ${value}. Edit`} style={[box, style]}>
       <Pencil size={18} color={alpha(tone.ink, 0.7)} />
@@ -237,12 +242,6 @@ export function useWebKeys(enabled: boolean, handlers: KeyHandlers) {
   const ref = useRef(handlers);
   ref.current = handlers;
   useEffect(() => {
-    if (!isWeb || typeof window === 'undefined') return;
-    // The control that opened the sheet keeps focus otherwise, and Enter would press it again.
-    const active = document.activeElement as HTMLElement | null;
-    active?.blur?.();
-  }, []);
-  useEffect(() => {
     if (!isWeb || !enabled || typeof window === 'undefined') return;
     const onKeyDown = (e: KeyboardEvent) => {
       if (e.metaKey || e.ctrlKey || e.altKey || e.defaultPrevented) return;
@@ -253,7 +252,7 @@ export function useWebKeys(enabled: boolean, handlers: KeyHandlers) {
       // Only the first Tab, while nothing has focus yet, jumps to the note. After that Tab and
       // Shift+Tab move through the controls as usual.
       if (e.key === 'Tab' && h.onTab) {
-        const nothingFocused = !t || t === document.body || t === document.documentElement;
+        const nothingFocused = !t || t === document.body || t === document.documentElement || t.getAttribute('role') === 'dialog';
         if (tabJumpsToNote(nothingFocused, e.shiftKey)) { e.preventDefault(); h.onTab(); }
         return;
       }

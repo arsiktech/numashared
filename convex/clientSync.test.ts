@@ -15,6 +15,7 @@ import {
   claimInvite,
   flush,
   issueInvites,
+  inviteUsable,
   pull,
   resolveInvite,
   startSync,
@@ -336,21 +337,24 @@ describe("app sync engine against the backend", () => {
     const phoneA2 = phone();
     phoneA2.put({ ...a, sync: { ...a.sync!, invites: undefined } });
     await issueInvites(ana, phoneA2, id);
-    expect(phoneA2.get(id)!.sync!.invites?.[leoId]).toBeUndefined();
-    expect(phoneA2.get(id)!.sync!.invitesElsewhere).toEqual({ [leoId]: true, [miaId]: true });
+    for (const p of [leoId, miaId]) {
+      expect(phoneA2.get(id)!.sync!.invites![p].state).toBe("elsewhere");
+      expect(inviteUsable(phoneA2.get(id)!.sync!.invites![p])).toBe(false);
+    }
     expect(await status(firstLeo)).toBe("active");
     expect(await status(firstMia)).toBe("active");
 
     // Asked to, device 2 makes Leo a new code. Phone A then stops showing Leo's old one.
-    await issueInvites(ana, phoneA2, id, Date.now(), leoId);
+    const leoElsewhere = phoneA2.get(id)!.sync!.invites![leoId].inviteId;
+    await issueInvites(ana, phoneA2, id, Date.now(), { memberId: leoId, inviteId: leoElsewhere });
     const secondLeo = phoneA2.get(id)!.sync!.invites![leoId];
-    expect(secondLeo.issued).toBe(true);
-    expect(phoneA2.get(id)!.sync!.invitesElsewhere).toEqual({ [miaId]: true });
+    expect(inviteUsable(secondLeo)).toBe(true);
+    expect(phoneA2.get(id)!.sync!.invites![miaId].state).toBe("elsewhere");
     expect(await status(firstLeo)).toBe("revoked");
     expect(await status(secondLeo.code)).toBe("active");
     await issueInvites(ana, phoneA, id);
-    expect(phoneA.get(id)!.sync!.invites?.[leoId]).toBeUndefined();
-    expect(phoneA.get(id)!.sync!.invitesElsewhere).toEqual({ [leoId]: true });
+    expect(phoneA.get(id)!.sync!.invites![leoId].state).toBe("elsewhere");
+    expect(phoneA.get(id)!.sync!.invites![leoId].code).toBe("");
     expect(phoneA.get(id)!.sync!.invites![miaId].code).toBe(firstMia);
 
     // Further syncs on both devices keep every live code working.
