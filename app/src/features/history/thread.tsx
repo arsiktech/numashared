@@ -19,7 +19,7 @@ import {
   dayLabel, FILTERS, isMine, METHOD_LABEL, openingLine, sameDay, seenBy, splitLabel, threadItems,
   type Filter, type ThreadItem,
 } from './model';
-import { requestHistorySearch, setHistoryQuery, useHistoryQuery, useHistorySearchOpen } from './search';
+import { closeHistorySearch, onHistorySearchX, setHistoryQuery, useHistoryQuery, useHistorySearchOpen } from './search';
 
 export function HistoryThread({ selectedId, onSelect, desk }: { selectedId?: ID | null; onSelect: (id: ID) => void; desk?: boolean }) {
   const { h, ledger, hide } = useHousehold();
@@ -95,7 +95,7 @@ function SearchField({ query, onDone, autoFocus }: { query: string; onDone?: () 
         accessibilityLabel="Search history" returnKeyType="search" autoCorrect={false}
         style={{ flex: 1, minWidth: 0, height: 42, fontFamily: fonts.medium, fontSize: 16, color: c.ink, outlineStyle: 'none' } as never} />
       {onDone || query ? (
-        <Press accessibilityLabel={query ? 'Clear search' : 'Close search'} onPress={() => { if (query) setHistoryQuery(''); else onDone?.(); }}
+        <Press accessibilityLabel="Close search" onPress={() => onHistorySearchX(query, () => onDone?.())}
           style={{ width: 44, height: 44, alignItems: 'center', justifyContent: 'center' }}>
           <Close size={18} color={c.ink2} />
         </Press>
@@ -111,7 +111,7 @@ function PhoneHeader({ h, filter, setFilter, query }: { h: Household; filter: Fi
   const searchOpen = useHistorySearchOpen();
   const [searching, setSearching] = useState(!!query || searchOpen);
   const back = () => (router.canGoBack() ? router.back() : router.replace('/home'));
-  const closeSearch = () => { setHistoryQuery(''); requestHistorySearch(false); setSearching(false); };
+  const closeSearch = () => { closeHistorySearch(); setSearching(false); };
 
   if (isAndroid) {
     return (
@@ -174,7 +174,7 @@ function DeskHeader({ filter, setFilter, query }: { filter: Filter; setFilter: (
       </View>
       {query || searchOpen ? (
         <View style={{ width: '100%', maxWidth: 720, alignSelf: 'center', marginTop: 8, flexDirection: 'row' }}>
-          <SearchField query={query} autoFocus={searchOpen} onDone={() => { setHistoryQuery(''); requestHistorySearch(false); }} />
+          <SearchField query={query} autoFocus={searchOpen} onDone={closeHistorySearch} />
         </View>
       ) : null}
     </View>
