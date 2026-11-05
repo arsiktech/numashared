@@ -481,6 +481,10 @@ describe("free-host web entry", () => {
     expect(supportBody).toContain("transfer ownership before leaving");
     expect(supportBody).toContain("frozen, read-only local snapshot");
     expect(supportBody).toContain('href="/terms"');
+    const deletion = supportBody.slice(supportBody.indexOf('id="delete-account"'), supportBody.indexOf("<h2>Contact</h2>"));
+    expect(deletion).toContain("Sign in first, then Delete.");
+    expect(deletion.indexOf("Open")).toBeLessThan(deletion.indexOf("Sign in first, then Delete."));
+    expect(deletion).not.toContain("Review what will happen");
     expect(privacyBody).toContain("United States (US East, Virginia)");
     expect(privacyBody).toContain("Apple Push Notification service");
     expect(privacyBody).toContain('href="/terms"');
