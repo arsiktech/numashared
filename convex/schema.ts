@@ -285,6 +285,35 @@ export default defineSchema({
   // APNs device tokens per account. A token is globally unique to one device, so a
   // re-registration from another account moves it rather than duplicating it. Apple's
   // 410 Unregistered response and SIWA revocation both drop tokens (P3.4 fan-out).
+  // Read-only access for an AI agent acting as one account (convex/agentAccess.ts). The secret
+  // is made on the device and shown once; only its SHA-256 is kept. A connection can be limited
+  // to one household. Disconnecting stops the secret on the next call.
+  agentConnections: defineTable({
+    accountId: v.id("accounts"),
+    name: v.string(),
+    keyHash: v.string(),
+    keyHint: v.string(),
+    potId: v.optional(v.string()),
+    createdAt: v.number(),
+    lastUsedAt: v.optional(v.number()),
+    revokedAt: v.optional(v.number()),
+    windowStartedAt: v.number(),
+    windowCount: v.number(),
+  })
+    .index("by_account", ["accountId"])
+    .index("by_key_hash", ["keyHash"]),
+
+  // What each agent call did, newest last, for the account's own activity list. No amounts or names.
+  agentActivity: defineTable({
+    accountId: v.id("accounts"),
+    connectionId: v.id("agentConnections"),
+    tool: v.string(),
+    ok: v.boolean(),
+    error: v.optional(v.string()),
+    at: v.number(),
+  })
+    .index("by_account", ["accountId", "at"]),
+
   pushTokens: defineTable({
     accountId: v.id("accounts"),
     // Optional only for registrations created before session-bound logout cleanup.
