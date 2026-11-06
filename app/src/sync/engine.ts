@@ -10,7 +10,7 @@ import { UNDO_WINDOW_MS } from '../core/undo';
 import type { Group, Household, ID, InviteInfo, LedgerEvent, Person, SyncMeta } from '../core/types';
 import { maxGroupSize } from './contract';
 import {
-  applyRoster, applyStructure, dropUnusedArchived, fromWire, isPersonReferenced, MappingError, redact, STRUCTURAL_KINDS, stamp, toWire,
+  applyRoster, applyStructure, carriedText, dropUnusedArchived, fromWire, isPersonReferenced, MappingError, redact, STRUCTURAL_KINDS, stamp, toWire,
   type RosterEntry,
 } from './mapping';
 import { TERMINAL_EVENT_CODES } from './terminal';
@@ -447,9 +447,13 @@ export async function pull(backend: Backend, access: Access, householdId: ID, op
 
   // Erased text (account deletion) arrives as redactions of events already pulled above.
   let rev = BigInt(next.sync!.lastTextRev);
+  const erased: { recordId: ID; field: TextField; value: string }[] = [];
   for (;;) {
     const page = await backend.query<TextPage>('events:listTextChangesWithSkippedRevisions', { potId: householdId, afterRevision: rev });
     for (const change of page.changes) {
+      const source = next.events.find((e) => e.id === change.eventId);
+      const value = source && carriedText(source, change.field);
+      if (source && value !== undefined) erased.push({ recordId: source.recordId, field: change.field, value });
       next = { ...next, events: next.events.map((e) => (e.id === change.eventId ? redact(e, change.field) : e)) };
     }
     if (page.nextAfterRevision <= rev) break;
@@ -464,7 +468,11 @@ export async function pull(backend: Backend, access: Access, householdId: ID, op
   const onDevice = new Map(latest.events.map((e) => [e.id, e]));
   const kept = next.events.flatMap((e) => (e.seq !== undefined ? [e] : onDevice.has(e.id) ? [onDevice.get(e.id)!] : []));
   const extra = latest.events.filter((e) => e.seq === undefined && !kept.some((x) => x.id === e.id));
-  access.put(dropUnusedArchived(settle({ ...next, events: [...kept, ...extra], seen: latest.seen })));
+  // An edit made offline still holds a copy of the erased text. Remove it before it can be sent.
+  const events = [...kept, ...extra].map((e) => (e.seq !== undefined ? e : erased.reduce(
+    (out, x) => (out.recordId === x.recordId && carriedText(out, x.field) === x.value ? redact(out, x.field) : out), e,
+  )));
+  access.put(dropUnusedArchived(settle({ ...next, events, seen: latest.seen })));
 }
 
 // ---------- the account's households ----------
