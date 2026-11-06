@@ -331,6 +331,17 @@ export function fromWire(h: Household, listed: ListedEvent): LedgerEvent | null 
   }
 }
 
+/** The text an edit would carry over from this event, for the fields an edit resends. */
+export function carriedText(e: LedgerEvent, field: TextField): string | undefined {
+  if (e.kind === 'expenseAdded' || e.kind === 'expenseRevised') {
+    if (field === 'title') return e.content.title;
+    if (field === 'note') return e.content.note;
+    return undefined;
+  }
+  if ((e.kind === 'openingBalanceSet' || e.kind === 'openingRevised') && field === 'note') return e.content.note;
+  return undefined;
+}
+
 /** Applies one erased text field to an already-mapped event. */
 export function redact(e: LedgerEvent, field: TextField): LedgerEvent {
   switch (e.kind) {

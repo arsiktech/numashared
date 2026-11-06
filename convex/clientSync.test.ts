@@ -6,7 +6,7 @@ import { makeFunctionReference } from "convex/server";
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 
 import { reduce } from "../app/src/core/ledger";
-import type { Household, LedgerEvent } from "../app/src/core/types";
+import type { ExpenseContent, Household, LedgerEvent } from "../app/src/core/types";
 import {
   adoptPots,
   addPersonOnline,
@@ -946,6 +946,133 @@ describe("card sync", () => {
     expect(left.pots).toHaveLength(1);
     expect(left.links).toEqual([]);
     expect((await post(t, KEY, [{ id: "after", card: "4242", occurredAt: "2026-10-01T10:00:00Z", merchant: "x", amount: "1.00", currency: "EUR" }])).status).toBe(401);
+  });
+
+  /** Ana's household with Leo joined, one synced expense carrying Ana's note, both phones current. */
+  async function householdWithSharedNote(t: T) {
+    await fenceBuild11(t);
+    const ana = await signIn(t, "ana");
+    const leo = await signIn(t, "leo");
+    const phoneA = phone(), phoneB = phone();
+    phoneA.put(localHousehold());
+    const id = await startSync(ana, phoneA, "h_local");
+    expect(await flush(ana, phoneA, id, later)).toBe("done");
+    await pull(ana, phoneA, id);
+    await issueInvites(ana, phoneA, id);
+    const a = phoneA.get(id)!;
+    const leoId = a.people.find((p) => p.name === "Leo")!.id;
+    const preview = await resolveInvite("http://127.0.0.1:3211", a.sync!.invites![leoId].code,
+      ((url: string, init?: RequestInit) => t.fetch(new URL(url).pathname, init)) as typeof fetch);
+    if (preview.status !== "active") throw new Error("fixture invite not active");
+    await claimInvite(leo, phoneB, preview);
+    await pull(leo, phoneB, id);
+    const erase = async (name = "ana") => {
+      const accountId = await t.run(async (ctx) => (await ctx.db.query("accounts").collect()).find((x) => x.publicAccountId === `account-${name}`)!._id);
+      return t.mutation(makeFunctionReference<"mutation">("redaction:eraseAuthoredTextForAccount"), { accountId });
+    };
+    return { ana, leo, phoneA, phoneB, id, erase };
+  }
+
+  /** The edit the app sends when Leo changes an amount: the rest of the content is carried over. */
+  function leoEdits(phoneB: Access, id: string, eventId: string, change: Partial<ExpenseContent>) {
+    const b = phoneB.get(id)!;
+    const added = b.events.find((e) => e.kind === "expenseAdded")!;
+    if (added.kind !== "expenseAdded") throw new Error("fixture expense missing");
+    append(phoneB, id, {
+      id: eventId, at: Date.now() - 1_000, by: b.youId, kind: "expenseRevised",
+      recordId: added.recordId, basis: { kind: "parent", parentEventId: added.id },
+      content: { ...added.content, amount: 9_300, ...change },
+    });
+  }
+
+  const NOTE = "Apples, bread and coffee";
+  const storedNotes = (t: T) => t.run(async (ctx) => (await ctx.db.query("eventTexts").collect()).filter((x) => x.field === "note").map((x) => x.value));
+
+  test("deleting an account erases its note from another member's later edit", async () => {
+    const t = convexTest(schema, modules);
+    const { leo, phoneA, phoneB, id, erase, ana } = await householdWithSharedNote(t);
+    leoEdits(phoneB, id, "01890f5e-7b00-7000-8000-00000000c001", {});
+    expect(await flush(leo, phoneB, id, later)).toBe("done");
+    await pull(leo, phoneB, id);
+    await pull(ana, phoneA, id);
+    expect(reduce(phoneB.get(id)!).records[0].expense?.note).toBe(NOTE);
+
+    await erase();
+    await pull(leo, phoneB, id);
+    expect(await storedNotes(t)).toEqual([]);
+    const b = phoneB.get(id)!;
+    expect(reduce(b).records[0].expense?.note).toBeUndefined();
+    expect(JSON.stringify(b.events)).not.toContain(NOTE);
+    expect(reduce(b).records[0].expense?.amount).toBe(9_300);
+  });
+
+  test("a note the editor wrote themselves stays when the original author's account is deleted", async () => {
+    const t = convexTest(schema, modules);
+    const { leo, phoneB, id, erase } = await householdWithSharedNote(t);
+    leoEdits(phoneB, id, "01890f5e-7b00-7000-8000-00000000c002", { note: "Leo's own words" });
+    expect(await flush(leo, phoneB, id, later)).toBe("done");
+    await erase();
+    await pull(leo, phoneB, id);
+    expect(await storedNotes(t)).toEqual(["Leo's own words"]);
+    expect(reduce(phoneB.get(id)!).records[0].expense?.note).toBe("Leo's own words");
+  });
+
+  test("an edit made offline cannot bring an erased note back", async () => {
+    const t = convexTest(schema, modules);
+    const { ana, leo, phoneA, phoneB, id, erase } = await householdWithSharedNote(t);
+    await erase();
+    // Leo was offline, so his phone still holds the note when he edits the amount. The app always
+    // pulls before it sends.
+    leoEdits(phoneB, id, "01890f5e-7b00-7000-8000-00000000c003", {});
+    await pull(leo, phoneB, id);
+    expect(await flush(leo, phoneB, id, later)).toBe("done");
+    await pull(leo, phoneB, id);
+    await pull(ana, phoneA, id);
+    expect(await storedNotes(t)).toEqual([]);
+    expect(JSON.stringify(phoneB.get(id)!.events)).not.toContain(NOTE);
+    expect(JSON.stringify(phoneA.get(id)!.events)).not.toContain(NOTE);
+    expect(reduce(phoneB.get(id)!).records[0].expense?.amount).toBe(9_300);
+    expect(balances(phoneA.get(id)!)).toEqual(balances(phoneB.get(id)!));
+  });
+
+  test("a new note written after the erasure, or offline before it, is kept", async () => {
+    const t = convexTest(schema, modules);
+    const { leo, phoneB, id, erase } = await householdWithSharedNote(t);
+    await erase();
+    leoEdits(phoneB, id, "01890f5e-7b00-7000-8000-00000000c004", { note: "Written offline" });
+    await pull(leo, phoneB, id);
+    expect(await flush(leo, phoneB, id, later)).toBe("done");
+    await pull(leo, phoneB, id);
+    expect(await storedNotes(t)).toEqual(["Written offline"]);
+    expect(reduce(phoneB.get(id)!).records[0].expense?.note).toBe("Written offline");
+  });
+
+  test("deleting an account erases its note from a card refund that repeated it", async () => {
+    const t = convexTest(schema, modules);
+    const { ana, leo, phoneA, phoneB, id, erase } = await householdWithSharedNote(t);
+    const leoGroup = phoneA.get(id)!.groups.find((g) => g.memberIds.length === 1)!.id;
+    await ana.mutation("cardSync:link", { potId: id, keyHash: await sha256(KEY), timeZone: "Europe/Madrid",
+      cards: [{ last4: "4242", forUnitId: leoGroup, label: "Leo" }] });
+    await post(t, KEY, [{ id: "s-1", card: "4242", occurredAt: "2026-10-02T10:00:00Z", merchant: "Shop", amount: "10.00", currency: "EUR", merchantKey: "m" }]);
+    await pull(leo, phoneB, id);
+    const card = phoneB.get(id)!.events.find((e) => e.kind === "expenseAdded" && e.content.title === "Shop")!;
+    if (card.kind !== "expenseAdded") throw new Error("expected an expense");
+    const leoNote = "Leo's words about this";
+    append(phoneB, id, {
+      id: "01890f5e-7b00-7000-8000-00000000c005", at: Date.now() - 20_000, by: phoneB.get(id)!.youId, kind: "expenseRevised",
+      recordId: card.recordId, basis: { kind: "parent", parentEventId: card.id }, content: { ...card.content, note: leoNote },
+    });
+    expect(await flush(leo, phoneB, id, later)).toBe("done");
+    const refund = await post(t, KEY, [{ id: "r-1", card: "4242", occurredAt: "2026-10-03T10:00:00Z", merchant: "Shop", amount: "1.00", currency: "EUR", kind: "refund", merchantKey: "m" }]);
+    expect((await refund.json()).outcomes[0].result).toBe("refunded");
+    await pull(ana, phoneA, id);
+    expect(reduce(phoneA.get(id)!).byId[card.recordId].expense?.note).toContain(leoNote);
+
+    await erase("leo");
+    await pull(ana, phoneA, id);
+    expect((await storedNotes(t)).join()).not.toContain(leoNote);
+    expect(JSON.stringify(phoneA.get(id)!.events)).not.toContain(leoNote);
+    expect(reduce(phoneA.get(id)!).byId[card.recordId].expense?.amount).toBe(900);
   });
 
   test("refunds take money back off the spend they belong to; cancellations void it", async () => {

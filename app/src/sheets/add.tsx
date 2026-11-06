@@ -23,7 +23,7 @@ import { cappedSize, TEXT_CAP } from '@/ui/textScale';
 import { initials, nameOf, personName, useHousehold } from '@/features/hooks';
 import {
   activeGroups, CATEGORIES, changeLine, draftFromSplit, draftShares, equalDraft, isCustom, percentLabel, simulate,
-  sizesDiffer, splitFor, standingLine, suggestionsFor, withExactShare, type Line, type SplitDraft, type Suggestion,
+  sizesDiffer, splitFor, standingLine, suggestionsFor, withExactShare, withoutErasedText, type Line, type SplitDraft, type Suggestion,
 } from '@/features/add/draft';
 import {
   AfterRow, amountSize, ChipRow, DateRow, Kbd, keyHeight, NoteLine, PersonDot, Receipt, ReceiptHead, SheetTop, useWebKeys,
@@ -125,6 +125,10 @@ function AddBody({ h, spec, draft, set, t, pop }: {
   const live = useRef({ input: draft.input, sug: !!draft.sugKey });
   useEffect(() => { live.current = { input: draft.input, sug: !!draft.sugKey }; }, [draft.input, draft.sugKey]);
   const saving = saveGuard(spec.key);
+  const opened = useRef({ title: draft.title, note: draft.note });
+  useEffect(() => {
+    if (original) set((d) => withoutErasedText(d, opened.current, original));
+  }, [original, set]);
 
   const suggestions = useMemo(() => suggestionsFor(ledger), [ledger]);
   const mine = yourGroup(h);
