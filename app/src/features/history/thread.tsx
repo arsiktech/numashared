@@ -217,6 +217,8 @@ function Bubble({ h, r, hide, desk, selected, onSelect }: { h: Household; r: Led
   const seen = r.createdBy === h.youId ? seenBy(h, r) : null;
   const added = addedByLine(h, r, e.payerId);
   const foot = `${personName(h, e.payerId)} · ${clock(r.createdAt)}${added}${edited && !r.voided ? ' · edited' : ''}${r.voided ? ' · voided' : ''}${seen ? ` · Seen by ${seen}` : ''}`;
+  // The desk shows the payer and time elsewhere; it keeps who added it only when an agent did.
+  const deskFoot = [r.createdVia ? `Added by ${authorName(h, r.createdBy, r.createdVia)}` : null, seen ? `Seen by ${seen}` : null].filter(Boolean).join(' · ');
   const strike = r.voided ? ({ textDecorationLine: 'line-through' } as const) : null;
   const label = [title, money(h, e.amount, hide), `${personName(h, e.payerId)} paid`, r.createdVia ? `added by ${authorName(h, r.createdBy, r.createdVia)}` : null, r.voided ? `voided: ${r.voidReason}` : effect, edited ? 'edited' : null, e.note ? `note: ${e.note}` : null]
     .filter(Boolean).join(', ');
@@ -237,10 +239,10 @@ function Bubble({ h, r, hide, desk, selected, onSelect }: { h: Household; r: Led
             <T style={{ fontFamily: fonts.semibold, fontSize: 13, color: t.ink, opacity: 0.88 }}>
               {splitLabel(r)}{effect ? ` · ${effect}` : ''}
             </T>
-            {!desk || seen ? (
+            {!desk || deskFoot ? (
               <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5, marginTop: 4, opacity: 0.9 }}>
                 {seen ? <Checks size={16} color={t.ink} /> : null}
-                <T style={{ fontFamily: fonts.bold, fontSize: 12, color: t.ink, flexShrink: 1 }}>{desk ? `Seen by ${seen}` : foot}</T>
+                <T style={{ fontFamily: fonts.bold, fontSize: 12, color: t.ink, flexShrink: 1 }}>{desk ? deskFoot : foot}</T>
               </View>
             ) : null}
           </Press>
