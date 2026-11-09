@@ -76,10 +76,10 @@ export function buildCsv(h: Household, records: LedgerRecord[]) {
     for (const t of r.timeline) {
       if (t.type === 'edited') {
         const change = t.changes.map((ch) => `${ch.field} ${ch.from} -> ${ch.to}`).join(', ');
-        notes.push(`Edited by ${person(t.by)}${change ? `: ${change}` : ''}${t.reason ? ` (${t.reason})` : ''}`);
+        notes.push(`Edited by ${person(t.by)}${t.via ? ` via ${t.via}` : ''}${change ? `: ${change}` : ''}${t.reason ? ` (${t.reason})` : ''}`);
       }
-      if (t.type === 'voided') notes.push(`Voided by ${person(t.by)}: ${t.reason}`);
-      if (t.type === 'restored') notes.push(`Restored by ${person(t.by)}`);
+      if (t.type === 'voided') notes.push(`Voided by ${person(t.by)}${t.via ? ` via ${t.via}` : ''}: ${t.reason}`);
+      if (t.type === 'restored') notes.push(`Restored by ${person(t.by)}${t.via ? ` via ${t.via}` : ''}`);
     }
     const status = r.voided ? 'voided' : r.revisions.length > 1 ? 'edited' : 'shared';
     return [recordDate(r), what, category, amt(amount), paidBy, split, status, notes.join('; '), person(r.createdBy)];

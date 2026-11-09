@@ -37,18 +37,29 @@ describe('setup prompt', () => {
     expect(hermes).toMatch(/^hermes config set mcp_servers\.numa-shared '.*' then run \/reload-mcp$/);
   });
 
-  test('says what Numa Shared is, that it only reads, and how to treat the secret', () => {
+  test('says what Numa Shared is, what the agent may do, and how to treat the secret', () => {
     expect(prompt).toMatch(/who paid and who owes whom/);
     expect(prompt).toMatch(/never moves money/);
-    expect(prompt).toMatch(/read-only/);
-    expect(prompt).toMatch(/cannot add, change or delete/);
+    expect(prompt).toMatch(/act as me/);
+    expect(prompt).toMatch(/Settings, AI agents/);
+    expect(prompt).toMatch(/via you/);
+    expect(prompt).toMatch(/request_id/);
+    expect(prompt).toMatch(/amount_minor_units 1250 with currency EUR/);
     expect(prompt).toMatch(/link is a secret/);
     expect(prompt).toMatch(/Do not repeat it/);
     expect(prompt).toMatch(/Store it only in your MCP config/);
     expect(prompt).toMatch(/Streamable HTTP/);
     expect(prompt).toMatch(/call list_households to confirm/);
-    for (const tool of ['list_households', 'list_members', 'get_balances', 'list_records']) {
-      expect(lines.some((l) => l.startsWith(`- ${tool}: `))).toBe(true);
+    // Every tool the server offers is named under the switch that allows it.
+    const groups: Array<[string, string[]]> = [
+      ['- Read, always allowed:', ['list_households', 'list_members', 'get_balances', 'list_records']],
+      ['- Add expenses and repayments:', ['add_expense', 'add_repayment']],
+      ['- Edit and void records:', ['edit_record', 'void_record']],
+      ['- Manage the household:', ['rename_household', 'add_person', 'update_groups', 'create_invite']],
+    ];
+    for (const [start, tools] of groups) {
+      const line = lines.find((l) => l.startsWith(start));
+      for (const tool of tools) expect(line).toContain(tool);
     }
   });
 

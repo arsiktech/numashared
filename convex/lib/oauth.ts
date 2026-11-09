@@ -11,8 +11,16 @@
 
 type Env = Readonly<Record<string, string | undefined>>;
 
-/** The one scope: read the person's households. Numa Shared never moves money. */
-export const OAUTH_SCOPE = "shared:read";
+/** Read the person's households. Every connection has it. */
+export const READ_SCOPE = "shared:read";
+/**
+ * Change them as the person, within the switches they set in Settings, AI agents. The switches,
+ * not the token, decide each call. Numa Shared never moves money.
+ */
+export const WRITE_SCOPE = "shared:write";
+export const OAUTH_SCOPES = [READ_SCOPE, WRITE_SCOPE] as const;
+/** Everything an agent may ask for, space-separated, as the WWW-Authenticate challenge names it. */
+export const OAUTH_SCOPE = OAUTH_SCOPES.join(" ");
 export const ACCESS_TOKEN_SECONDS = 3_600;
 export const REFRESH_TOKEN_MILLIS = 30 * 24 * 3_600_000;
 /** A retried refresh within this window gets the same new pair instead of closing the connection (RFC 9700 4.14.2). */
@@ -85,7 +93,7 @@ export function protectedResourceMetadata(env: Env, origin: string) {
   return {
     resource: resourceOf(origin),
     authorization_servers: [issuerOf(env)],
-    scopes_supported: [OAUTH_SCOPE],
+    scopes_supported: [...OAUTH_SCOPES],
     bearer_methods_supported: ["header"],
     resource_name: "Numa Shared",
   };
@@ -105,7 +113,7 @@ export function authorizationServerMetadata(env: Env) {
     code_challenge_methods_supported: ["S256"],
     token_endpoint_auth_methods_supported: ["none", "client_secret_post", "client_secret_basic"],
     revocation_endpoint_auth_methods_supported: ["none", "client_secret_post", "client_secret_basic"],
-    scopes_supported: [OAUTH_SCOPE],
+    scopes_supported: [...OAUTH_SCOPES],
     client_id_metadata_document_supported: true,
     authorization_response_iss_parameter_supported: true,
   };
@@ -228,8 +236,21 @@ export async function rotatedSecret(serverSecret: string, prefix: "nsat" | "nsrt
 export function scopeAccepted(scope: string | null | undefined): boolean {
   if (!scope) return true;
   const parts = scope.split(" ").filter(Boolean);
-  return parts.length <= 5 && parts.every((part) => part === OAUTH_SCOPE || part === "offline_access");
+  return parts.length <= 5 && parts.every((part) => (OAUTH_SCOPES as readonly string[]).includes(part) || part === "offline_access");
 }
+
+/**
+ * The scope a request is granted. Without a scope, or with shared:write, the connection gets both
+ * and starts with every switch on. A client that asks only for shared:read gets that, and starts
+ * with every write switch off.
+ */
+export function grantedScope(scope: string | null | undefined): string {
+  const parts = (scope ?? "").split(" ").filter(Boolean);
+  const named = parts.filter((part) => part !== "offline_access");
+  return named.length === 0 || named.includes(WRITE_SCOPE) ? OAUTH_SCOPE : READ_SCOPE;
+}
+
+export const grantsWrite = (scope: string) => scope.split(" ").includes(WRITE_SCOPE);
 
 export type ClientRegistration = {
   name: string;

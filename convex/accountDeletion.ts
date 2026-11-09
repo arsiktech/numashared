@@ -46,6 +46,7 @@ const accountSweep: Array<TableNames> = [
   "accountWriteQuotas",
   "pushTokens",
   "agentActivity",
+  "agentRequests",
   "oauthTokens",
   "oauthCodes",
   "agentConnections",

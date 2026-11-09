@@ -1,4 +1,4 @@
-// Read-only access for an AI agent.
+// Access for an AI agent.
 //
 // An agent connects in one of two ways:
 // - OAuth (convex/agentOAuth.ts): the person adds the MCP address to Claude, ChatGPT or Cursor and
@@ -7,9 +7,11 @@
 //   random secret, puts the link in a prompt for the agent and sends only its SHA-256 here. The
 //   app asks for all households; `potId` still limits a link to one, for older app versions.
 // Either way the agent calls POST /mcp (convex/agentMcp.ts) and can read what that person can
-// read: the households they belong to, the people in them, balances and records. It cannot change
-// anything, and Numa Shared never moves money. The person can see what the agent did and
-// disconnect it at any time.
+// read: the households they belong to, the people in them, balances and records. Three switches per
+// connection let it also write as that person (convex/agentWrites.ts): add expenses and repayments,
+// edit and void records, manage the household. New connections start with all three on; the
+// person turns any off in Settings, AI agents. Numa Shared never moves money. The person can see
+// what the agent did and disconnect it at any time.
 import { v } from "convex/values";
 
 import { internal } from "./_generated/api";
@@ -17,6 +19,16 @@ import type { Doc, Id } from "./_generated/dataModel";
 import { internalMutation, mutation, query, type MutationCtx, type QueryCtx } from "./_generated/server";
 import { fail, requireActiveMembership, requireSession } from "./lib/access";
 import { requireApprovedWriteTarget } from "./lib/deployment";
+
+export type AgentPermissions = Doc<"agentConnections">["permissions"] & {};
+export type AgentSwitch = keyof AgentPermissions;
+export const agentSwitches: readonly AgentSwitch[] = ["addRecords", "editRecords", "manageHousehold"];
+/** What a new connection may do: everything an agent can do (owner decision, Phase 2). */
+export const defaultAgentPermissions: AgentPermissions = { addRecords: true, editRecords: true, manageHousehold: true };
+/** A connection made before writes existed: read-only until the person switches something on. */
+export const readOnlyAgentPermissions: AgentPermissions = { addRecords: false, editRecords: false, manageHousehold: false };
+export const permissionsOf = (row: Pick<Doc<"agentConnections">, "permissions">): AgentPermissions =>
+  row.permissions ?? readOnlyAgentPermissions;
 
 export const maximumAgents = 5;
 /** Calls per agent per minute: generous for a conversation, low enough to stop a runaway loop. */
@@ -54,6 +66,7 @@ export const connect = mutation({
       keyHash: args.keyHash,
       keyHint: args.keyHint.slice(0, 12),
       ...(args.potId === undefined ? {} : { potId: args.potId }),
+      permissions: defaultAgentPermissions,
       createdAt: now,
       windowStartedAt: now,
       windowCount: 0,
@@ -79,9 +92,60 @@ export const listMine = query({
         kind: row.clientId === undefined ? "link" as const : "oauth" as const,
         hint: row.keyHint ?? null,
         potId: row.potId ?? null,
+        permissions: permissionsOf(row),
         createdAt: row.createdAt,
         lastUsedAt: row.lastUsedAt ?? null,
       }));
+  },
+});
+
+const knownClients: Array<[RegExp, string]> = [
+  [/claude[-_ ]?code/i, "Claude Code"],
+  [/codex/i, "Codex"],
+  [/cursor/i, "Cursor"],
+  [/hermes/i, "Hermes"],
+  [/claude/i, "Claude"],
+  [/chatgpt|openai/i, "ChatGPT"],
+];
+
+/** "Claude Code" for "claude-code"; other names cleaned to plain short text, or null. */
+export function clientLabel(name: string): string | null {
+  for (const [pattern, label] of knownClients) if (pattern.test(name)) return label;
+  const clean = name.replace(/[^\p{L}\p{N} ._-]/gu, " ").replace(/\s+/g, " ").trim().slice(0, 40);
+  return clean.length >= 2 ? clean : null;
+}
+
+/**
+ * A setup-prompt connection starts as "Agent, 9 Nov 2026". The first time the agent introduces
+ * itself (MCP initialize, clientInfo), the connection takes its name, so Settings and the history
+ * ("You via Claude Code") say which agent it is. A name the person sees once is never changed again.
+ */
+export const nameFromClient = internalMutation({
+  args: { connectionId: v.id("agentConnections"), clientName: v.string() },
+  handler: async (ctx, { connectionId, clientName }) => {
+    const row = await ctx.db.get(connectionId);
+    if (!row || row.clientId !== undefined || row.revokedAt !== undefined || !/^Agent, /.test(row.name)) return null;
+    const label = clientLabel(clientName.slice(0, 100));
+    if (label) await ctx.db.patch(connectionId, { name: label });
+    return null;
+  },
+});
+
+/** Turns one of a connection's write switches on or off. The agent's next call follows it. */
+export const setPermission = mutation({
+  args: {
+    id: v.id("agentConnections"),
+    permission: v.union(v.literal("addRecords"), v.literal("editRecords"), v.literal("manageHousehold")),
+    allowed: v.boolean(),
+  },
+  handler: async (ctx, args) => {
+    requireApprovedWriteTarget();
+    const { account } = await requireSession(ctx);
+    const row = await ctx.db.get(args.id);
+    if (!row || row.accountId !== account._id || row.revokedAt !== undefined) fail("AGENT_NOT_FOUND");
+    const permissions = { ...permissionsOf(row), [args.permission]: args.allowed };
+    await ctx.db.patch(args.id, { permissions });
+    return { permissions };
   },
 });
 

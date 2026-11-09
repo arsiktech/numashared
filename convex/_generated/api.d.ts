@@ -13,6 +13,7 @@ import type * as agentAccess from "../agentAccess.js";
 import type * as agentData from "../agentData.js";
 import type * as agentMcp from "../agentMcp.js";
 import type * as agentOAuth from "../agentOAuth.js";
+import type * as agentWrites from "../agentWrites.js";
 import type * as apns from "../apns.js";
 import type * as authSessions from "../authSessions.js";
 import type * as cardSync from "../cardSync.js";
@@ -69,6 +70,7 @@ declare const fullApi: ApiFromModules<{
   agentData: typeof agentData;
   agentMcp: typeof agentMcp;
   agentOAuth: typeof agentOAuth;
+  agentWrites: typeof agentWrites;
   apns: typeof apns;
   authSessions: typeof authSessions;
   cardSync: typeof cardSync;

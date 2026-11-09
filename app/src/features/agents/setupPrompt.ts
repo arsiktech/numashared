@@ -28,14 +28,14 @@ export function setupCommands(url: string): Array<{ harness: string; line: strin
 /** Plain text addressed to the agent. `url` is the secret link (https://<site>/mcp/nsag_...). */
 export function setupPrompt(url: string): string {
   return [
-    'Connect yourself to Numa Shared for me. The access is read-only.',
+    'Connect yourself to Numa Shared for me. You will act as me: you can read my households and, unless I switch it off, add, edit and manage them.',
     '',
-    'Numa Shared is a shared-expenses app. It records who paid and who owes whom in my households. It never moves money.',
+    'Numa Shared is a shared-expenses app. It records who paid and who owes whom in my households. It never moves money: a repayment only notes money that moved elsewhere.',
     '',
     `Endpoint: ${url}`,
     'It is an MCP server over Streamable HTTP. The secret in the link is the only sign-in it needs.',
     '',
-    'The link is a secret: anyone who has it can read my households. Do not repeat it in your replies. Store it only in your MCP config.',
+    'The link is a secret: anyone who has it can act as me in my households. Do not repeat it in your replies. Store it only in your MCP config.',
     '',
     'Add it with the line for your harness:',
     ...setupCommands(url).map(({ harness, line }) => `- ${harness}: ${line}`),
@@ -43,12 +43,15 @@ export function setupPrompt(url: string): string {
     'If the tools do not appear, restart or reload your session.',
     '',
     'Tools (each household argument is an id from list_households):',
-    '- list_households: my households, with currency and my role.',
-    '- list_members: the people in one household.',
-    '- get_balances: who owes whom in one household. Positive means owed money.',
-    '- list_records: expenses, repayments and opening balances, newest first. Page with before_sequence.',
+    '- Read, always allowed: list_households, list_members, get_balances (positive means owed money), list_records (newest first; page with before_sequence).',
+    '- Add expenses and repayments: add_expense, add_repayment.',
+    '- Edit and void records: edit_record (pass the revision from list_records), void_record (with a reason).',
+    '- Manage the household: rename_household, add_person, update_groups, create_invite.',
+    'Amounts are whole minor units in the household currency: 12.50 EUR is amount_minor_units 1250 with currency EUR.',
+    'Every change takes a request_id you choose. Reuse it only to retry the same call.',
+    'Your changes show in the history as mine, via you. I can switch any group of tools off in Numa Shared, Settings, AI agents; a refused call names the switch.',
+    'Change or void only what I ask for.',
     '',
-    'You can only read. You cannot add, change or delete anything.',
     'After connecting, call list_households to confirm, and tell me which households you can see.',
   ].join('\n');
 }

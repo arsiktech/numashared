@@ -14,7 +14,7 @@ import { SheetScrollView, useSheet } from '@/ui/sheet';
 import { useTheme } from '@/ui/theme';
 import { fonts, isAndroid, isWeb } from '@/ui/tokens';
 import { editSpoken, speak } from './spoken';
-import { clock, money, nameOf, personName, recordTitle, useHousehold } from '../hooks';
+import { authorName, clock, money, nameOf, personName, recordTitle, useHousehold } from '../hooks';
 import { dayMonth, fullDay, isoDay, joinNames, METHOD_LABEL, splitLabel, weekday } from '../history/model';
 
 type Variant = 'sheet' | 'panel';
@@ -365,7 +365,7 @@ function timelineRows(h: Household, r: LedgerRecord, hide: boolean, panel: boole
       case 'added': {
         const first = r.revisions[0]?.content;
         const amount = first && 'amount' in first && r.kind === 'expense' && !hide ? ` · ${money(h, first.amount)}` : '';
-        rows.push({ key: t.eventId, kind: 'added', head: `${r.kind === 'settlement' ? 'Recorded' : 'Added'} by ${personName(h, t.by)}`, meta: [`${time}${amount}`] });
+        rows.push({ key: t.eventId, kind: 'added', head: `${r.kind === 'settlement' ? 'Recorded' : 'Added'} by ${authorName(h, t.by, t.via)}`, meta: [`${time}${amount}`] });
         break;
       }
       case 'seen': {
@@ -396,18 +396,18 @@ function timelineRows(h: Household, r: LedgerRecord, hide: boolean, panel: boole
         }
         if (t.reason) parts.push(`“${t.reason}”`);
         const line = joinNodes(parts);
-        rows.push({ key: t.eventId, kind: 'edited', head: `Edited by ${personName(h, t.by)}`,
+        rows.push({ key: t.eventId, kind: 'edited', head: `Edited by ${authorName(h, t.by, t.via)}`,
           meta: panel ? [line, time] : [joinNodes([line, time])], spoken: [...editSpoken(t.changes, t.reason, hide, shortIso), time] });
         break;
       }
       case 'voided':
-        rows.push({ key: t.eventId, kind: 'voided', head: `Voided by ${personName(h, t.by)}`, meta: [`“${t.reason}” · ${time}`] });
+        rows.push({ key: t.eventId, kind: 'voided', head: `Voided by ${authorName(h, t.by, t.via)}`, meta: [`“${t.reason}” · ${time}`] });
         break;
       case 'restored':
-        rows.push({ key: t.eventId, kind: 'restored', head: `Restored by ${personName(h, t.by)}`, meta: [time] });
+        rows.push({ key: t.eventId, kind: 'restored', head: `Restored by ${authorName(h, t.by, t.via)}`, meta: [time] });
         break;
       case 'flagged':
-        rows.push({ key: t.eventId, kind: 'flagged', head: `Flagged by ${personName(h, t.by)}`, meta: [t.reason ? `“${t.reason}” · ${time}` : time] });
+        rows.push({ key: t.eventId, kind: 'flagged', head: `Flagged by ${authorName(h, t.by, t.via)}`, meta: [t.reason ? `“${t.reason}” · ${time}` : time] });
         break;
     }
   }

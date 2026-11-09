@@ -5,6 +5,7 @@ import { ConvexClient } from 'convex/browser';
 import { AppState, Platform } from 'react-native';
 import { useSyncExternalStore } from 'react';
 import type { Household, ID } from '../core/types';
+import type { AgentPermission, AgentPermissions } from '../features/agents/permissions';
 import { claimParked, forgetAccount, getState, putHousehold, removeHousehold, showAccount, switchHousehold } from '../store/store';
 import { previewDeletion, runDeletion, type DeletionDeps, type DeletionPreview } from './accountDeletion';
 import { accessToken, currentSession, forgetSession, loadSession, post, readDeletion, writeDeletion, signInWithApple, signInWithGoogle, signOutSession, subscribeSession } from './auth';
@@ -336,12 +337,15 @@ export const CARD_SYNC_URL = `${SITE_URL}/card-sync/spends`;
 // ---------- AI agent access (convex/agentAccess.ts, convex/agentOAuth.ts) ----------
 
 export type AgentConnection = {
-  id: string; name: string; kind: 'oauth' | 'link'; hint: string | null; potId: string | null; createdAt: number; lastUsedAt: number | null;
+  id: string; name: string; kind: 'oauth' | 'link'; hint: string | null; potId: string | null;
+  /** Older servers don't send it; the agent can then only read. */
+  permissions?: AgentPermissions;
+  createdAt: number; lastUsedAt: number | null;
 };
 export type AgentActivity = { id: string; agent: string; tool: string; ok: boolean; at: number };
 export type AgentRequest =
   | { status: 'expired' }
-  | { status: 'pending'; agent: string; verifiedHost: string | null; returnsTo: string; returnsToThisComputer: boolean };
+  | { status: 'pending'; agent: string; verifiedHost: string | null; returnsTo: string; returnsToThisComputer: boolean; canWrite?: boolean };
 
 /**
  * The MCP address. Claude and ChatGPT take it bare and then ask the person to approve; a secret
@@ -371,6 +375,9 @@ export const agents = {
     return { link: `${AGENT_MCP_URL}/${secret}` };
   },
   disconnect: (id: string) => within(backend.mutation('agentAccess:disconnect', { id })),
+  /** Turns one write switch on or off. The agent's next call follows it. */
+  setPermission: (id: string, permission: AgentPermission, allowed: boolean) =>
+    within(backend.mutation<{ permissions: AgentPermissions }>('agentAccess:setPermission', { id, permission, allowed })),
   /** The "Connect to Numa Shared" page (app/src/app/connect.tsx). */
   consent: {
     describe: async (request: string) => within((await anonymousClient()).query(ref('agentOAuth:describeRequest'), { request } as never) as Promise<AgentRequest>),
