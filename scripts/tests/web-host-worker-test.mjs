@@ -49,6 +49,25 @@ test("a 401 from the backend reaches the agent with its WWW-Authenticate header"
   assert.match(response.headers.get("www-authenticate"), /resource_metadata/);
 });
 
+test("the app, including the Connect page, may not be framed by another site", async () => {
+  const assets = {
+    fetch: async (request) => new URL(request.url).pathname === "/missing"
+      ? new Response("not found", { status: 404 })
+      : new Response("app", { status: 200, headers: { "content-type": "text/html" } }),
+  };
+  for (const path of ["/app/", "/app/connect?request=nsar_x", "/app/_expo/static/js/web/entry-abc.js", "/app/missing"]) {
+    const response = await worker.fetch(new Request(`https://shared.numaworth.com${path}`), { ASSETS: assets });
+    assert.equal(response.headers.get("content-security-policy"), "frame-ancestors 'none'", path);
+    assert.equal(response.headers.get("x-frame-options"), "DENY", path);
+  }
+  const bundle = await worker.fetch(new Request("https://shared.numaworth.com/app/_expo/static/js/web/entry-abc.js"), { ASSETS: assets });
+  assert.equal(bundle.headers.get("cache-control"), "public, max-age=31536000, immutable");
+  assert.equal(await bundle.text(), "app");
+  const missing = await worker.fetch(new Request("https://shared.numaworth.com/app/missing"), { ASSETS: assets });
+  assert.equal(missing.status, 404);
+  assert.equal(missing.headers.get("cache-control"), null);
+});
+
 test("other POSTs still redirect so rate limits see the caller", async () => {
   const calls = capture();
   const response = await worker.fetch(new Request("https://shared.numaworth.com/auth/refresh", { method: "POST", body: "{}" }), env);

@@ -1,7 +1,8 @@
 // shared.numaworth.com: the Numa Shared web app under /app, and the backend's public pages under
 // the branded address.
 //
-// - /app and below: the web app (an Expo web export, served as a single-page app).
+// - /app and below: the web app (an Expo web export, served as a single-page app). No other site
+//   may frame it (frame-ancestors 'none', X-Frame-Options DENY).
 // - GET pages (home, privacy, support, invite pages, Apple's app-site-association): fetched from the
 //   backend and served here, so the address stays shared.numaworth.com.
 // - Any other GET a person could open: a small "page not found" with a way back.
@@ -33,13 +34,16 @@ export default {
       const inner = new URL(request.url);
       inner.pathname = url.pathname.slice('/app'.length);
       const res = await env.ASSETS.fetch(new Request(inner, request));
+      const headers = new Headers(res.headers);
+      // No other site may frame the app: the "Connect to Numa Shared" page must not be overlaid
+      // (clickjacking).
+      headers.set('Content-Security-Policy', "frame-ancestors 'none'");
+      headers.set('X-Frame-Options', 'DENY');
       // Bundles and fonts carry a content hash in their names, so a return visit needn't fetch them.
       if (res.ok && /^\/(_expo\/static|assets)\//.test(inner.pathname)) {
-        const headers = new Headers(res.headers);
         headers.set('Cache-Control', 'public, max-age=31536000, immutable');
-        return new Response(res.body, { status: res.status, headers });
       }
-      return res;
+      return new Response(res.body, { status: res.status, statusText: res.statusText, headers });
     }
     if (PROXIED.some((p) => p.test(url.pathname))) {
       const headers = new Headers();
