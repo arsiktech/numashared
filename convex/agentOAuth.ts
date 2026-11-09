@@ -8,7 +8,8 @@
 // 3. /oauth/authorize checks the client, the exact redirect address and PKCE, stores the request
 //    and sends the browser to the web app's "Connect to Numa Shared" page (/connect). A bad
 //    request gets an error page: nothing redirects to the agent before the person has consented.
-// 4. The signed-in person picks "All my households" or one household and approves (or declines).
+// 4. The signed-in person approves (or declines). Approval covers all their households; the
+//    page asks nothing else. The server still accepts one household, for older app versions.
 //    Each approval makes a new agentConnections row and a one-time code; the browser returns to
 //    the agent.
 // 5. The agent swaps the code (with its PKCE verifier) for a one-hour access token and a refresh
@@ -472,14 +473,18 @@ export const approveRequest = internalMutation({
   },
 });
 
-/** Approves the request as the signed-in person; returns where the browser goes next. */
+/**
+ * Approves the request as the signed-in person; returns where the browser goes next. Without
+ * `household` (the consent page today) the agent reads all their households. A household id,
+ * sent by older app versions, limits it to that one.
+ */
 export const approve = action({
-  args: { request: v.string(), household: v.union(v.string(), v.null()) },
+  args: { request: v.string(), household: v.optional(v.union(v.string(), v.null())) },
   handler: async (ctx, args): Promise<{ redirectTo: string }> => {
     const code = oauth.randomSecret("nsac");
     const back: { redirectUri: string; state: string | null; issuer: string } = await ctx.runMutation(internal.agentOAuth.approveRequest, {
       request: args.request,
-      potId: args.household,
+      potId: args.household ?? null,
       codeHash: await sha256Hex(code),
       now: Date.now(),
     });

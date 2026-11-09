@@ -3,8 +3,9 @@
 // An agent connects in one of two ways:
 // - OAuth (convex/agentOAuth.ts): the person adds the MCP address to Claude, ChatGPT or Cursor and
 //   approves it on the "Connect to Numa Shared" page. This is the normal way.
-// - A secret link, for terminal agents: the person presses Connect in Settings, the phone makes a
-//   random secret, keeps it to show once and sends only its SHA-256 here.
+// - A secret link: the person taps "Copy setup prompt" in Settings. The phone or browser makes a
+//   random secret, puts the link in a prompt for the agent and sends only its SHA-256 here. The
+//   app asks for all households; `potId` still limits a link to one, for older app versions.
 // Either way the agent calls POST /mcp (convex/agentMcp.ts) and can read what that person can
 // read: the households they belong to, the people in them, balances and records. It cannot change
 // anything, and Numa Shared never moves money. The person can see what the agent did and

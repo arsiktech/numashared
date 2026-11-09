@@ -132,12 +132,16 @@ async function tokenRequest(t: Tester, form: Record<string, string>, headers: Re
   return { status: response.status, body: await body(response) };
 }
 
-/** Registers a client, approves it as `who` (optionally for one household) and swaps the code for tokens. */
-async function connect(t: Tester, who: "alice" | "bob", household: string | null = null) {
+/**
+ * Registers a client, approves it as `who` and swaps the code for tokens. With no household, as
+ * the consent page sends it, the approval covers all households; older apps may name one.
+ */
+async function connect(t: Tester, who: "alice" | "bob", household?: string | null) {
   const client = (await register(t)).body;
   const { verifier, challenge } = pkce();
   const started = await authorize(t, client.client_id, await challenge);
-  const approved = await identity(t, who).action(api.agentOAuth.approve, { request: requestIdOf(started.headers.get("location")!), household });
+  const request = requestIdOf(started.headers.get("location")!);
+  const approved = await identity(t, who).action(api.agentOAuth.approve, household === undefined ? { request } : { request, household });
   const code = new URL(approved.redirectTo).searchParams.get("code")!;
   const tokens = await tokenRequest(t, {
     grant_type: "authorization_code", code, code_verifier: verifier, client_id: client.client_id, redirect_uri: REDIRECT, resource: RESOURCE,
@@ -429,6 +433,22 @@ describe("Agent connection with OAuth (MCP authorization)", () => {
     const four = await connect(t, "alice");
     await t.run(async (ctx) => { await ctx.db.patch(alice, { deletionStartedAt: Date.now() }); });
     expect((await callTool(t, four.access, "list_households")).status).toBe(403);
+  });
+
+  test("an approval that names no household reads all of them, as the consent page sends it", async () => {
+    const t = convexTest(schema, modules);
+    await seed(t);
+    const { access } = await connect(t, "bob");
+    const ids = (await callTool(t, access, "list_households")).body.result.structuredContent.result.map((h: { householdId: string }) => h.householdId);
+    expect(ids.sort()).toEqual([POT, OTHER_POT].sort());
+    for (const household of [POT, OTHER_POT]) {
+      expect((await callTool(t, access, "get_balances", { household })).body.result.isError).toBeUndefined();
+    }
+    const [connection] = await identity(t, "bob").query(api.agentAccess.listMine, {});
+    expect(connection).toMatchObject({ kind: "oauth", potId: null });
+    // An explicit null, from the previous consent page, means the same.
+    const legacy = await connect(t, "bob", null);
+    expect((await callTool(t, legacy.access, "list_households")).body.result.structuredContent.result).toHaveLength(2);
   });
 
   test("a token for one household cannot read another", async () => {

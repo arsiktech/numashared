@@ -1,10 +1,6 @@
-// Where "Add to Claude", "Add to ChatGPT" and "Add to Cursor" send the person (Settings, AI agents).
-
-/** Cursor installs an MCP server from a deep link carrying its config as base64 JSON. */
-export function cursorInstallLink(url: string): string {
-  const config = btoa(JSON.stringify({ url }));
-  return `cursor://anysphere.cursor-deeplink/mcp/install?name=numa-shared&config=${encodeURIComponent(config)}`;
-}
+// Where "Add to Claude" and "Add to ChatGPT" send the person (Settings, AI agents). These chat apps
+// can't add a connector from a prompt, so they get the MCP address and sign in on the
+// "Connect to Numa Shared" page instead.
 
 /** Claude and ChatGPT take a custom connector by address, so the address is copied before their settings open. */
 export const AGENT_APPS = {

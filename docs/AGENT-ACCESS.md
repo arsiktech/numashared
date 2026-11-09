@@ -1,40 +1,60 @@
 # Agent access (read-only MCP)
 
-A person can let an AI agent (Claude, ChatGPT, Cursor, any MCP client) read their
-households. This is **read only**: an agent cannot add, change or delete anything, and
+A person can let an AI agent (Claude Code, Codex, Cursor, Hermes, Claude, ChatGPT, any MCP
+client) read their households. This is **read only**: an agent cannot add, change or delete anything, and
 Numa Shared never moves money.
 
 ## How a person connects an agent
 
-The normal way takes one step and no secrets:
+### Copy setup prompt (any agent that takes MCP)
 
-1. Settings, AI agents: **Add to Claude**, **Add to ChatGPT** or **Add to Cursor**.
-   - Claude and ChatGPT: the app copies the address `https://shared.numaworth.com/mcp` and
-     opens the agent's connector settings, where the person pastes it as a custom connector.
-   - Cursor: the app opens a `cursor://anysphere.cursor-deeplink/mcp/install` link that
-     carries the address, and Cursor offers to install it.
-   - Any other agent: copy the address from the same screen.
+1. Settings, AI agents: **Copy setup prompt**. There is nothing to choose. One tap:
+   - makes a secret on the device or in the browser (`nsag_` plus 32 random bytes) and sends
+     only its SHA-256 to `agentAccess:connect`, for all households, named `Agent, <date>`;
+   - copies a plain-text prompt for the agent. A toast confirms it. On a phone the share sheet
+     opens instead, which offers Copy.
+2. The person pastes the prompt into their agent. The prompt holds the link
+   `https://shared.numaworth.com/mcp/<secret>` and one setup line for each harness: Claude
+   Code, Codex CLI, Cursor, Hermes Agent and any client that supports Streamable HTTP. It names
+   the four tools, says the access is read-only, tells the agent to keep the link out of its
+   replies and in its MCP config only, and to call `list_households` to confirm.
+3. The agent appears under **Connected** with when it was connected and when it was last used.
+   **Disconnect** stops it on its next call.
+
+The prompt is built in `app/src/features/agents/setupPrompt.ts`, which also records where each
+setup line's syntax was checked. On the web the clipboard write starts inside the tap, with the
+prompt still on its way, because Safari allows clipboard writes only there. If the clipboard
+refuses, the screen shows the prompt once, with **Copy** (web) or **Share** (phone).
+
+For Codex the prompt edits `~/.codex/config.toml` instead of running `codex mcp add --url`.
+Codex 0.167 `mcp add` sees that the server also offers OAuth and waits for a browser sign-in,
+which a secret link doesn't need.
+
+Clients that can send headers may use `Authorization: Bearer <secret>` on `/mcp` instead, which
+keeps the secret out of logs. The path accepts only `nsag_` secrets; OAuth access tokens work
+only in the `Authorization` header.
+
+### Add to Claude, Add to ChatGPT (chat apps)
+
+Claude and ChatGPT can't add a connector from a prompt, so they sign in instead:
+
+1. Settings, AI agents, Chat apps: **Add to Claude** or **Add to ChatGPT**. The app copies the
+   address `https://shared.numaworth.com/mcp` and opens the app's connector settings, where the
+   person pastes it as a custom connector.
 2. The agent opens the **Connect to Numa Shared** page (`/connect` in the web app). The page
-   names the agent and the address it returns to. It warns when that address is on the
-   person's own computer.
-3. The signed-in person picks **All my households** or **Only** one household, then
-   **Connect** or **Don’t connect**. The browser goes back to the agent.
-4. The agent appears under **Connected** with its scope, when it was connected and when it
-   was last used. **Disconnect** stops it on its next call.
+   names the agent, the households it can read and the address it returns to. It warns when
+   that address is on the person's own computer.
+3. The signed-in person chooses **Connect** or **Don’t connect**. Connecting covers all their
+   households. The browser goes back to the agent.
 
 Each approval is its own connection, with its own tokens and its own **Disconnect**, even for
 the same agent. Approving Claude on a second computer never changes what the first one may
 read. When the account is at the limit, OAuth connections that can never be used again (code
 expired, no live refresh token) are closed to make room.
 
-### Terminal agents (secret link)
-
-Under **Advanced: terminal agents**, a person can still make a secret link for an agent that
-cannot open a sign-in page. The phone makes the secret (`nsag_` plus 32 random bytes) and
-sends only its SHA-256 to `agentAccess:connect`. The link `https://<site>/mcp/<secret>` is
-shown once. Clients that support headers can send `Authorization: Bearer <secret>` to `/mcp`
-instead, which keeps the secret out of logs. The path accepts only `nsag_` secrets; OAuth
-access tokens work only in the `Authorization` header.
+Connections made by earlier app versions may be limited to one household. They keep working,
+and Settings shows **Only <household>** for them. The server still accepts a household on
+`agentAccess:connect` and `agentOAuth:approve`; the app no longer sends one.
 
 At most 5 agents can be connected per account. An agent may make 60 calls per minute.
 
@@ -52,7 +72,7 @@ The code is in `convex/agentOAuth.ts` and `convex/lib/oauth.ts`.
 | Tokens | `POST /oauth/token`: `authorization_code` and `refresh_token` grants |
 | Revocation | `POST /oauth/revoke` (RFC 7009). Revoking a refresh token closes the connection. |
 
-- **Scope**: one scope, `shared:read`. The household choice is made on the consent page.
+- **Scope**: one scope, `shared:read`. An approval covers all the person's households.
 - **Resource indicators** (RFC 8707): tokens are bound to `<origin>/mcp`. The server accepts
   only its own addresses: the site URL and each origin in `NUMA_SHARED_WEB_ORIGINS`.
 - **First call**: `/mcp` without a valid token answers `401` with
@@ -140,5 +160,7 @@ It also erases each registered client that only the departing account had connec
 - Update `PRIVACY.md`, the privacy policy page and App Privacy answers: data the person
   chooses to hand to a third-party agent leaves Numa Shared at their instruction.
 - Check Settings, AI agents and the consent page on a device, and connect real Claude,
-  ChatGPT and Cursor clients against production.
+  ChatGPT, Claude Code, Codex, Cursor and Hermes clients against production.
+- The setup prompt's link uses `shared.numaworth.com/mcp/<secret>`, so it needs the web host
+  Worker deployed first.
 - Writes through reviewed proposals, and Shared balances into Numa Pro, are separate work.

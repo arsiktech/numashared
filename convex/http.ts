@@ -59,7 +59,7 @@ http.route({ path: "/support", method: "GET", handler: support });
 http.route({ path: "/terms", method: "GET", handler: terms });
 http.route({ path: "/app-config", method: "GET", handler: withCors(appConfiguration) });
 http.route({ path: "/card-sync/spends", method: "POST", handler: spendsHttp });
-// Read-only agent access (MCP). An OAuth access token or a terminal agent's secret in the
+// Read-only agent access (MCP). An OAuth access token or a secret link's secret in the
 // Authorization header, or a secret in the link.
 for (const method of ["POST", "GET", "DELETE", "OPTIONS"] as const) {
   http.route({ path: "/mcp", method, handler: mcp });
