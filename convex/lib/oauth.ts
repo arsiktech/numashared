@@ -15,6 +15,8 @@ type Env = Readonly<Record<string, string | undefined>>;
 export const OAUTH_SCOPE = "shared:read";
 export const ACCESS_TOKEN_SECONDS = 3_600;
 export const REFRESH_TOKEN_MILLIS = 30 * 24 * 3_600_000;
+/** A retried refresh within this window gets the same new pair instead of closing the connection (RFC 9700 4.14.2). */
+export const REFRESH_GRACE_MILLIS = 30_000;
 export const CODE_MILLIS = 5 * 60_000;
 export const REQUEST_MILLIS = 10 * 60_000;
 export const METADATA_CACHE_MILLIS = 3_600_000;
@@ -128,11 +130,16 @@ export function webAppURL(env: Env): string | null {
   }
 }
 
-const blockedSchemes = new Set(["javascript:", "data:", "file:", "vbscript:", "about:", "blob:", "ws:", "wss:", "ftp:"]);
+/** App schemes of agents we support that are not reverse-DNS names. */
+const KNOWN_APP_SCHEMES = new Set(["cursor:"]);
+/** A private-use scheme named after a domain in reverse order, e.g. com.example.app (RFC 8252 section 7.1). */
+const REVERSE_DNS_SCHEME = /^[a-z][a-z0-9-]*(\.[a-z0-9-]+)+:$/;
 
 /**
- * A redirect URI a client may register: https, http on a loopback address (native apps and
- * terminal agents), or an app's own scheme such as cursor://. Never a fragment.
+ * A redirect URI a client may register. An allowlist: https, http on a loopback address (native
+ * apps, terminal agents, MCP Inspector), a known agent's app scheme (cursor://), or a reverse-DNS
+ * private-use scheme. Any other scheme (search-ms:, ms-msdt:, javascript: …) is refused, so an
+ * operating-system handler can never be a redirect target. Never a fragment or credentials.
  */
 export function redirectUriAllowed(value: string): boolean {
   if (value.length > 500) return false;
@@ -141,8 +148,8 @@ export function redirectUriAllowed(value: string): boolean {
     if (url.hash || url.username || url.password) return false;
     if (url.protocol === "https:") return url.hostname.length > 0;
     if (url.protocol === "http:") return isLoopbackHost(url.hostname);
-    if (blockedSchemes.has(url.protocol)) return false;
-    return /^[a-z][a-z0-9+.-]{1,40}:$/.test(url.protocol);
+    if (url.protocol.length > 60) return false;
+    return KNOWN_APP_SCHEMES.has(url.protocol) || REVERSE_DNS_SCHEME.test(url.protocol);
   } catch {
     return false;
   }
@@ -205,6 +212,18 @@ export function randomSecret(prefix: string, bytes = 32): string {
   return `${prefix}_${base64url(crypto.getRandomValues(new Uint8Array(bytes)))}`;
 }
 
+/**
+ * The token a refresh rotates into: HMAC-SHA-256 of the presented refresh token under a server
+ * secret, with the prefix as domain separation. The same refresh always gives the same pair, so a
+ * retry inside the grace window gets what the first attempt got, and no plaintext is stored.
+ * Without the secret, nobody can work out the next token from the presented one.
+ */
+export async function rotatedSecret(serverSecret: string, prefix: "nsat" | "nsrt", presented: string): Promise<string> {
+  const key = await crypto.subtle.importKey("raw", new TextEncoder().encode(serverSecret), { name: "HMAC", hash: "SHA-256" }, false, ["sign"]);
+  const mac = await crypto.subtle.sign("HMAC", key, new TextEncoder().encode(`numa-shared/oauth-rotation/v1/${prefix}/${presented}`));
+  return `${prefix}_${base64url(new Uint8Array(mac))}`;
+}
+
 /** Accepts the request's scope: ours, plus offline_access, which clients may add for refresh tokens. */
 export function scopeAccepted(scope: string | null | undefined): boolean {
   if (!scope) return true;
@@ -246,7 +265,7 @@ export function parseRegistration(body: unknown): { ok: true; value: ClientRegis
     return {
       ok: false,
       error: "invalid_redirect_uri",
-      description: "redirect_uris must list 1 to 10 https, loopback http or app-scheme addresses without fragments.",
+      description: "redirect_uris must list 1 to 10 addresses without fragments: https, loopback http, cursor:// or a reverse-DNS app scheme (RFC 8252).",
     };
   }
   const grantTypes = Array.isArray(meta.grant_types) ? meta.grant_types.map(String) : ["authorization_code", "refresh_token"];

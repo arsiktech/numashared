@@ -11,6 +11,7 @@
 // disconnect it at any time.
 import { v } from "convex/values";
 
+import { internal } from "./_generated/api";
 import type { Doc, Id } from "./_generated/dataModel";
 import { internalMutation, mutation, query, type MutationCtx, type QueryCtx } from "./_generated/server";
 import { fail, requireActiveMembership, requireSession } from "./lib/access";
@@ -83,12 +84,38 @@ export const listMine = query({
   },
 });
 
-/** Closes a connection and deletes its OAuth tokens. Used by Disconnect and by replay detection. */
+const tokenDeleteBatch = 500;
+/** Token batches one mutation deletes before it hands the rest to a scheduled follow-up. */
+export const tokenDeleteBatchesPerRun = 4;
+
+/** Deletes a connection's OAuth tokens in batches; schedules itself when more are left. */
+async function deleteConnectionTokens(ctx: MutationCtx, connectionId: Id<"agentConnections">) {
+  for (let round = 0; round < tokenDeleteBatchesPerRun; round += 1) {
+    const tokens = await ctx.db.query("oauthTokens")
+      .withIndex("by_connection", (q) => q.eq("connectionId", connectionId))
+      .take(tokenDeleteBatch);
+    for (const token of tokens) await ctx.db.delete(token._id);
+    if (tokens.length < tokenDeleteBatch) return;
+  }
+  await ctx.scheduler.runAfter(0, internal.agentAccess.finishClosing, { connectionId });
+}
+
+export const finishClosing = internalMutation({
+  args: { connectionId: v.id("agentConnections") },
+  handler: async (ctx, { connectionId }) => {
+    await deleteConnectionTokens(ctx, connectionId);
+    return null;
+  },
+});
+
+/**
+ * Closes a connection and deletes its OAuth tokens. Used by Disconnect and by replay detection.
+ * `revokedAt` stops every token at once; the rows go in batches, later ones in a follow-up.
+ */
 export async function closeConnection(ctx: MutationCtx, connectionId: Id<"agentConnections">, now: number) {
   const row = await ctx.db.get(connectionId);
   if (row && row.revokedAt === undefined) await ctx.db.patch(connectionId, { revokedAt: now });
-  const tokens = await ctx.db.query("oauthTokens").withIndex("by_connection", (q) => q.eq("connectionId", connectionId)).take(500);
-  for (const token of tokens) await ctx.db.delete(token._id);
+  await deleteConnectionTokens(ctx, connectionId);
 }
 
 /** Disconnects an agent at once: its secret or tokens stop working on the next call. */
@@ -147,11 +174,12 @@ export async function accountIsUsable(ctx: QueryCtx | MutationCtx, accountId: Id
  * link's secret. Only its SHA-256 arrives here.
  */
 export const authenticate = internalMutation({
-  args: { tokenHash: v.string(), resources: v.array(v.string()) },
-  handler: async (ctx, { tokenHash, resources }): Promise<AgentAuth> => {
+  // linkOnly: the credential came from the URL path, where only secret-link secrets are accepted.
+  args: { tokenHash: v.string(), resources: v.array(v.string()), linkOnly: v.optional(v.boolean()) },
+  handler: async (ctx, { tokenHash, resources, linkOnly }): Promise<AgentAuth> => {
     const now = Date.now();
     let row: Doc<"agentConnections"> | null;
-    const token = await ctx.db.query("oauthTokens")
+    const token = linkOnly ? null : await ctx.db.query("oauthTokens")
       .withIndex("by_token_hash", (q) => q.eq("tokenHash", tokenHash))
       .unique();
     if (token) {

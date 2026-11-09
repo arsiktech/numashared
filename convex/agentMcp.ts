@@ -2,7 +2,8 @@
 //
 // Credentials: an OAuth access token (convex/agentOAuth.ts) or a terminal agent's secret, sent as
 // `Authorization: Bearer <token>`. A secret link (/mcp/<secret>) also works, for clients that take
-// only a URL. A call without a valid credential gets 401 with a WWW-Authenticate header that points
+// only a URL; the path accepts only such secrets (`nsag_`), never OAuth tokens. One JSON-RPC
+// message per POST: batches are refused. A call without a valid credential gets 401 with a WWW-Authenticate header that points
 // to the protected resource metadata, which is how an agent finds the "Connect" flow.
 //
 // Protocol: both eras of MCP. Clients that open with `initialize` (2025-11-25 and earlier) get the
@@ -64,12 +65,17 @@ const CODE_MESSAGES: Record<string, string> = {
   AGENT_BAD_CURSOR: "before_sequence is not a valid cursor.",
 };
 
-function credentialFrom(request: Request): string | null {
+/**
+ * The Authorization header, or a secret link's secret in the path. Only secret-link secrets
+ * (`nsag_`) are read from the path: OAuth access tokens must arrive in the header, so they never
+ * sit in URLs, proxy logs or history.
+ */
+function credentialFrom(request: Request): { credential: string; fromPath: boolean } | null {
   const bearer = request.headers.get("authorization")?.match(/^Bearer\s+(\S+)$/i)?.[1];
-  if (bearer) return bearer;
+  if (bearer) return { credential: bearer, fromPath: false };
   const tail = new URL(request.url).pathname.replace(/^\/mcp\/?/, "");
-  if (!tail) return null;
-  try { return decodeURIComponent(tail); } catch { return null; }
+  if (!tail.startsWith("nsag_")) return null;
+  try { return { credential: decodeURIComponent(tail), fromPath: true }; } catch { return null; }
 }
 
 function errorText(error: unknown): string {
@@ -120,13 +126,14 @@ export const mcp = httpAction(async (ctx, request) => {
   if (request.method !== "POST") return json({ error: "Use POST" }, 405, { allow: "POST" });
 
   const origin = requestOrigin(process.env, request);
-  const credential = credentialFrom(request);
-  if (!credential || credential.length > 200) {
+  const presented = credentialFrom(request);
+  if (!presented || presented.credential.length > 200) {
     return json(rpcError(null, -32001, "Connect this agent to Numa Shared first."), 401, challenge(origin));
   }
   const auth: AgentAuth = await ctx.runMutation(internal.agentAccess.authenticate, {
-    tokenHash: await sha256Hex(credential),
+    tokenHash: await sha256Hex(presented.credential),
     resources: ownResources(process.env),
+    linkOnly: presented.fromPath,
   });
   if (!auth.ok) {
     const [status, message] = REFUSALS[auth.reason];
@@ -135,9 +142,12 @@ export const mcp = httpAction(async (ctx, request) => {
 
   let body: unknown;
   try { body = await request.json(); } catch { return json(rpcError(null, -32700, "The request is not valid JSON."), 400); }
-  const batch = Array.isArray(body);
-  const messages = (batch ? body : [body]) as RpcRequest[];
-  if (!messages.length || messages.length > 20) return json(rpcError(null, -32600, "Send between 1 and 20 messages."), 400);
+  // One message per POST. MCP removed JSON-RPC batching in 2025-06-18, and the clients we serve
+  // never sent batches; a batch would also run many tools on one counted call.
+  if (Array.isArray(body)) {
+    return json(rpcError(null, -32600, "JSON-RPC batches are not supported. Send one message per request."), 400);
+  }
+  const message = body as RpcRequest;
 
   const io: AgentIo = {
     read: (reader, args) => {
@@ -245,13 +255,7 @@ export const mcp = httpAction(async (ctx, request) => {
     }
   };
 
-  const replies: RpcResponse[] = [];
-  let status = 200;
-  for (const message of messages) {
-    const { reply, status: replyStatus } = await answer(message);
-    if (reply) replies.push(reply);
-    if (!batch && replyStatus) status = replyStatus;
-  }
-  if (replies.length === 0) return new Response(null, { status: 202, headers: cors });
-  return json(batch ? replies : replies[0], status);
+  const { reply, status } = await answer(message);
+  if (!reply) return new Response(null, { status: 202, headers: cors });
+  return json(reply, status ?? 200);
 });

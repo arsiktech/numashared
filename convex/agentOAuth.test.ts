@@ -5,7 +5,8 @@ import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 
 import { api } from "./_generated/api";
 import type { Id } from "./_generated/dataModel";
-import { s256 } from "./lib/oauth";
+import { tokenDeleteBatchesPerRun } from "./agentAccess";
+import { redirectUriAllowed, s256 } from "./lib/oauth";
 import schema from "./schema";
 import { modules } from "./test.setup";
 
@@ -208,6 +209,7 @@ describe("Agent connection with OAuth (MCP authorization)", () => {
       expect(bad.body.error).toBe("invalid_redirect_uri");
     }
     expect((await register(t, { redirect_uris: ["cursor://anysphere.cursor-mcp/oauth/callback"] })).status).toBe(201);
+    expect((await register(t, { redirect_uris: ["com.example.agent:/oauth/callback"] })).status).toBe(201);
     expect((await register(t, { grant_types: ["client_credentials"] })).body.error).toBe("invalid_client_metadata");
 
     const confidential = await register(t, { token_endpoint_auth_method: "client_secret_post" });
@@ -277,14 +279,14 @@ describe("Agent connection with OAuth (MCP authorization)", () => {
     const client = (await register(t)).body;
     const { challenge } = pkce();
 
+    // A bad request shows an error page; it is never sent back to the agent before consent.
     const missing = await authorize(t, client.client_id, "");
-    expect(missing.status).toBe(302);
-    const missingBack = new URL(missing.headers.get("location")!);
-    expect(missingBack.searchParams.get("error")).toBe("invalid_request");
-    expect(missingBack.searchParams.get("state")).toBe("state-123");
-    expect(missingBack.searchParams.get("iss")).toBe(SITE);
-    const plain = new URL((await authorize(t, client.client_id, await challenge, { code_challenge_method: "plain" })).headers.get("location")!);
-    expect(plain.searchParams.get("error")).toBe("invalid_request");
+    expect(missing.status).toBe(400);
+    expect(missing.headers.get("location")).toBeNull();
+    expect(await missing.text()).toMatch(/PKCE/);
+    const plain = await authorize(t, client.client_id, await challenge, { code_challenge_method: "plain" });
+    expect(plain.status).toBe(400);
+    expect(plain.headers.get("location")).toBeNull();
 
     const started = await authorize(t, client.client_id, await challenge);
     const approved = await identity(t, "alice").action(api.agentOAuth.approve, { request: requestIdOf(started.headers.get("location")!), household: null });
@@ -308,8 +310,48 @@ describe("Agent connection with OAuth (MCP authorization)", () => {
     expect(unknown.status).toBe(400);
     const otherPort = await authorize(t, client.client_id, await challenge, { redirect_uri: "http://127.0.0.1:50000/callback" });
     expect(otherPort.status).toBe(302); // loopback redirects may use any port (RFC 8252)
-    const otherServer = new URL((await authorize(t, client.client_id, await challenge, { resource: "https://other.example/mcp" })).headers.get("location")!);
-    expect(otherServer.searchParams.get("error")).toBe("invalid_target");
+    const otherServer = await authorize(t, client.client_id, await challenge, { resource: "https://other.example/mcp" });
+    expect(otherServer.status).toBe(400);
+    expect(otherServer.headers.get("location")).toBeNull();
+  });
+
+  test("review P5: a bad request never auto-redirects before consent, and OS handler schemes cannot be registered", async () => {
+    const t = convexTest(schema, modules);
+    const client = (await register(t, { redirect_uris: ["https://phish.example/landing"] })).body;
+    const cases: Array<Record<string, string>> = [
+      { response_type: "token" },
+      { code_challenge_method: "plain" },
+      { scope: "admin" },
+      { resource: "https://other.example/mcp" },
+      { state: "x".repeat(501) },
+    ];
+    for (const extra of cases) {
+      const query = new URLSearchParams({
+        response_type: "code", client_id: client.client_id, redirect_uri: "https://phish.example/landing",
+        code_challenge: "a".repeat(43), code_challenge_method: "S256", ...extra,
+      });
+      const response = await t.fetch(`/oauth/authorize?${query}`, { method: "GET" });
+      expect([JSON.stringify(extra), response.status]).toEqual([JSON.stringify(extra), 400]);
+      expect(response.headers.get("location")).toBeNull();
+      expect(response.headers.get("content-security-policy")).toBe("frame-ancestors 'none'");
+      expect(response.headers.get("x-frame-options")).toBe("DENY");
+    }
+    for (const uri of ["search-ms:query=x&crumb=location:%5C%5Cevil%5Cshare", "ms-msdt:/id x", "ms-officecmd:x", "intent://x#Intent;end", "vscode://x/cb", "ftp://x/cb", "http://evil.example/cb"]) {
+      expect([uri, redirectUriAllowed(uri)]).toEqual([uri, false]);
+      expect((await register(t, { redirect_uris: [uri] })).body.error).toBe("invalid_redirect_uri");
+    }
+    // The agents we support keep working: Claude, ChatGPT, Claude Code, Cursor, MCP Inspector, native apps.
+    for (const uri of [
+      "https://claude.ai/api/mcp/auth_callback",
+      "https://chatgpt.com/connector_platform_oauth_redirect",
+      "http://127.0.0.1:33418/callback",
+      "http://localhost:6274/oauth/callback",
+      "http://[::1]:8080/callback",
+      "cursor://anysphere.cursor-mcp/oauth/callback",
+      "com.example.agent:/oauth2redirect",
+    ]) {
+      expect([uri, redirectUriAllowed(uri)]).toEqual([uri, true]);
+    }
   });
 
   test("declining sends access_denied back and closes the request", async () => {
@@ -340,6 +382,12 @@ describe("Agent connection with OAuth (MCP authorization)", () => {
     const otherClient = (await register(t)).body.client_id;
     expect((await tokenRequest(t, { grant_type: "refresh_token", refresh_token: rotated.body.refresh_token, client_id: otherClient })).body.error).toBe("invalid_grant");
 
+    // After the 30-second grace window, the first refresh token presented again is a replay.
+    await t.run(async (ctx) => {
+      for (const row of await ctx.db.query("oauthTokens").collect()) {
+        if (row.usedAt !== undefined) await ctx.db.patch(row._id, { usedAt: row.usedAt - 31_000 });
+      }
+    });
     const replay = await tokenRequest(t, { grant_type: "refresh_token", refresh_token: first.refresh, client_id: first.clientId });
     expect(replay.status).toBe(400);
     expect(replay.body.error).toBe("invalid_grant");
@@ -473,17 +521,117 @@ describe("Agent connection with OAuth (MCP authorization)", () => {
     expect(legacy.body.result).toMatchObject({ protocolVersion: "2025-11-25", serverInfo: { name: "numa-shared" } });
   });
 
-  test("approving the same agent again reuses its connection and updates what it may read", async () => {
+  test("review P3: each approval is its own connection; a second consent never widens an earlier token", async () => {
     const t = convexTest(schema, modules);
     await seed(t);
     const client = (await register(t)).body;
-    for (const household of [null, OTHER_POT]) {
-      const started = await authorize(t, client.client_id, await pkce().challenge);
-      await identity(t, "bob").action(api.agentOAuth.approve, { request: requestIdOf(started.headers.get("location")!), household });
-    }
+    // Computer 1: limited to Casa Mar.
+    const one = pkce();
+    const s1 = await authorize(t, client.client_id, await one.challenge);
+    const a1 = await identity(t, "bob").action(api.agentOAuth.approve, { request: requestIdOf(s1.headers.get("location")!), household: POT });
+    const tok1 = await tokenRequest(t, { grant_type: "authorization_code", code: new URL(a1.redirectTo).searchParams.get("code")!, code_verifier: one.verifier, client_id: client.client_id, resource: RESOURCE });
+    expect((await callTool(t, tok1.body.access_token, "get_balances", { household: OTHER_POT })).body.result.isError).toBe(true);
+    // Computer 2, same client id: "All my households".
+    const two = pkce();
+    const s2 = await authorize(t, client.client_id, await two.challenge);
+    const a2 = await identity(t, "bob").action(api.agentOAuth.approve, { request: requestIdOf(s2.headers.get("location")!), household: null });
+    const tok2 = await tokenRequest(t, { grant_type: "authorization_code", code: new URL(a2.redirectTo).searchParams.get("code")!, code_verifier: two.verifier, client_id: client.client_id, resource: RESOURCE });
+    // The first token keeps its own scope.
+    expect((await callTool(t, tok1.body.access_token, "get_balances", { household: OTHER_POT })).body.result.isError).toBe(true);
+    expect((await callTool(t, tok2.body.access_token, "get_balances", { household: OTHER_POT })).body.result.isError).toBeUndefined();
+    // Settings lists both, each with its own scope and its own Disconnect.
     const mine = await identity(t, "bob").query(api.agentAccess.listMine, {});
-    expect(mine).toHaveLength(1);
-    expect(mine[0]!.potId).toBe(OTHER_POT);
+    expect(mine.map((c) => [c.name, c.kind, c.potId]).sort()).toEqual([["Claude Code", "oauth", null], ["Claude Code", "oauth", POT]]);
+    await identity(t, "bob").mutation(api.agentAccess.disconnect, { id: mine.find((c) => c.potId === POT)!.id });
+    expect((await callTool(t, tok1.body.access_token, "list_households")).status).toBe(401);
+    expect((await callTool(t, tok2.body.access_token, "list_households")).status).toBe(200);
+    expect(await identity(t, "bob").query(api.agentAccess.listMine, {})).toHaveLength(1);
+  });
+
+  test("an agent that lost its tokens can connect again at the limit; its dead connection gives up its place", async () => {
+    const t = convexTest(schema, modules);
+    await seed(t);
+    for (let i = 0; i < 5; i += 1) await connect(t, "alice");
+    // Four of them are abandoned: their refresh tokens expired long ago.
+    await t.run(async (ctx) => {
+      const connections = (await ctx.db.query("agentConnections").collect()).sort((a, b) => a._creationTime - b._creationTime);
+      for (const connection of connections) await ctx.db.patch(connection._id, { createdAt: Date.now() - 3_600_000 });
+      for (const row of await ctx.db.query("oauthTokens").collect()) {
+        if (row.connectionId !== connections[4]!._id) await ctx.db.patch(row._id, { expiresAt: Date.now() - 1 });
+      }
+    });
+    const kept = await connect(t, "alice");
+    expect(await identity(t, "alice").query(api.agentAccess.listMine, {})).toHaveLength(2);
+    expect((await callTool(t, kept.access, "list_households")).status).toBe(200);
+    // Five live connections: the sixth is refused.
+    for (let i = 0; i < 3; i += 1) await connect(t, "alice");
+    const client = (await register(t)).body;
+    const started = await authorize(t, client.client_id, await pkce().challenge);
+    await expect(identity(t, "alice").action(api.agentOAuth.approve, { request: requestIdOf(started.headers.get("location")!), household: null }))
+      .rejects.toThrow(/TOO_MANY_AGENTS/);
+  });
+
+  test("review P2: an OAuth access token is refused in the URL path", async () => {
+    const t = convexTest(schema, modules);
+    await seed(t);
+    const { access } = await connect(t, "bob");
+    const response = await t.fetch(`/mcp/${access}`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ jsonrpc: "2.0", id: 1, method: "tools/call", params: { name: "list_households", arguments: {} } }) });
+    expect(response.status).toBe(401);
+    expect(response.headers.get("www-authenticate")).toMatch(/resource_metadata=/);
+    expect((await callTool(t, access, "list_households")).status).toBe(200);
+  });
+
+  test("review P9: a refresh retried within 30 seconds gets the same new pair and keeps the connection", async () => {
+    const t = convexTest(schema, modules);
+    await seed(t);
+    const { clientId, refresh } = await connect(t, "alice");
+    const [a, b] = await Promise.all([1, 2].map(() => tokenRequest(t, { grant_type: "refresh_token", refresh_token: refresh, client_id: clientId, resource: RESOURCE })));
+    expect([a.status, b.status]).toEqual([200, 200]);
+    expect(b.body.access_token).toBe(a.body.access_token);
+    expect(b.body.refresh_token).toBe(a.body.refresh_token);
+    expect((await callTool(t, a.body.access_token, "list_households")).status).toBe(200);
+    // Once the new refresh token has been used, the old one is a replay even inside the window.
+    const next = await tokenRequest(t, { grant_type: "refresh_token", refresh_token: a.body.refresh_token, client_id: clientId });
+    expect(next.status).toBe(200);
+    expect((await tokenRequest(t, { grant_type: "refresh_token", refresh_token: refresh, client_id: clientId })).status).toBe(400);
+    expect((await callTool(t, next.body.access_token, "list_households")).status).toBe(401);
+  });
+
+  test("review P8: expired authorization codes are deleted", async () => {
+    const t = convexTest(schema, modules);
+    await seed(t);
+    await connect(t, "alice");
+    await t.run(async (ctx) => {
+      for (const row of await ctx.db.query("oauthCodes").collect()) await ctx.db.patch(row._id, { expiresAt: Date.now() - 1 });
+    });
+    await connect(t, "alice");
+    const codes = await t.run(async (ctx) => await ctx.db.query("oauthCodes").collect());
+    expect(codes).toHaveLength(1);
+    expect(codes[0]!.expiresAt).toBeGreaterThan(Date.now());
+  });
+
+  test("closing a connection deletes all its tokens, past 500 and past one mutation's share", async () => {
+    vi.useFakeTimers();
+    try {
+      const t = convexTest(schema, modules);
+      const { alice } = await seed(t);
+      const one = await connect(t, "alice");
+      const rows = 500 * tokenDeleteBatchesPerRun + 300;
+      await t.run(async (ctx) => {
+        const { _id, _creationTime, ...token } = (await ctx.db.query("oauthTokens").first())!;
+        for (let i = 0; i < rows; i += 1) {
+          await ctx.db.insert("oauthTokens", { ...token, tokenHash: `filler-${i}`, kind: "refresh", usedAt: 1 });
+        }
+      });
+      const [connection] = await identity(t, "alice").query(api.agentAccess.listMine, {});
+      await identity(t, "alice").mutation(api.agentAccess.disconnect, { id: connection!.id });
+      expect((await callTool(t, one.access, "list_households")).status).toBe(401);
+      await t.finishAllScheduledFunctions(vi.runAllTimers);
+      const left = await t.run(async (ctx) => (await ctx.db.query("oauthTokens").collect()).filter((r) => r.accountId === alice));
+      expect(left).toEqual([]);
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   test("account deletion erases OAuth tokens, codes and clients only that account used", async () => {

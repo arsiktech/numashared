@@ -6,11 +6,14 @@
 // 2. The agent registers (Dynamic Client Registration) or presents an https client id whose
 //    metadata document we fetch (Client ID Metadata Document), then opens /oauth/authorize.
 // 3. /oauth/authorize checks the client, the exact redirect address and PKCE, stores the request
-//    and sends the browser to the web app's "Connect to Numa Shared" page (/connect).
+//    and sends the browser to the web app's "Connect to Numa Shared" page (/connect). A bad
+//    request gets an error page: nothing redirects to the agent before the person has consented.
 // 4. The signed-in person picks "All my households" or one household and approves (or declines).
-//    Approval makes an agentConnections row and a one-time code; the browser returns to the agent.
+//    Each approval makes a new agentConnections row and a one-time code; the browser returns to
+//    the agent.
 // 5. The agent swaps the code (with its PKCE verifier) for a one-hour access token and a refresh
-//    token. Refresh tokens rotate; a used one presented again closes the connection.
+//    token. Refresh tokens rotate; a used one presented again closes the connection, unless it is
+//    a retry of the latest rotation within 30 seconds.
 //
 // Agents only ever get these tokens, never an app session. Every MCP call still checks the
 // connection, the account and household membership (convex/agentAccess.ts, convex/agentData.ts).
@@ -72,7 +75,13 @@ main{max-width:34rem;margin:0 auto;padding:18vh 22px 48px}h1{font-size:1.8rem;li
 <body><main><h1>${escapeHTML(title)}</h1><p>${escapeHTML(message)}</p></main></body></html>`;
   return new Response(html, {
     status,
-    headers: { "content-type": "text/html; charset=utf-8", "cache-control": "no-store", "referrer-policy": "no-referrer" },
+    headers: {
+      "content-type": "text/html; charset=utf-8",
+      "cache-control": "no-store",
+      "referrer-policy": "no-referrer",
+      "content-security-policy": "frame-ancestors 'none'",
+      "x-frame-options": "DENY",
+    },
   });
 }
 
@@ -311,27 +320,23 @@ export const authorize = httpAction(async (ctx, request) => {
   }
   const resolved = await resolveClient(ctx, clientId);
   if (!resolved.ok) return page(400, "This link can't connect an agent", resolved.description);
-  if (!redirectUri || !oauth.redirectMatches(resolved.client.redirectUris, redirectUri)) {
+  if (!redirectUri || !oauth.redirectUriAllowed(redirectUri) || !oauth.redirectMatches(resolved.client.redirectUris, redirectUri)) {
     return page(400, "This link can't connect an agent", "The agent asked to return to an address it didn't register. Start again from your agent.");
   }
+  // Any client can register a redirect address, so nothing sends the browser there before the
+  // person has seen the consent page: a bad request gets this page, never a redirect.
+  const refuse = (message: string) => page(400, "This link can't connect an agent", `${message} Start again from your agent.`);
   const state = params.get("state") ?? undefined;
-  const back = (error: string, description: string) => new Response(null, {
-    status: 302,
-    headers: {
-      location: oauth.withQuery(redirectUri, { error, error_description: description, state, iss: issuer }),
-      "cache-control": "no-store",
-    },
-  });
-  if (state !== undefined && state.length > 500) return back("invalid_request", "state is too long.");
-  if (params.get("response_type") !== "code") return back("unsupported_response_type", "Only the code response type is supported.");
+  if (state !== undefined && state.length > 500) return refuse("The agent's request is too long.");
+  if (params.get("response_type") !== "code") return refuse("The agent asked for a kind of access Numa Shared doesn't offer.");
   const challenge = params.get("code_challenge") ?? "";
   if (params.get("code_challenge_method") !== "S256" || !oauth.validCodeChallenge(challenge)) {
-    return back("invalid_request", "PKCE with code_challenge_method S256 is required.");
+    return refuse("The agent didn't send the security check (PKCE with S256) that Numa Shared requires.");
   }
-  if (!oauth.scopeAccepted(params.get("scope"))) return back("invalid_scope", `The only scope is ${oauth.OAUTH_SCOPE}.`);
+  if (!oauth.scopeAccepted(params.get("scope"))) return refuse("The agent asked for access Numa Shared doesn't offer.");
   const requested = params.get("resource");
   const resource = requested ? oauth.matchResource(env, requested) : oauth.resourceOf(oauth.siteOrigin(env));
-  if (!resource) return back("invalid_target", "This server issues tokens only for its own MCP address.");
+  if (!resource) return refuse("The agent asked for access to another server.");
   const web = oauth.webAppURL(env);
   if (!web) return page(503, "Connecting agents isn't available", "Try again later.");
 
@@ -400,6 +405,19 @@ export const myHouseholds = query({
   },
 });
 
+/**
+ * An OAuth connection that can never be used again: its code has expired and it holds no unused,
+ * unexpired refresh token. Secret links are never abandoned.
+ */
+async function abandoned(ctx: MutationCtx, connection: Doc<"agentConnections">, now: number): Promise<boolean> {
+  if (connection.clientId === undefined || connection.createdAt > now - oauth.CODE_MILLIS) return false;
+  const live = await ctx.db.query("oauthTokens")
+    .withIndex("by_connection", (q) => q.eq("connectionId", connection._id).gt("expiresAt", now))
+    .filter((q) => q.and(q.eq(q.field("kind"), "refresh"), q.eq(q.field("usedAt"), undefined)))
+    .first();
+  return live === null;
+}
+
 export const approveRequest = internalMutation({
   args: { request: v.string(), potId: v.union(v.string(), v.null()), codeHash: v.string(), now: v.number() },
   handler: async (ctx, args) => {
@@ -411,26 +429,33 @@ export const approveRequest = internalMutation({
     if (!client) fail("AGENT_REQUEST_EXPIRED");
     if (args.potId !== null) await requireActiveMembership(ctx, args.potId, account._id);
 
-    // One connection per person and agent: approving again updates what it may read.
+    // Each approval is its own connection, with its own tokens and its own Disconnect. A metadata
+    // client id is shared by every installation of an agent, so approving Claude on a second
+    // computer must not change what the first one may read.
     const mine = await ctx.db.query("agentConnections").withIndex("by_account", (q) => q.eq("accountId", account._id)).collect();
-    const active = mine.filter((c) => c.revokedAt === undefined);
-    const existing = active.find((c) => c.clientId === row.clientId);
-    let connectionId: Id<"agentConnections">;
-    if (existing) {
-      connectionId = existing._id;
-      await ctx.db.patch(existing._id, { name: client.name, potId: args.potId ?? undefined });
-    } else {
-      if (active.length >= maximumAgents) fail("TOO_MANY_AGENTS");
-      connectionId = await ctx.db.insert("agentConnections", {
-        accountId: account._id,
-        name: client.name,
-        clientId: row.clientId,
-        ...(args.potId === null ? {} : { potId: args.potId }),
-        createdAt: args.now,
-        windowStartedAt: args.now,
-        windowCount: 0,
-      });
+    let active = mine.filter((c) => c.revokedAt === undefined);
+    if (active.length >= maximumAgents) {
+      // An agent that lost its tokens connects again with a new approval. Its old connection can
+      // never be used again, so it should not take a place.
+      for (const connection of active) {
+        if (await abandoned(ctx, connection, args.now)) await closeConnection(ctx, connection._id, args.now);
+      }
+      active = (await ctx.db.query("agentConnections").withIndex("by_account", (q) => q.eq("accountId", account._id)).collect())
+        .filter((c) => c.revokedAt === undefined);
     }
+    if (active.length >= maximumAgents) fail("TOO_MANY_AGENTS");
+    const connectionId = await ctx.db.insert("agentConnections", {
+      accountId: account._id,
+      name: client.name,
+      clientId: row.clientId,
+      ...(args.potId === null ? {} : { potId: args.potId }),
+      createdAt: args.now,
+      windowStartedAt: args.now,
+      windowCount: 0,
+    });
+    // Codes are kept until they expire, so a replay within their lifetime is still caught.
+    const expiredCodes = await ctx.db.query("oauthCodes").withIndex("by_expires_at", (q) => q.lt("expiresAt", args.now)).take(20);
+    for (const code of expiredCodes) await ctx.db.delete(code._id);
     await ctx.db.insert("oauthCodes", {
       codeHash: args.codeHash,
       accountId: account._id,
@@ -564,17 +589,25 @@ export const rotateRefresh = internalMutation({
     requireApprovedWriteTarget();
     const row = await ctx.db.query("oauthTokens").withIndex("by_token_hash", (q) => q.eq("tokenHash", args.refreshTokenHash)).unique();
     if (!row || row.kind !== "refresh" || row.clientId !== args.clientId) return refused("invalid_grant", "The refresh token is not valid.");
+    if (args.resource !== undefined && args.resource !== row.resource) {
+      return refused("invalid_target", "The refresh token was issued for another resource.");
+    }
     if (row.usedAt !== undefined) {
+      // A client that retries a refresh (a timeout, or two refreshes at once) presents the same
+      // token again. Within the grace window, and only while what it was rotated into is still
+      // unused, it gets that same pair back: the token endpoint derives the pair from the
+      // presented token, so the hashes match.
+      if (args.now - row.usedAt <= oauth.REFRESH_GRACE_MILLIS && row.replacedBy === args.refreshHash) {
+        const next = await ctx.db.query("oauthTokens").withIndex("by_token_hash", (q) => q.eq("tokenHash", args.refreshHash)).unique();
+        if (next && next.usedAt === undefined && await connectionUsable(ctx, row.connectionId)) return { ok: true };
+      }
       // Refresh tokens are single use. Seeing one again means two parties hold it: close the connection.
       await closeConnection(ctx, row.connectionId, args.now);
       return refused("invalid_grant", "This refresh token was already used, so the connection was closed. Connect again.");
     }
     if (row.expiresAt <= args.now) return refused("invalid_grant", "The refresh token expired. Connect again.");
-    if (args.resource !== undefined && args.resource !== row.resource) {
-      return refused("invalid_target", "The refresh token was issued for another resource.");
-    }
     if (!(await connectionUsable(ctx, row.connectionId))) return refused("invalid_grant", "This connection is closed.");
-    await ctx.db.patch(row._id, { usedAt: args.now });
+    await ctx.db.patch(row._id, { usedAt: args.now, replacedBy: args.refreshHash });
     await issueTokens(ctx, row, args.accessHash, args.refreshHash, args.now);
     return { ok: true };
   },
@@ -601,11 +634,19 @@ export const token = httpAction(async (ctx, request) => {
     resource = oauth.matchResource(process.env, requested) ?? undefined;
     if (!resource) return oauthError("invalid_target", "This server issues tokens only for its own MCP address.");
   }
-  const access = oauth.randomSecret("nsat");
-  const refresh = oauth.randomSecret("nsrt");
-  const hashes = { accessHash: await sha256Hex(access), refreshHash: await sha256Hex(refresh) };
   const now = Date.now();
   const grantType = form.get("grant_type");
+  const presented = grantType === "refresh_token" ? form.get("refresh_token") : null;
+  if (grantType === "refresh_token" && (!presented || presented.length > 200)) {
+    return oauthError("invalid_request", "refresh_token is required.");
+  }
+  // A refresh rotates into a pair derived from the presented token (HMAC with a server secret),
+  // so a retry of the same refresh gets the same pair. A code gets a random pair.
+  const secret = process.env.NUMA_SHARED_TOKEN_HASH_SECRET;
+  if (presented && !secret) return oauthError("temporarily_unavailable", "Try again later.", 503);
+  const access = presented ? await oauth.rotatedSecret(secret!, "nsat", presented) : oauth.randomSecret("nsat");
+  const refresh = presented ? await oauth.rotatedSecret(secret!, "nsrt", presented) : oauth.randomSecret("nsrt");
+  const hashes = { accessHash: await sha256Hex(access), refreshHash: await sha256Hex(refresh) };
   let result: Grant;
   if (grantType === "authorization_code") {
     const code = form.get("code");
@@ -622,9 +663,7 @@ export const token = httpAction(async (ctx, request) => {
       ...hashes,
       now,
     });
-  } else if (grantType === "refresh_token") {
-    const presented = form.get("refresh_token");
-    if (!presented || presented.length > 200) return oauthError("invalid_request", "refresh_token is required.");
+  } else if (presented) {
     result = await ctx.runMutation(internal.agentOAuth.rotateRefresh, {
       refreshTokenHash: await sha256Hex(presented),
       clientId: client.clientId,

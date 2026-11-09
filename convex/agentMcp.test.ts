@@ -353,6 +353,32 @@ describe("Agent access (read-only MCP)", () => {
     await expect(connect(t, "alice")).rejects.toThrow();
   });
 
+  test("review P1: a JSON-RPC batch is refused, so it cannot run many tools on one counted call", async () => {
+    const t = convexTest(schema, modules);
+    await seed(t);
+    const { secret } = await connect(t, "bob");
+    const batch = Array.from({ length: 20 }, (_, i) => call("get_balances", { household: POT }, i));
+    for (const how of ["bearer", "path"] as const) {
+      const { status, body } = await rpc(t, secret, batch, how);
+      expect(status).toBe(400);
+      expect(body).toMatchObject({ jsonrpc: "2.0", id: null, error: { code: -32600 } });
+    }
+    expect((await rpc(t, secret, [call("list_households")], "bearer")).status).toBe(400);
+    const activity = await identity(t, "bob").query(api.agentAccess.recentActivity, {});
+    expect(activity).toEqual([]);
+    // One message per request still works.
+    expect((await tool(t, secret, "get_balances", { household: POT })).isError).toBeUndefined();
+  });
+
+  test("a path credential is read only when it is a secret-link secret (nsag_)", async () => {
+    const t = convexTest(schema, modules);
+    await seed(t);
+    const { secret } = await connect(t, "alice");
+    expect((await rpc(t, secret, call("list_households"), "path")).status).toBe(200);
+    const other = await t.fetch(`/mcp/x${secret}`, { method: "POST", body: JSON.stringify(call("list_households")) });
+    expect(other.status).toBe(401);
+  });
+
   test("records what the agent did without amounts or names", async () => {
     const t = convexTest(schema, modules);
     await seed(t);

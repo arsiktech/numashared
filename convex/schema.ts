@@ -286,7 +286,8 @@ export default defineSchema({
   // - a secret link (no clientId): the secret is made on the device and shown once; only its
   //   SHA-256 is kept in keyHash;
   // - an OAuth grant (clientId set, convex/agentOAuth.ts): the person approved an agent on the
-  //   "Connect to Numa Shared" page; its tokens live in oauthTokens.
+  //   "Connect to Numa Shared" page; its tokens live in oauthTokens. Each approval is its own
+  //   connection, even for the same agent.
   // A connection can be limited to one household. Disconnecting stops it on the next call.
   agentConnections: defineTable({
     accountId: v.id("accounts"),
@@ -351,7 +352,8 @@ export default defineSchema({
     .index("by_request_hash", ["requestHash"])
     .index("by_expires_at", ["expiresAt"]),
 
-  // One-time authorization codes (hashed), valid for a few minutes.
+  // One-time authorization codes (hashed), valid for a few minutes. Expired ones are deleted
+  // when new codes are made.
   oauthCodes: defineTable({
     codeHash: v.string(),
     accountId: v.id("accounts"),
@@ -365,10 +367,12 @@ export default defineSchema({
     usedAt: v.optional(v.number()),
   })
     .index("by_code_hash", ["codeHash"])
-    .index("by_account", ["accountId"]),
+    .index("by_account", ["accountId"])
+    .index("by_expires_at", ["expiresAt"]),
 
   // OAuth access and refresh tokens (hashed). Access tokens live an hour. Refresh tokens rotate
-  // on every use; a used refresh token presented again revokes the whole connection.
+  // on every use; a used refresh token presented again revokes the whole connection, except a
+  // retry of the latest rotation within 30 seconds, which gets the same new pair.
   oauthTokens: defineTable({
     tokenHash: v.string(),
     kind: v.union(v.literal("access"), v.literal("refresh")),
@@ -380,6 +384,8 @@ export default defineSchema({
     createdAt: v.number(),
     expiresAt: v.number(),
     usedAt: v.optional(v.number()),
+    // A used refresh token: the hash of the refresh token it was rotated into.
+    replacedBy: v.optional(v.string()),
   })
     .index("by_token_hash", ["tokenHash"])
     .index("by_account", ["accountId"])

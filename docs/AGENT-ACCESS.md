@@ -19,10 +19,13 @@ The normal way takes one step and no secrets:
    person's own computer.
 3. The signed-in person picks **All my households** or **Only** one household, then
    **Connect** or **Don’t connect**. The browser goes back to the agent.
-4. The agent appears under **Connected** with its scope and when it was last used.
-   **Disconnect** stops it on its next call.
+4. The agent appears under **Connected** with its scope, when it was connected and when it
+   was last used. **Disconnect** stops it on its next call.
 
-Approving the same agent again reuses its connection and updates what it may read.
+Each approval is its own connection, with its own tokens and its own **Disconnect**, even for
+the same agent. Approving Claude on a second computer never changes what the first one may
+read. When the account is at the limit, OAuth connections that can never be used again (code
+expired, no live refresh token) are closed to make room.
 
 ### Terminal agents (secret link)
 
@@ -30,7 +33,8 @@ Under **Advanced: terminal agents**, a person can still make a secret link for a
 cannot open a sign-in page. The phone makes the secret (`nsag_` plus 32 random bytes) and
 sends only its SHA-256 to `agentAccess:connect`. The link `https://<site>/mcp/<secret>` is
 shown once. Clients that support headers can send `Authorization: Bearer <secret>` to `/mcp`
-instead, which keeps the secret out of logs.
+instead, which keeps the secret out of logs. The path accepts only `nsag_` secrets; OAuth
+access tokens work only in the `Authorization` header.
 
 At most 5 agents can be connected per account. An agent may make 60 calls per minute.
 
@@ -55,12 +59,23 @@ The code is in `convex/agentOAuth.ts` and `convex/lib/oauth.ts`.
   `WWW-Authenticate: Bearer resource_metadata="<origin>/.well-known/oauth-protected-resource/mcp", scope="shared:read"`.
   An expired or revoked token adds `error="invalid_token"`.
 - **Redirects**: must match a registered address exactly. Loopback `http` addresses may use
-  any port (RFC 8252). Allowed schemes are https, loopback http and app schemes such as
-  `cursor://`. A mismatch shows an error page and never redirects. The authorization
-  response carries `iss` (RFC 9207).
+  any port (RFC 8252). Allowed (an allowlist): https, loopback http, `cursor://`, and
+  reverse-DNS private-use schemes such as `com.example.app:` (RFC 8252 section 7.1). Other
+  schemes, such as `search-ms:` or `ms-msdt:`, are refused. A mismatch shows an error page and
+  never redirects.
+- **No redirect before consent**: any client can register a redirect address, so every error
+  in `/oauth/authorize` (response type, PKCE, scope, resource, state) shows an error page.
+  Only the consent page's **Connect** or **Don’t connect** sends the browser back to the
+  agent. The authorization response carries `iss` (RFC 9207).
+- **Framing**: the web app (`/app/*`, including `/connect`) and the authorization error pages
+  send `Content-Security-Policy: frame-ancestors 'none'` and `X-Frame-Options: DENY`.
 - **Lifetimes**: codes last 5 minutes and work once. Using a code again closes the connection
-  it opened. Access tokens last 1 hour. Refresh tokens last 30 days and rotate on every use.
-  A used refresh token presented again closes the connection (reuse detection).
+  it opened. Expired codes are deleted when new ones are made. Access tokens last 1 hour.
+  Refresh tokens last 30 days and rotate on every use. A used refresh token presented again
+  closes the connection (reuse detection). The one exception: a retry of the latest rotation
+  within 30 seconds gets the same new pair (RFC 9700). The new pair is derived from the
+  presented token with an HMAC under `NUMA_SHARED_TOKEN_HASH_SECRET`, so no plaintext token is
+  stored.
 - **Stored**: only SHA-256 hashes of codes, tokens, client secrets and consent request ids.
 - **No app sessions for agents**: an agent only ever holds these tokens. The consent page
   uses the person's normal session (`requireSession`).
@@ -71,7 +86,9 @@ The code is in `convex/agentOAuth.ts` and `convex/lib/oauth.ts`.
 The MCP endpoint answers both protocol eras. Clients that send `initialize` (2025-11-25 and
 earlier) get the handshake. Clients on 2026-07-28 send the version in `_meta`, get
 `server/discover`, and have `MCP-Protocol-Version`, `Mcp-Method` and `Mcp-Name` checked
-against the body. There are no sessions.
+against the body. There are no sessions. Each POST carries one JSON-RPC message: batches
+(removed from MCP in 2025-06-18) get `400` with error `-32600`, so every tool call counts
+against the per-minute limit.
 
 ### Addresses
 

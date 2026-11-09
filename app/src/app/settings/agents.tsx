@@ -13,7 +13,7 @@ import { fonts, isWeb } from '@/ui/tokens';
 import { Caption, Field, Label, Select } from '@/features/onboarding/chrome';
 import { copyText } from '@/features/onboarding/share';
 import { SGroup, SRow, SettingsShell } from '@/features/settings/parts';
-import { relativeDay, useHousehold } from '@/features/hooks';
+import { clock, relativeDay, useHousehold } from '@/features/hooks';
 import { explainFailure } from '@/features/account/session';
 import { showToast } from '@/store/ui';
 import { failureOf } from '@/sync/engine';
@@ -78,6 +78,15 @@ export default function AgentsScreen() {
     finally { setBusy(false); }
   };
   const scopeLabel = (agent: AgentConnection) => (agent.potId ? `Only ${agent.potId === h.id ? h.name : 'one household'}` : 'All my households');
+  // "today", "yesterday", or a weekday or date, which keep their capitals.
+  const day = (ts: number) => { const d = relativeDay(ts); return d === 'Today' || d === 'Yesterday' ? d.toLowerCase() : d; };
+  // Each approval is its own connection, so the same agent can appear twice; when it was
+  // connected tells them apart.
+  const details = (agent: AgentConnection) => [
+    scopeLabel(agent),
+    `connected ${day(agent.createdAt)} at ${clock(agent.createdAt)}`,
+    agent.lastUsedAt ? `used ${day(agent.lastUsedAt)}` : 'not used yet',
+  ].join(' · ');
 
   return (
     <SettingsShell title="AI agents" back="Settings" active="household">
@@ -107,9 +116,9 @@ export default function AgentsScreen() {
         <SGroup title="Connected">
           {list.map((agent, i) => (
             <SRow key={agent.id} label={agent.name} chevron={false} last={i === list.length - 1}
-              sub={`${scopeLabel(agent)} · ${agent.lastUsedAt ? `used ${relativeDay(agent.lastUsedAt).toLowerCase()}` : 'not used yet'}`}
+              sub={details(agent)}
               right={(
-                <Press onPress={busy ? undefined : () => { void disconnect(agent.id); }} accessibilityRole="button" accessibilityLabel={`Disconnect ${agent.name}`}
+                <Press onPress={busy ? undefined : () => { void disconnect(agent.id); }} accessibilityRole="button" accessibilityLabel={`Disconnect ${agent.name}, ${details(agent)}`}
                   style={{ minHeight: 44, justifyContent: 'center', paddingLeft: 8 }}>
                   <T style={{ fontFamily: fonts.semibold, fontSize: 15, color: c.bad }}>Disconnect</T>
                 </Press>
