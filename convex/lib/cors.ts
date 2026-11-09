@@ -1,6 +1,7 @@
 // The web app runs on its own origin (for example https://shared.numaworth.com) and calls a few of
 // these HTTP endpoints from the browser. Only origins listed in NUMA_SHARED_WEB_ORIGINS
-// (comma-separated, exact https origins) get CORS headers; everyone else gets none, as before.
+// (comma-separated, exact https origins) get CORS headers; everyone else gets none, as before. The
+// anonymous local test deployment also accepts http://localhost and http://127.0.0.1 origins.
 import { httpActionGeneric, type PublicHttpAction } from "convex/server";
 
 export function allowedWebOrigin(
@@ -8,6 +9,11 @@ export function allowedWebOrigin(
   origin: string | null,
 ): string | null {
   if (!origin) return null;
+  // The anonymous local test deployment also answers a web app served from this computer.
+  if (
+    environment.NUMA_SHARED_DEPLOYMENT_CLASS === "anonymous-local"
+    && /^http:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/.test(origin)
+  ) return origin;
   const allowed = (environment.NUMA_SHARED_WEB_ORIGINS ?? "")
     .split(",")
     .map((o) => o.trim())

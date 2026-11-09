@@ -76,7 +76,11 @@ main{max-width:34rem;margin:0 auto;padding:18vh 22px 48px}h1{font-size:1.8rem;li
   });
 }
 
-/** Counts a call against a per-source bucket. Fails closed when the source or secret is missing. */
+/**
+ * Counts a call against a per-source bucket. Fails closed when the source or secret is missing.
+ * Hosted agents (ChatGPT, Claude) register and swap tokens from a few shared server addresses,
+ * so those limits are generous; the consent step is per person and stays tight.
+ */
 async function overLimit(ctx: ActionCtx, request: Request, namespace: string, limit: bigint, windowMillis: number) {
   const secret = process.env.NUMA_SHARED_TOKEN_HASH_SECRET;
   if (!secret) return true;
@@ -186,7 +190,7 @@ export const cacheMetadataClient = internalMutation({
 
 /** RFC 7591 Dynamic Client Registration. Kept for agents that do not use metadata documents. */
 export const register = httpAction(async (ctx, request) => {
-  if (await overLimit(ctx, request, "oauth-register", 20n, 3_600_000)) {
+  if (await overLimit(ctx, request, "oauth-register", 300n, 3_600_000)) {
     return oauthError("temporarily_unavailable", "Too many registrations from here. Try again later.", 429);
   }
   let body: unknown;
@@ -582,7 +586,7 @@ export const token = httpAction(async (ctx, request) => {
   if (!form) return oauthError("invalid_request", "Send the token request as a form.");
   const credentials = clientCredentials(request, form);
   if (!credentials) return oauthError("invalid_client", "client_id is required.", 401);
-  if (await overLimit(ctx, request, "oauth-token", 60n, 60_000)) {
+  if (await overLimit(ctx, request, "oauth-token", 600n, 60_000)) {
     return oauthError("temporarily_unavailable", "Too many token requests. Wait a minute.", 429);
   }
   const client = await ctx.runQuery(internal.agentOAuth.clientById, { clientId: credentials.clientId });
