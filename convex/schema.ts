@@ -330,7 +330,9 @@ export default defineSchema({
     .index("by_account", ["accountId", "at"]),
 
   // An agent's write, by the request id the agent chose, so a retried call answers the same and
-  // never adds twice. Holds ids only (no amounts, names or invite secrets). Kept for a day.
+  // never adds twice. `result` is the answer: ids, plus what the write recorded (an amount and
+  // split, a new household or person name). No invite secrets. Kept for a day; the privacy policy
+  // (convex/lib/webContent.ts) says so.
   agentRequests: defineTable({
     connectionId: v.id("agentConnections"),
     accountId: v.id("accounts"),

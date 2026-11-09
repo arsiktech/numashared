@@ -239,19 +239,6 @@ export function scopeAccepted(scope: string | null | undefined): boolean {
   return parts.length <= 5 && parts.every((part) => (OAUTH_SCOPES as readonly string[]).includes(part) || part === "offline_access");
 }
 
-/**
- * The scope a request is granted. Without a scope, or with shared:write, the connection gets both
- * and starts with every switch on. A client that asks only for shared:read gets that, and starts
- * with every write switch off.
- */
-export function grantedScope(scope: string | null | undefined): string {
-  const parts = (scope ?? "").split(" ").filter(Boolean);
-  const named = parts.filter((part) => part !== "offline_access");
-  return named.length === 0 || named.includes(WRITE_SCOPE) ? OAUTH_SCOPE : READ_SCOPE;
-}
-
-export const grantsWrite = (scope: string) => scope.split(" ").includes(WRITE_SCOPE);
-
 export type ClientRegistration = {
   name: string;
   redirectUris: string[];

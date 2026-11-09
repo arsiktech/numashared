@@ -345,7 +345,7 @@ export type AgentConnection = {
 export type AgentActivity = { id: string; agent: string; tool: string; ok: boolean; at: number };
 export type AgentRequest =
   | { status: 'expired' }
-  | { status: 'pending'; agent: string; verifiedHost: string | null; returnsTo: string; returnsToThisComputer: boolean; canWrite?: boolean };
+  | { status: 'pending'; agent: string; verifiedHost: string | null; returnsTo: string; returnsToThisComputer: boolean };
 
 /**
  * The MCP address. Claude and ChatGPT take it bare and then ask the person to approve; a secret

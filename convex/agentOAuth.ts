@@ -34,7 +34,7 @@ import {
   type MutationCtx,
   type QueryCtx,
 } from "./_generated/server";
-import { accountIsUsable, closeConnection, defaultAgentPermissions, maximumAgents, readOnlyAgentPermissions } from "./agentAccess";
+import { accountIsUsable, closeConnection, defaultAgentPermissions, maximumAgents } from "./agentAccess";
 import { fail, requireActiveMembership, requireSession } from "./lib/access";
 import { requireApprovedWriteTarget } from "./lib/deployment";
 import { sha256Hex } from "./lib/hash";
@@ -349,7 +349,9 @@ export const authorize = httpAction(async (ctx, request) => {
     ...(state === undefined ? {} : { state }),
     codeChallenge: challenge,
     resource,
-    scope: oauth.grantedScope(params.get("scope")),
+    // Always both, whatever the agent named: every new connection starts with every switch on.
+    // RFC 6749 section 3.3 lets the server grant a different scope; the token response says which.
+    scope: oauth.OAUTH_SCOPE,
     issuer,
     now: Date.now(),
   });
@@ -385,8 +387,6 @@ export const describeRequest = query({
       verifiedHost: client.kind === "metadata" ? oauth.hostOf(client.clientId) : null,
       returnsTo: oauth.redirectLabel(row.redirectUri),
       returnsToThisComputer: oauth.isLoopbackRedirect(row.redirectUri),
-      // Whether connecting turns on the write switches (the agent asked for shared:write or for no scope).
-      canWrite: oauth.grantsWrite(row.scope),
     };
   },
 });
@@ -452,8 +452,8 @@ export const approveRequest = internalMutation({
       name: client.name,
       clientId: row.clientId,
       ...(args.potId === null ? {} : { potId: args.potId }),
-      // The consent page asks nothing more: the defaults, unless the agent asked only to read.
-      permissions: oauth.grantsWrite(row.scope) ? defaultAgentPermissions : readOnlyAgentPermissions,
+      // Every new connection starts with every switch on, whatever scope the agent asked for.
+      permissions: defaultAgentPermissions,
       createdAt: args.now,
       windowStartedAt: args.now,
       windowCount: 0,

@@ -6,6 +6,7 @@ import { ActivityIndicator, View } from 'react-native';
 import { T } from '@/ui/primitives';
 import { useTheme } from '@/ui/theme';
 import { GOOGLE_WEB_CLIENT_ID } from '@/sync/config';
+import { gsiWidth } from './signInWidth';
 
 type Gsi = {
   accounts: { id: {
@@ -33,21 +34,33 @@ export function GoogleWebButton({ onCredential, disabled }: { onCredential: (idT
   const host = useRef<View>(null);
   const { c } = useTheme();
   const [state, setState] = useState<'loading' | 'ready' | 'failed'>('loading');
+  // The host's laid-out width. Google draws the button at exactly this width, so it lines up with
+  // the Apple button above it, and draws it again when the window is resized.
+  const [width, setWidth] = useState(0);
   const latest = useRef(onCredential);
   latest.current = onCredential;
+  const initialized = useRef(false);
   useEffect(() => {
-    if (!GOOGLE_WEB_CLIENT_ID) return;
+    if (!GOOGLE_WEB_CLIENT_ID || width === 0) return;
     let alive = true;
-    loadGsi().then((g) => {
-      const el = host.current as unknown as HTMLElement | null;
-      if (!alive || !el) return;
-      g.accounts.id.initialize({ client_id: GOOGLE_WEB_CLIENT_ID!, ux_mode: 'popup', callback: (r) => { if (r.credential) latest.current(r.credential); } });
-      // The rest of the app is in English, so the button is too, whatever the browser's language.
-      g.accounts.id.renderButton(el, { type: 'standard', theme: 'outline', size: 'large', shape: 'pill', text: 'continue_with', locale: 'en', width: Math.min(400, el.clientWidth || 320) });
-      setState('ready');
-    }).catch(() => { if (alive) setState('failed'); });
-    return () => { alive = false; };
-  }, []);
+    // Redraw after a resize settles, not on every frame of it.
+    const timer = setTimeout(() => {
+      loadGsi().then((g) => {
+        const el = host.current as unknown as HTMLElement | null;
+        if (!alive || !el) return;
+        if (!initialized.current) {
+          g.accounts.id.initialize({ client_id: GOOGLE_WEB_CLIENT_ID!, ux_mode: 'popup', callback: (r) => { if (r.credential) latest.current(r.credential); } });
+          initialized.current = true;
+        }
+        // Google's iframe is the host's only child; React renders nothing into it.
+        el.replaceChildren();
+        // The rest of the app is in English, so the button is too, whatever the browser's language.
+        g.accounts.id.renderButton(el, { type: 'standard', theme: 'outline', size: 'large', shape: 'pill', text: 'continue_with', locale: 'en', width: gsiWidth(width) });
+        setState('ready');
+      }).catch(() => { if (alive) setState('failed'); });
+    }, initialized.current ? 150 : 0);
+    return () => { alive = false; clearTimeout(timer); };
+  }, [width]);
   if (state === 'failed') {
     return <T style={{ fontSize: 14, lineHeight: 20, color: c.ink2, textAlign: 'center' }}>Google sign-in couldn’t load. Check your connection and reload the page.</T>;
   }
@@ -59,7 +72,8 @@ export function GoogleWebButton({ onCredential, disabled }: { onCredential: (idT
           <T style={{ fontSize: 14, color: c.ink2 }}>Loading Google sign-in…</T>
         </View>
       ) : null}
-      <View ref={host} style={{ minHeight: 44, alignItems: 'center', opacity: disabled ? 0.5 : 1 }} pointerEvents={disabled ? 'none' : 'auto'} />
+      <View ref={host} style={{ minHeight: 44, alignItems: 'center', opacity: disabled ? 0.5 : 1 }} pointerEvents={disabled ? 'none' : 'auto'}
+        onLayout={(e) => { const w = Math.floor(e.nativeEvent.layout.width); if (w > 0) setWidth(w); }} />
     </View>
   );
 }

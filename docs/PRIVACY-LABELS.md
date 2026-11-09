@@ -62,6 +62,58 @@ A receipt expires after 30 days; later deletion requests physically delete a
 bounded expired batch. This is request-triggered cleanup, not a scheduled purge
 deadline. Resolve open findings R1, R2 and R4 in the private release notes before publication.
 
+## AI agent access (recommendation of 2026-11-09, not submitted)
+
+Status: recommendation only. Nothing was changed in App Store Connect or Play
+Console. The feature is described in `AGENT-ACCESS.md` and `PRIVACY.md`.
+
+What it is, for both stores: a person chooses to connect an AI agent (Claude,
+ChatGPT, Cursor and others). With the person's own token, the agent reads their
+households from our server and, under switches the person controls, adds and
+changes records as them. The data goes to the agent provider the person chose,
+under that provider's terms. That provider has no code in our app and does not
+process data for us. This is a **user-directed transfer to a third party of the
+user's choice**. It is **not tracking**.
+
+- Data the agent reads or writes is of types already declared above: Name,
+  Other financial info, Purchase history, Other user content, User ID. No new
+  content type.
+- New data we keep: connection name, switches and timestamps; hashed tokens; an
+  activity list (tool, answered or refused, time) for up to 90 days; request ids
+  with their answers for 24 hours. Linked to the account; only for people who
+  connect an agent.
+
+### App Store App Privacy
+
+Apple defines "Tracking" as linking app data "with Third-Party Data for targeted
+advertising or advertising measurement purposes, or sharing data ... with a data
+broker", and "Third-party partners" as vendors "whose code you've added to your
+app" (https://developer.apple.com/app-store/app-privacy-details/, checked
+2026-11-09). An agent provider is neither.
+
+1. Tracking: keep **No**. No App Tracking Transparency prompt.
+2. Keep every declared type and purpose.
+3. Add **Usage Data > Product Interaction**: linked, not tracking, App
+   Functionality (the activity list and "last used" time). If accepted, add
+   `NSPrivacyCollectedDataTypeProductInteraction` to `PrivacyInfo.xcprivacy`
+   with the same answers.
+
+### Google Play Data safety
+
+Google does not count as sharing a transfer "to a third party based on a
+specific user-initiated action" where "the user reasonably expects the data to
+be shared" (https://support.google.com/googleplay/android-developer/answer/10787469,
+checked 2026-11-09). Connecting fits: the person starts it, sees the agent's name
+and what it can do, and taps Connect or pastes the setup prompt.
+
+1. Data shared: do **not** list agent providers.
+2. Data collected: the same content types as for Apple, purpose App
+   functionality.
+3. Add **App activity > App interactions**: collected, not shared, optional,
+   purposes App functionality and Fraud prevention, security, and compliance.
+4. Encrypted in transit: yes. Deletion: account deletion in the app or on the
+   web erases agent connections, activity and request ids.
+
 ## Human confirmation required
 
 Confirm controller/contact, lawful bases, retention and backup deletion,

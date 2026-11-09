@@ -62,8 +62,8 @@ Claude and ChatGPT can't add a connector from a prompt, so they sign in instead:
    names the agent, the households it can read and the address it returns to. It warns when
    that address is on the person's own computer.
 3. The signed-in person chooses **Connect** or **Don’t connect**. Connecting covers all their
-   households and turns the three switches on (the page says so). An agent that asked only for
-   `shared:read` starts with the switches off. The browser goes back to the agent.
+   households and turns the three switches on (the page says so), whatever scope the agent asked
+   for. The browser goes back to the agent.
 
 Each approval is its own connection, with its own tokens and its own **Disconnect**, even for
 the same agent. Approving Claude on a second computer never changes what the first one may
@@ -91,11 +91,13 @@ The code is in `convex/agentOAuth.ts` and `convex/lib/oauth.ts`.
 | Tokens | `POST /oauth/token`: `authorization_code` and `refresh_token` grants |
 | Revocation | `POST /oauth/revoke` (RFC 7009). Revoking a refresh token closes the connection. |
 
-- **Scopes**: `shared:read` and `shared:write`. A request with no scope or with `shared:write`
-  is granted both and the connection starts with every switch on; a request for `shared:read`
-  alone is granted that and starts with the switches off. The switches, not the token's scope,
-  decide each call, so the person can later turn writes on or off for any connection. Tokens and
-  refreshes keep the scope they were granted. An approval covers all the person's households.
+- **Scopes**: `shared:read` and `shared:write`. Every approval is granted both, whatever the
+  client asked for (a request for `shared:read` alone included), and the token response's
+  `scope` says so (RFC 6749 section 3.3). Every new connection starts with every switch on. The
+  switches, not the token's scope, decide each call, so the person can turn writes off or on for
+  any connection. Tokens and refreshes keep the scope they were granted, so a connection made
+  before writes existed keeps `shared:read` and stays read-only until the person switches one
+  on. An approval covers all the person's households.
 - **Resource indicators** (RFC 8707): tokens are bound to `<origin>/mcp`. The server accepts
   only its own addresses: the site URL and each origin in `NUMA_SHARED_WEB_ORIGINS`.
 - **First call**: `/mcp` without a valid token answers `401` with
@@ -191,7 +193,8 @@ from `list_members`.
 
 **Idempotency.** Every write takes a `request_id` (8 to 100 characters). A retry with the same
 id and the same input answers the first result with `replayed: true` and changes nothing; the
-same id with other input is refused. Requests are kept for a day in `agentRequests` (ids only).
+same id with other input is refused. Requests and their answers are kept for a day in
+`agentRequests`.
 An invite's secrets are not stored: they are derived from the request with an HMAC under
 `NUMA_SHARED_TOKEN_HASH_SECRET`, so a retry shows the same code.
 
@@ -219,7 +222,9 @@ enforced in `agentWrites.write` on every call.
   counters. A secret link adds its key hash and the first 9 characters of the secret. An OAuth
   grant adds its client id.
 - `agentRequests`: per write, the connection, the agent's `request_id`, the tool, a hash of the
-  input and the ids it produced. Kept for a day. No amounts, names or invite secrets.
+  input and the answer, so a retry gets the same answer. The answer holds ids and can hold what
+  the write recorded: an expense's amount and split, a new household name, a new person's name.
+  Kept for a day (expired rows are deleted as new writes arrive). No invite secrets.
 - `events.via`: the connection name on events an agent appended. It stays with the household's
   history.
 - `agentActivity`: connection, tool name, answered or refused, timestamp. No amounts, names or
@@ -239,14 +244,11 @@ It also erases each registered client that only the departing account had connec
 - Production Convex deploy (new tables and routes; the schema change is additive).
 - Deploy the web host Worker so `shared.numaworth.com/mcp` and its metadata reach the backend.
 - Check that `NUMA_SHARED_WEB_APP_URL` is set on production. The consent page needs it.
-- Update `PRIVACY.md`, the privacy policy page and App Privacy answers: data the person
-  chooses to hand to a third-party agent leaves Numa Shared at their instruction.
+- The privacy policy page and `PRIVACY.md` describe agent access, writes included. The page
+  goes live with the next production Convex deploy. Recommended App Store and Google Play
+  answers are in `PRIVACY-LABELS.md`; they are not submitted.
 - Check Settings, AI agents and the consent page on a device, and connect real Claude,
   ChatGPT, Claude Code, Codex, Cursor and Hermes clients against production.
 - The setup prompt's link uses `shared.numaworth.com/mcp/<secret>`, so it needs the web host
   Worker deployed first.
-- Privacy text: if `docs/privacy-agent-access` has not merged first, `PRIVACY.md`, the privacy
-  page and App Privacy answers must also say that an agent the person connects can change their
-  households as them, that its changes are stored with the agent's name, and that Numa Shared
-  stores request ids for a day.
 - Shared balances into Numa Pro is separate work.

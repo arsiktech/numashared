@@ -237,7 +237,7 @@ describe("Agent connection with OAuth (MCP authorization)", () => {
 
     const request = requestIdOf(location);
     expect(await t.query(api.agentOAuth.describeRequest, { request })).toEqual({
-      status: "pending", agent: "Claude Code", verifiedHost: null, returnsTo: "127.0.0.1:33418", returnsToThisComputer: true, canWrite: false,
+      status: "pending", agent: "Claude Code", verifiedHost: null, returnsTo: "127.0.0.1:33418", returnsToThisComputer: true,
     });
     expect((await identity(t, "alice").query(api.agentOAuth.myHouseholds, {})).map((h) => h.name)).toEqual(["Casa Mar"]);
     await expect(t.action(api.agentOAuth.approve, { request, household: null })).rejects.toThrow(/AUTH_REQUIRED/);
@@ -253,7 +253,8 @@ describe("Agent connection with OAuth (MCP authorization)", () => {
 
     const tokens = await tokenRequest(t, { grant_type: "authorization_code", code, code_verifier: verifier, client_id: client.client_id, redirect_uri: REDIRECT, resource: RESOURCE });
     expect(tokens.status).toBe(200);
-    expect(tokens.body).toMatchObject({ token_type: "Bearer", expires_in: 3600, scope: "shared:read" });
+    // The request named only shared:read; the grant is both, and the response says so.
+    expect(tokens.body).toMatchObject({ token_type: "Bearer", expires_in: 3600, scope: "shared:read shared:write" });
     expect(tokens.body.access_token).toMatch(/^nsat_/);
     expect(tokens.body.refresh_token).toMatch(/^nsrt_/);
     const stored = JSON.stringify(await t.run(async (ctx) => [...await ctx.db.query("oauthTokens").collect(), ...await ctx.db.query("oauthCodes").collect()]));
@@ -709,8 +710,8 @@ describe("OAuth scopes for writes", () => {
     return { scope: tokens.body.scope as string, permissions: connection!.permissions, refresh: tokens.body.refresh_token as string, clientId };
   }
 
-  test("an agent that asks for writes, or names no scope, starts with every switch on", async () => {
-    for (const scope of ["shared:read shared:write", "shared:write offline_access", null]) {
+  test("every new connection is granted both scopes and starts with every switch on, whatever it asked for", async () => {
+    for (const scope of ["shared:read", "shared:read offline_access", "shared:read shared:write", "shared:write offline_access", null]) {
       const t = convexTest(schema, modules);
       await seed(t);
       const granted = await approvedWith(t, scope);
@@ -721,12 +722,33 @@ describe("OAuth scopes for writes", () => {
     }
   });
 
-  test("an agent that asks only to read starts with the write switches off", async () => {
+  test("the consent page shows the same text for every request: there is no read-only variant", async () => {
+    const t = convexTest(schema, modules);
+    await seed(t);
+    const client = (await register(t)).body;
+    const { challenge } = pkce();
+    const started = await authorize(t, client.client_id, await challenge, { scope: "shared:read" });
+    const described = await t.query(api.agentOAuth.describeRequest, { request: requestIdOf(started.headers.get("location")!) });
+    expect(described).not.toHaveProperty("canWrite");
+  });
+
+  test("a connection made before writes existed keeps shared:read and stays read-only until switched on", async () => {
     const t = convexTest(schema, modules);
     await seed(t);
     const granted = await approvedWith(t, "shared:read");
-    expect(granted.scope).toBe("shared:read");
-    expect(granted.permissions).toEqual({ addRecords: false, editRecords: false, manageHousehold: false });
+    // Make it look like a pre-change connection: no switches stored, tokens granted shared:read.
+    await t.run(async (ctx) => {
+      const connection = (await ctx.db.query("agentConnections").collect())[0]!;
+      await ctx.db.replace(connection._id, (({ _id, _creationTime, permissions, ...rest }) => rest)(connection));
+      for (const token of await ctx.db.query("oauthTokens").collect()) await ctx.db.patch(token._id, { scope: "shared:read" });
+    });
+    const [connection] = await identity(t, "alice").query(api.agentAccess.listMine, {});
+    expect(connection!.permissions).toEqual({ addRecords: false, editRecords: false, manageHousehold: false });
+    const refreshed = await tokenRequest(t, { grant_type: "refresh_token", refresh_token: granted.refresh, client_id: granted.clientId, resource: RESOURCE });
+    expect(refreshed.body.scope).toBe("shared:read");
+    const refused = await callTool(t, refreshed.body.access_token, "rename_household", { household: POT, name: "Casa Nova", request_id: "legacy-1" });
+    expect(refused.body.result.isError).toBe(true);
+    expect(JSON.stringify(refused.body.result)).toContain(String.raw`the \"Manage the household\" switch is off`);
   });
 
   test("an unknown scope is still refused", async () => {

@@ -1,7 +1,8 @@
 // "Connect to Numa Shared": the consent page an AI agent sends the person to (convex/agentOAuth.ts).
 // The agent (Claude, ChatGPT, Cursor…) opened /oauth/authorize, which checked it and sent the browser
 // here with a one-time request id. The signed-in person connects or declines; either way the browser
-// goes back to the agent. Connecting covers all of the person's households, with nothing to choose.
+// goes back to the agent. Connecting covers all of the person's households and turns every switch
+// on, whatever scope the agent asked for; the person changes them in Settings, AI agents.
 import { useEffect, useState } from 'react';
 import { Linking, View } from 'react-native';
 import { useLocalSearchParams } from 'expo-router';
@@ -11,6 +12,7 @@ import { useTheme } from '@/ui/theme';
 import { fonts, isWeb } from '@/ui/tokens';
 import { Brand, Screen } from '@/features/onboarding/chrome';
 import { explainFailure, SignInButtons, useSession, useSignInOptions } from '@/features/account/session';
+import { signInColumn } from '@/features/account/signInWidth';
 import { failureOf } from '@/sync/engine';
 import { agents, type AgentRequest } from '@/sync/runtime';
 
@@ -110,7 +112,7 @@ export default function Connect() {
           Go back to {agent}. You can disconnect it any time in Settings, AI agents.
         </T>
       ) : done === 'declined' ? (
-        <T style={{ fontSize: 16, lineHeight: 22, color: c.ink2, marginTop: 12 }}>{agent} can’t read anything. You can close this page.</T>
+        <T style={{ fontSize: 16, lineHeight: 22, color: c.ink2, marginTop: 12 }}>{agent} can’t read or change anything. You can close this page.</T>
       ) : info?.status === 'expired' ? (
         <T style={{ fontSize: 16, lineHeight: 22, color: c.ink2, marginTop: 12 }}>
           Requests last 10 minutes and work once. Start again from your agent.
@@ -118,15 +120,13 @@ export default function Connect() {
       ) : pending ? (
         <>
           <T style={{ fontSize: 16, lineHeight: 22, color: c.ink2, marginTop: 12 }}>
-            {pending.canWrite
-              ? `${agent} will act as you in all your households: read who paid and who owes whom, add expenses and repayments, edit and void records, and manage the household. Its changes show as yours, via ${agent}. You can turn each off in Settings, AI agents. It can’t delete your account or a household, or remove anyone, and Numa Shared never moves money.`
-              : `${agent} will be able to read who paid, who owes whom and the records in all your households. It can’t add, change or delete anything, and Numa Shared never moves money.`}
+            {`${agent} will act as you in all your households. It can read who paid, who owes whom and the records, add expenses and repayments, edit and void records, and manage the household. Everyone in the household sees its changes as yours, via ${agent}. You can turn each of these off in Settings, AI agents. It can’t delete your account, delete or leave a household, or remove anyone, and Numa Shared never moves money.`}
           </T>
           <View style={{ marginTop: 18, backgroundColor: c.card, borderRadius: 18, paddingHorizontal: 16, paddingVertical: 4 }}>
             {pending.verifiedHost ? (
               <Fact label="Agent" value={`${agent} · ${pending.verifiedHost}`} />
             ) : null}
-            {session ? <Fact label="Can read" value={reads} /> : null}
+            {session ? <Fact label="Households" value={reads} /> : null}
             <Fact label="Returns to" value={pending.returnsTo} last />
           </View>
           {pending.returnsToThisComputer ? (
@@ -148,7 +148,8 @@ export default function Connect() {
       ) : null}
 
       {pending && !done ? (
-        <View style={{ gap: 12, marginTop: 24 }}>
+        // Signed out on the web, Don’t connect lines up with the sign-in buttons above it.
+        <View style={[{ gap: 12, marginTop: 24 }, !session && signIn.google && isWeb ? signInColumn : null]}>
           {session ? (
             <CTA label={busy === 'connect' ? 'Connecting…' : `Connect ${agent}`} disabled={!!busy || !households} onPress={() => { void connect(); }} />
           ) : signIn.any ? (
