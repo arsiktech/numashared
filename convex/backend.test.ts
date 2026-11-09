@@ -3520,6 +3520,45 @@ describe("Backend event and multi-user foundation", () => {
         ok: true,
         at: 2,
       });
+      // An agent connected with OAuth: its registered client, a code and both tokens.
+      await ctx.db.insert("oauthClients", {
+        clientId: "nsc_deleting_only",
+        kind: "registered",
+        name: "Agent",
+        redirectUris: ["http://127.0.0.1:4000/callback"],
+        createdAt: 2,
+      });
+      const oauthConnectionId = await ctx.db.insert("agentConnections", {
+        accountId: deleting._id,
+        name: "Agent",
+        clientId: "nsc_deleting_only",
+        createdAt: 2,
+        windowStartedAt: 2,
+        windowCount: 0,
+      });
+      const grant = {
+        accountId: deleting._id,
+        connectionId: oauthConnectionId,
+        clientId: "nsc_deleting_only",
+        resource: "http://127.0.0.1:3211/mcp",
+        scope: "shared:read",
+      };
+      await ctx.db.insert("oauthCodes", {
+        ...grant,
+        codeHash: "c".repeat(64),
+        redirectUri: "http://127.0.0.1:4000/callback",
+        codeChallenge: "x".repeat(43),
+        expiresAt: 3,
+      });
+      for (const kind of ["access", "refresh"] as const) {
+        await ctx.db.insert("oauthTokens", {
+          ...grant,
+          tokenHash: kind.padEnd(64, "0"),
+          kind,
+          createdAt: 2,
+          expiresAt: Date.now() + 3_600_000,
+        });
+      }
       return { deleting: deleting._id, remaining: remaining._id };
     });
 
@@ -3595,6 +3634,9 @@ describe("Backend event and multi-user foundation", () => {
         agentRows: [
           ...(await ctx.db.query("agentConnections").collect()),
           ...(await ctx.db.query("agentActivity").collect()),
+          ...(await ctx.db.query("oauthClients").collect()),
+          ...(await ctx.db.query("oauthCodes").collect()),
+          ...(await ctx.db.query("oauthTokens").collect()),
         ],
         deletingText: (await ctx.db.query("eventTexts").collect())
           .filter((text) => text.authorAccountId === accountIds.deleting),

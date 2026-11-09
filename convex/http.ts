@@ -1,6 +1,7 @@
 import { httpRouter } from "convex/server";
 
 import { mcp } from "./agentMcp";
+import * as agentOAuth from "./agentOAuth";
 import { spendsHttp } from "./cardSync";
 import { preflight, withCors } from "./lib/cors";
 
@@ -58,10 +59,27 @@ http.route({ path: "/support", method: "GET", handler: support });
 http.route({ path: "/terms", method: "GET", handler: terms });
 http.route({ path: "/app-config", method: "GET", handler: withCors(appConfiguration) });
 http.route({ path: "/card-sync/spends", method: "POST", handler: spendsHttp });
-// Read-only agent access (MCP). The secret is in the link or the Authorization header.
+// Read-only agent access (MCP). An OAuth access token or a terminal agent's secret in the
+// Authorization header, or a secret in the link.
 for (const method of ["POST", "GET", "DELETE", "OPTIONS"] as const) {
   http.route({ path: "/mcp", method, handler: mcp });
   http.route({ pathPrefix: "/mcp/", method, handler: mcp });
+}
+// MCP authorization (convex/agentOAuth.ts): metadata, client registration, authorize, token, revoke.
+for (const path of ["/.well-known/oauth-protected-resource", "/.well-known/oauth-protected-resource/mcp"]) {
+  http.route({ path, method: "GET", handler: agentOAuth.protectedResource });
+  http.route({ path, method: "OPTIONS", handler: agentOAuth.preflight });
+}
+http.route({ path: "/.well-known/oauth-authorization-server", method: "GET", handler: agentOAuth.authorizationServer });
+http.route({ path: "/.well-known/oauth-authorization-server", method: "OPTIONS", handler: agentOAuth.preflight });
+http.route({ path: "/oauth/authorize", method: "GET", handler: agentOAuth.authorize });
+for (const [path, handler] of [
+  ["/oauth/register", agentOAuth.register],
+  ["/oauth/token", agentOAuth.token],
+  ["/oauth/revoke", agentOAuth.revoke],
+] as const) {
+  http.route({ path, method: "POST", handler });
+  http.route({ path, method: "OPTIONS", handler: agentOAuth.preflight });
 }
 
 // Preflight for the endpoints the web app calls from another origin (see lib/cors.ts).

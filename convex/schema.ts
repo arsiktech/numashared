@@ -282,17 +282,18 @@ export default defineSchema({
     .index("by_token_hash", ["tokenHash"])
     .index("by_code_hash", ["codeHash"]),
 
-  // APNs device tokens per account. A token is globally unique to one device, so a
-  // re-registration from another account moves it rather than duplicating it. Apple's
-  // 410 Unregistered response and SIWA revocation both drop tokens (P3.4 fan-out).
-  // Read-only access for an AI agent acting as one account (convex/agentAccess.ts). The secret
-  // is made on the device and shown once; only its SHA-256 is kept. A connection can be limited
-  // to one household. Disconnecting stops the secret on the next call.
+  // Read-only access for an AI agent acting as one account (convex/agentAccess.ts). Two kinds:
+  // - a secret link (no clientId): the secret is made on the device and shown once; only its
+  //   SHA-256 is kept in keyHash;
+  // - an OAuth grant (clientId set, convex/agentOAuth.ts): the person approved an agent on the
+  //   "Connect to Numa Shared" page; its tokens live in oauthTokens.
+  // A connection can be limited to one household. Disconnecting stops it on the next call.
   agentConnections: defineTable({
     accountId: v.id("accounts"),
     name: v.string(),
-    keyHash: v.string(),
-    keyHint: v.string(),
+    keyHash: v.optional(v.string()),
+    keyHint: v.optional(v.string()),
+    clientId: v.optional(v.string()),
     potId: v.optional(v.string()),
     createdAt: v.number(),
     lastUsedAt: v.optional(v.number()),
@@ -301,9 +302,11 @@ export default defineSchema({
     windowCount: v.number(),
   })
     .index("by_account", ["accountId"])
-    .index("by_key_hash", ["keyHash"]),
+    .index("by_key_hash", ["keyHash"])
+    .index("by_client", ["clientId"]),
 
-  // What each agent call did, newest last, for the account's own activity list. No amounts or names.
+  // What each agent call did, newest last, for the account's own activity list: the tool name and
+  // whether it was answered or refused. No amounts or names. (`error` is no longer written.)
   agentActivity: defineTable({
     accountId: v.id("accounts"),
     connectionId: v.id("agentConnections"),
@@ -314,6 +317,77 @@ export default defineSchema({
   })
     .index("by_account", ["accountId", "at"]),
 
+  // OAuth clients that may ask a person to connect (convex/agentOAuth.ts). "registered" clients
+  // came through Dynamic Client Registration; "metadata" clients are HTTPS client ids whose
+  // metadata document was fetched and is cached until expiresAt. No personal data.
+  oauthClients: defineTable({
+    clientId: v.string(),
+    kind: v.union(v.literal("registered"), v.literal("metadata")),
+    name: v.string(),
+    redirectUris: v.array(v.string()),
+    clientUri: v.optional(v.string()),
+    // SHA-256 of a client secret, for registered clients that asked for one.
+    secretHash: v.optional(v.string()),
+    createdAt: v.number(),
+    expiresAt: v.optional(v.number()),
+  })
+    .index("by_client_id", ["clientId"])
+    .index("by_created", ["kind", "createdAt"]),
+
+  // An authorization request waiting on the consent page. Holds no account until approved, and
+  // is deleted on approve, deny or expiry (10 minutes). Only the hash of its id is kept.
+  oauthRequests: defineTable({
+    requestHash: v.string(),
+    clientId: v.string(),
+    redirectUri: v.string(),
+    state: v.optional(v.string()),
+    codeChallenge: v.string(),
+    resource: v.string(),
+    scope: v.string(),
+    issuer: v.string(),
+    createdAt: v.number(),
+    expiresAt: v.number(),
+  })
+    .index("by_request_hash", ["requestHash"])
+    .index("by_expires_at", ["expiresAt"]),
+
+  // One-time authorization codes (hashed), valid for a few minutes.
+  oauthCodes: defineTable({
+    codeHash: v.string(),
+    accountId: v.id("accounts"),
+    connectionId: v.id("agentConnections"),
+    clientId: v.string(),
+    redirectUri: v.string(),
+    codeChallenge: v.string(),
+    resource: v.string(),
+    scope: v.string(),
+    expiresAt: v.number(),
+    usedAt: v.optional(v.number()),
+  })
+    .index("by_code_hash", ["codeHash"])
+    .index("by_account", ["accountId"]),
+
+  // OAuth access and refresh tokens (hashed). Access tokens live an hour. Refresh tokens rotate
+  // on every use; a used refresh token presented again revokes the whole connection.
+  oauthTokens: defineTable({
+    tokenHash: v.string(),
+    kind: v.union(v.literal("access"), v.literal("refresh")),
+    accountId: v.id("accounts"),
+    connectionId: v.id("agentConnections"),
+    clientId: v.string(),
+    resource: v.string(),
+    scope: v.string(),
+    createdAt: v.number(),
+    expiresAt: v.number(),
+    usedAt: v.optional(v.number()),
+  })
+    .index("by_token_hash", ["tokenHash"])
+    .index("by_account", ["accountId"])
+    .index("by_connection", ["connectionId", "expiresAt"]),
+
+  // APNs device tokens per account. A token is globally unique to one device, so a
+  // re-registration from another account moves it rather than duplicating it. Apple's
+  // 410 Unregistered response and SIWA revocation both drop tokens (P3.4 fan-out).
   pushTokens: defineTable({
     accountId: v.id("accounts"),
     // Optional only for registrations created before session-bound logout cleanup.
