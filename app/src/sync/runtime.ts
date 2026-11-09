@@ -343,10 +343,11 @@ export type AgentRequest =
   | { status: 'expired' }
   | { status: 'pending'; agent: string; verifiedHost: string | null; returnsTo: string; returnsToThisComputer: boolean };
 
-/** The address people add to Claude, ChatGPT or Cursor. The agent then asks them to approve it. */
+/**
+ * The MCP address. Claude and ChatGPT take it bare and then ask the person to approve; a secret
+ * link adds the secret after a slash. The web host passes /mcp/* through to the backend.
+ */
 export const AGENT_MCP_URL = `${PUBLIC_SITE_URL}/mcp`;
-/** Where a terminal agent's secret link points. The secret goes after the slash. */
-export const AGENT_URL = `${SITE_URL}/mcp`;
 
 let anonymous: import('convex/browser').ConvexHttpClient | null = null;
 /** The consent page is read before sign-in, so it uses a client without an account. */
@@ -361,22 +362,23 @@ async function anonymousClient() {
 export const agents = {
   list: () => within(backend.query<AgentConnection[]>('agentAccess:listMine', {})),
   activity: () => within(backend.query<AgentActivity[]>('agentAccess:recentActivity', {})),
-  /** Connects a terminal agent with a secret link. The secret is made here and shown once; only its SHA-256 reaches the server. */
+  /** Connects an agent with a secret link. The secret is made here and handed over once; only its SHA-256 reaches the server. */
   connect: async (name: string, potId: string | null): Promise<{ link: string }> => {
     const Crypto = await import('expo-crypto');
     const secret = `nsag_${base64url(Crypto.getRandomBytes(32))}`;
     const keyHash = (await Crypto.digestStringAsync(Crypto.CryptoDigestAlgorithm.SHA256, secret, { encoding: Crypto.CryptoEncoding.HEX })).toLowerCase();
     await within(backend.mutation('agentAccess:connect', { name, keyHash, keyHint: secret.slice(0, 9), ...(potId ? { potId } : {}) }));
-    return { link: `${AGENT_URL}/${secret}` };
+    return { link: `${AGENT_MCP_URL}/${secret}` };
   },
   disconnect: (id: string) => within(backend.mutation('agentAccess:disconnect', { id })),
   /** The "Connect to Numa Shared" page (app/src/app/connect.tsx). */
   consent: {
     describe: async (request: string) => within((await anonymousClient()).query(ref('agentOAuth:describeRequest'), { request } as never) as Promise<AgentRequest>),
     households: () => within(backend.query<Array<{ id: string; name: string | null }>>('agentOAuth:myHouseholds', {})),
-    approve: (request: string, household: string | null) => {
+    /** Approves for all of the person's households. The server still takes one household for older clients. */
+    approve: (request: string) => {
       if (!client) return Promise.reject({ data: { code: 'AUTH_REQUIRED', retryable: false } });
-      return within(client.action(ref('agentOAuth:approve'), { request, household } as never) as Promise<{ redirectTo: string }>);
+      return within(client.action(ref('agentOAuth:approve'), { request } as never) as Promise<{ redirectTo: string }>);
     },
     deny: async (request: string) => within((await anonymousClient()).mutation(ref('agentOAuth:deny'), { request } as never) as Promise<{ redirectTo: string | null }>),
   },

@@ -1,7 +1,7 @@
 // "Connect to Numa Shared": the consent page an AI agent sends the person to (convex/agentOAuth.ts).
 // The agent (Claude, ChatGPT, Cursor…) opened /oauth/authorize, which checked it and sent the browser
-// here with a one-time request id. The signed-in person chooses which households the agent may read,
-// then connects or declines; either way the browser goes back to the agent.
+// here with a one-time request id. The signed-in person connects or declines; either way the browser
+// goes back to the agent. Connecting covers all of the person's households, with nothing to choose.
 import { useEffect, useState } from 'react';
 import { Linking, View } from 'react-native';
 import { useLocalSearchParams } from 'expo-router';
@@ -9,17 +9,14 @@ import { CloudOff, Warn } from '@/ui/icons';
 import { Banner, BannerText, CTA, haptic, T } from '@/ui/primitives';
 import { useTheme } from '@/ui/theme';
 import { fonts, isWeb } from '@/ui/tokens';
-import { Brand, Label, Screen, Select } from '@/features/onboarding/chrome';
+import { Brand, Screen } from '@/features/onboarding/chrome';
 import { explainFailure, SignInButtons, useSession, useSignInOptions } from '@/features/account/session';
 import { failureOf } from '@/sync/engine';
 import { agents, type AgentRequest } from '@/sync/runtime';
 
-const ALL = 'all';
-
 function consentFailure(code: string): string {
   if (code === 'AGENT_REQUEST_EXPIRED') return 'This request has expired. Start again from your agent.';
   if (code === 'TOO_MANY_AGENTS') return 'You already have 5 agents connected. Disconnect one in Settings, AI agents, then try again.';
-  if (code === 'NOT_MEMBER' || code === 'MEMBERSHIP_ARCHIVED' || code === 'POT_DELETING') return 'You can’t share that household any more. Choose another.';
   return explainFailure(code);
 }
 
@@ -38,7 +35,6 @@ export default function Connect() {
   const signIn = useSignInOptions();
   const [info, setInfo] = useState<AgentRequest | null>(null);
   const [households, setHouseholds] = useState<Array<{ id: string; name: string | null }> | null>(null);
-  const [scope, setScope] = useState<string>(ALL);
   const [busy, setBusy] = useState<'connect' | 'decline' | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [done, setDone] = useState<'connected' | 'declined' | null>(null);
@@ -70,7 +66,7 @@ export default function Connect() {
   const connect = async () => {
     setBusy('connect'); setError(null);
     try {
-      const { redirectTo } = await agents.consent.approve(request, scope === ALL ? null : scope);
+      const { redirectTo } = await agents.consent.approve(request);
       haptic.success();
       setDone('connected');
       returnTo(redirectTo);
@@ -90,11 +86,12 @@ export default function Connect() {
     } finally { setBusy(null); }
   };
 
-  const named = (h: { name: string | null }) => h.name?.trim() || 'Unnamed household';
-  const options = [
-    { value: ALL, label: 'All my households' },
-    ...(households ?? []).map((h) => ({ value: h.id, label: `Only ${named(h)}` })),
-  ];
+  // What "all your households" means today, so the person sees what they are sharing.
+  const names = (households ?? []).map((h) => h.name?.trim() || 'Unnamed household');
+  const reads = households === null ? 'Loading…'
+    : names.length === 0 ? 'No households yet'
+    : names.length <= 3 ? names.join(', ')
+    : `${names.slice(0, 2).join(', ')} and ${names.length - 2} more`;
 
   const title = done === 'connected' ? `${agent} is connected`
     : done === 'declined' ? 'Not connected'
@@ -121,12 +118,13 @@ export default function Connect() {
       ) : pending ? (
         <>
           <T style={{ fontSize: 16, lineHeight: 22, color: c.ink2, marginTop: 12 }}>
-            {agent} will be able to read who paid, who owes whom and the records in the households you choose. It can’t add, change or delete anything, and Numa Shared never moves money.
+            {agent} will be able to read who paid, who owes whom and the records in all your households. It can’t add, change or delete anything, and Numa Shared never moves money.
           </T>
           <View style={{ marginTop: 18, backgroundColor: c.card, borderRadius: 18, paddingHorizontal: 16, paddingVertical: 4 }}>
             {pending.verifiedHost ? (
               <Fact label="Agent" value={`${agent} · ${pending.verifiedHost}`} />
             ) : null}
+            {session ? <Fact label="Can read" value={reads} /> : null}
             <Fact label="Returns to" value={pending.returnsTo} last />
           </View>
           {pending.returnsToThisComputer ? (
@@ -135,13 +133,6 @@ export default function Connect() {
                 <BannerText kind="warn" strong="An app on this computer asked." rest=" Connect only if you just started this from an agent you trust." />
               </Banner>
             </View>
-          ) : null}
-
-          {session ? (
-            <>
-              <Label>It can read</Label>
-              <Select label="It can read" value={scope} onChange={setScope} options={options} disabled={!households} />
-            </>
           ) : null}
         </>
       ) : !error ? (

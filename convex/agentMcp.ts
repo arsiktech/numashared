@@ -1,6 +1,6 @@
 // The MCP endpoint agents connect to (Streamable HTTP, JSON answers, read-only tools).
 //
-// Credentials: an OAuth access token (convex/agentOAuth.ts) or a terminal agent's secret, sent as
+// Credentials: an OAuth access token (convex/agentOAuth.ts) or a secret link's secret, sent as
 // `Authorization: Bearer <token>`. A secret link (/mcp/<secret>) also works, for clients that take
 // only a URL; the path accepts only such secrets (`nsag_`), never OAuth tokens. One JSON-RPC
 // message per POST: batches are refused. A call without a valid credential gets 401 with a WWW-Authenticate header that points
