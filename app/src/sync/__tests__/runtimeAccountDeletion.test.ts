@@ -7,7 +7,7 @@ const fixture = vi.hoisted(() => ({
   post: vi.fn(), forgetSession: vi.fn(), forgetAccount: vi.fn(),
 }));
 vi.mock('react-native', () => ({ Platform: { OS: 'web' }, AppState: { addEventListener: vi.fn() } }));
-vi.mock('../config', () => ({ CONVEX_URL: 'http://127.0.0.1:3210', SITE_URL: 'http://127.0.0.1:3211' }));
+vi.mock('../config', () => ({ CONVEX_URL: 'http://127.0.0.1:3210', SITE_URL: 'http://127.0.0.1:3211', PUBLIC_SITE_URL: 'http://127.0.0.1:3211' }));
 vi.mock('../auth', () => ({
   currentSession: () => fixture.session,
   readDeletion: async () => fixture.pending,

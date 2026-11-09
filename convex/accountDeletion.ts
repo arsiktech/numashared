@@ -3,6 +3,7 @@ import { v } from "convex/values";
 import type { Doc, Id, TableNames } from "./_generated/dataModel";
 import type { MutationCtx, QueryCtx } from "./_generated/server";
 import { internalMutation, internalQuery } from "./_generated/server";
+import { eraseAgentOAuthBatch } from "./agentOAuth";
 import { fail } from "./lib/access";
 import { applyStructuralTopology, loadBudgetGroupTopology } from "./lib/budgetGroupTopology";
 import { requireApprovedWriteTarget } from "./lib/deployment";
@@ -44,6 +45,10 @@ const accountSweep: Array<TableNames> = [
   "refreshTokenHistory",
   "accountWriteQuotas",
   "pushTokens",
+  "agentActivity",
+  "oauthTokens",
+  "oauthCodes",
+  "agentConnections",
   "appleIdentityNotifications",
 ];
 
@@ -451,6 +456,8 @@ export const eraseIdentityBatch = internalMutation({
       .first();
     if (remainingMembership) fail("ACCOUNT_DELETION_POTS_REMAIN");
 
+    // OAuth connections first, so each registered client only this account used goes with them.
+    if (await eraseAgentOAuthBatch(ctx, account._id)) return { complete: false };
     for (const table of accountSweep) {
       const rows = await takeIndexed(ctx.db, table, "by_account", "accountId", account._id);
       if (rows.length > 0) {

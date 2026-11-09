@@ -4,8 +4,9 @@ A Cloudflare Worker that puts Numa Shared under its own address:
 
 | Path | What happens |
 |---|---|
-| `/app/…` | The web app (an Expo web export of `app/`, served as a single-page app). |
+| `/app/…` | The web app (an Expo web export of `app/`, served as a single-page app). Sent with `Content-Security-Policy: frame-ancestors 'none'` and `X-Frame-Options: DENY`, so no other site can frame it (the Connect page must not be overlaid). |
 | `/`, `/assets/…`, `/privacy`, `/support`, `/terms`, `/join/<token>`, `/.well-known/apple-app-site-association` | Fetched from the backend and served here, so the address stays branded. |
+| `/mcp`, `/mcp/…`, `/.well-known/oauth-protected-resource[/mcp]` | Passed through to the backend (method, body and `Authorization` kept), with `x-numa-public-origin` naming this origin. AI agents connect here. |
 | any other page a browser opens | A small "page not found" with links home and to the app. |
 | `/auth/…`, `/app-config`, `/card-sync/…`, any POST | `307` to the backend, so its rate limits see each person's own IP. |
 

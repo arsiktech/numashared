@@ -15,3 +15,18 @@ export async function shareText(message: string, copiedToast: string, title?: st
     showToast('Couldn’t open sharing on this device.');
   }
 }
+
+/** Copies text on the web; elsewhere opens the share sheet, which offers Copy. Resolves true when it went somewhere. */
+export async function copyText(message: string, copiedToast: string): Promise<boolean> {
+  const clip = isWeb ? (globalThis.navigator as Navigator | undefined)?.clipboard : undefined;
+  if (clip) {
+    try { await clip.writeText(message); showToast(copiedToast); return true; } catch { /* fall through */ }
+  }
+  try {
+    const result = await Share.share({ message });
+    return result.action !== Share.dismissedAction;
+  } catch {
+    showToast('Couldn’t copy on this device.');
+    return false;
+  }
+}
