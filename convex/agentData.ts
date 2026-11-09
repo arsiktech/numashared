@@ -1,6 +1,6 @@
 // What a connected agent can read (convex/agentMcp.ts calls these). Every read runs as the
 // connection's account and passes the same membership checks the app does. A connection limited to
-// one household sees only that household. Nothing here writes.
+// one household sees only that household. Nothing here writes (convex/agentWrites.ts does).
 import { v } from "convex/values";
 
 import type { Doc, Id } from "./_generated/dataModel";
@@ -288,6 +288,8 @@ export const records = internalQuery({
         category: texts.category ?? null,
         note: texts.note ?? null,
         reason: texts.reason ?? null,
+        // The agent connection that added the record, when one did.
+        addedVia: entry.root.via ?? null,
       };
       if (state.rootKind === "settlement" && state.settlement) {
         const content = state.settlement.content;
@@ -303,9 +305,10 @@ export const records = internalQuery({
         continue;
       }
       let head: ReturnType<FinancialRecordState["revisions"]["get"]>;
+      let headEventId: string | null = null;
       for (const eventId of state.heads) {
         const revision = state.revisions.get(eventId);
-        if (revision && (!head || revision.order > head.order)) head = revision;
+        if (revision && (!head || revision.order > head.order)) { head = revision; headEventId = eventId; }
       }
       const content = head?.payload.content;
       const status = state.isVoided ? "voided" : state.heads.size > 1 ? "contested" : "live";
@@ -315,6 +318,7 @@ export const records = internalQuery({
           ...base,
           kind: "opening-balance",
           status,
+          revision: state.heads.size === 1 ? headEventId : null,
           entries: content.entries.map((entryItem) => ({ who: label(entryItem.unitId), ...money(entryItem.amount) })),
         });
         continue;
@@ -323,6 +327,8 @@ export const records = internalQuery({
         ...base,
         kind: content.expenseKind === "personal" ? "personal-expense" : "expense",
         status,
+        // Pass to edit_record: it refuses when someone changed the record since this read.
+        revision: state.heads.size === 1 ? headEventId : null,
         paidBy: label(content.payerUnitId),
         ...money(content.amount),
         splitBetween: content.allocations.map((allocation) => ({ who: label(allocation.unitId), ...money(allocation.amount) })),

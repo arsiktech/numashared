@@ -14,7 +14,7 @@ import { Avatar, Press, T } from '@/ui/primitives';
 import { useTheme } from '@/ui/theme';
 import { alpha, fonts, isAndroid, isWeb } from '@/ui/tokens';
 import { OrbButton } from '../records';
-import { clock, effectLine, initials, money, personName, recordTitle, settlementTitle, useHousehold } from '../hooks';
+import { addedByLine, authorName, clock, effectLine, initials, money, personName, recordTitle, settlementTitle, useHousehold } from '../hooks';
 import {
   dayLabel, FILTERS, isMine, METHOD_LABEL, openingLine, sameDay, seenBy, splitLabel, threadItems,
   type Filter, type ThreadItem,
@@ -215,10 +215,12 @@ function Bubble({ h, r, hide, desk, selected, onSelect }: { h: Household; r: Led
   const edited = r.revisions.length > 1;
   const effect = hide ? null : effectLine(h, r);
   const seen = r.createdBy === h.youId ? seenBy(h, r) : null;
-  const added = r.createdBy !== e.payerId ? ` · added by ${personName(h, r.createdBy)}` : '';
+  const added = addedByLine(h, r, e.payerId);
   const foot = `${personName(h, e.payerId)} · ${clock(r.createdAt)}${added}${edited && !r.voided ? ' · edited' : ''}${r.voided ? ' · voided' : ''}${seen ? ` · Seen by ${seen}` : ''}`;
+  // The desk shows the payer and time elsewhere; it keeps who added it only when an agent did.
+  const deskFoot = [r.createdVia ? `Added by ${authorName(h, r.createdBy, r.createdVia)}` : null, seen ? `Seen by ${seen}` : null].filter(Boolean).join(' · ');
   const strike = r.voided ? ({ textDecorationLine: 'line-through' } as const) : null;
-  const label = [title, money(h, e.amount, hide), `${personName(h, e.payerId)} paid`, r.voided ? `voided: ${r.voidReason}` : effect, edited ? 'edited' : null, e.note ? `note: ${e.note}` : null]
+  const label = [title, money(h, e.amount, hide), `${personName(h, e.payerId)} paid`, r.createdVia ? `added by ${authorName(h, r.createdBy, r.createdVia)}` : null, r.voided ? `voided: ${r.voidReason}` : effect, edited ? 'edited' : null, e.note ? `note: ${e.note}` : null]
     .filter(Boolean).join(', ');
   return (
     <View style={{ flexDirection: mine ? 'row-reverse' : 'row', alignItems: 'flex-end', gap: 8, maxWidth: '86%', alignSelf: mine ? 'flex-end' : 'flex-start' }}>
@@ -237,10 +239,10 @@ function Bubble({ h, r, hide, desk, selected, onSelect }: { h: Household; r: Led
             <T style={{ fontFamily: fonts.semibold, fontSize: 13, color: t.ink, opacity: 0.88 }}>
               {splitLabel(r)}{effect ? ` · ${effect}` : ''}
             </T>
-            {!desk || seen ? (
+            {!desk || deskFoot ? (
               <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5, marginTop: 4, opacity: 0.9 }}>
                 {seen ? <Checks size={16} color={t.ink} /> : null}
-                <T style={{ fontFamily: fonts.bold, fontSize: 12, color: t.ink, flexShrink: 1 }}>{desk ? `Seen by ${seen}` : foot}</T>
+                <T style={{ fontFamily: fonts.bold, fontSize: 12, color: t.ink, flexShrink: 1 }}>{desk ? deskFoot : foot}</T>
               </View>
             ) : null}
           </Press>
@@ -256,7 +258,7 @@ function RepayCard({ h, r, hide, selected, onSelect }: { h: Household; r: Ledger
   const title = `${settlementTitle(h, r)} ${money(h, s.amount, hide)}`;
   const meta = [s.method ? METHOD_LABEL[s.method] : null, s.note ? `“${s.note}”` : null].filter(Boolean).join(' · ');
   const seen = seenBy(h, r);
-  const foot = `Recorded by ${personName(h, r.createdBy)}${seen ? ` · Seen by ${seen}` : ''}${r.flagged ? ' · Flagged' : ''}${r.voided ? ' · Voided' : ''}`;
+  const foot = `Recorded by ${authorName(h, r.createdBy, r.createdVia)}${seen ? ` · Seen by ${seen}` : ''}${r.flagged ? ' · Flagged' : ''}${r.voided ? ' · Voided' : ''}`;
   const strike = r.voided ? ({ textDecorationLine: 'line-through' } as const) : null;
   return (
     <View style={{ alignSelf: 'center', maxWidth: '92%' }}>

@@ -58,6 +58,8 @@ export type ListedEvent = {
   serverSequence: bigint;
   /** Server time of sequencing; older deployments omit it. */
   recordedAtMillis?: number;
+  /** The connected AI agent that appended it for the actor (convex/agentWrites.ts). */
+  via?: string;
   textStates: TextState[];
 };
 

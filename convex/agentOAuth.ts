@@ -34,7 +34,7 @@ import {
   type MutationCtx,
   type QueryCtx,
 } from "./_generated/server";
-import { accountIsUsable, closeConnection, maximumAgents } from "./agentAccess";
+import { accountIsUsable, closeConnection, defaultAgentPermissions, maximumAgents } from "./agentAccess";
 import { fail, requireActiveMembership, requireSession } from "./lib/access";
 import { requireApprovedWriteTarget } from "./lib/deployment";
 import { sha256Hex } from "./lib/hash";
@@ -349,6 +349,8 @@ export const authorize = httpAction(async (ctx, request) => {
     ...(state === undefined ? {} : { state }),
     codeChallenge: challenge,
     resource,
+    // Always both, whatever the agent named: every new connection starts with every switch on.
+    // RFC 6749 section 3.3 lets the server grant a different scope; the token response says which.
     scope: oauth.OAUTH_SCOPE,
     issuer,
     now: Date.now(),
@@ -450,6 +452,8 @@ export const approveRequest = internalMutation({
       name: client.name,
       clientId: row.clientId,
       ...(args.potId === null ? {} : { potId: args.potId }),
+      // Every new connection starts with every switch on, whatever scope the agent asked for.
+      permissions: defaultAgentPermissions,
       createdAt: args.now,
       windowStartedAt: args.now,
       windowCount: 0,
@@ -513,7 +517,7 @@ export const deny = mutation({
 
 // ---------- Tokens ----------
 
-type Grant = { ok: true } | { ok: false; error: string; description: string };
+type Grant = { ok: true; scope: string } | { ok: false; error: string; description: string };
 const refused = (error: string, description: string): Grant => ({ ok: false, error, description });
 
 async function issueTokens(
@@ -577,7 +581,7 @@ export const redeemCode = internalMutation({
     }
     await ctx.db.patch(code._id, { usedAt: args.now });
     await issueTokens(ctx, code, args.accessHash, args.refreshHash, args.now);
-    return { ok: true };
+    return { ok: true, scope: code.scope };
   },
 });
 
@@ -604,7 +608,7 @@ export const rotateRefresh = internalMutation({
       // presented token, so the hashes match.
       if (args.now - row.usedAt <= oauth.REFRESH_GRACE_MILLIS && row.replacedBy === args.refreshHash) {
         const next = await ctx.db.query("oauthTokens").withIndex("by_token_hash", (q) => q.eq("tokenHash", args.refreshHash)).unique();
-        if (next && next.usedAt === undefined && await connectionUsable(ctx, row.connectionId)) return { ok: true };
+        if (next && next.usedAt === undefined && await connectionUsable(ctx, row.connectionId)) return { ok: true, scope: row.scope };
       }
       // Refresh tokens are single use. Seeing one again means two parties hold it: close the connection.
       await closeConnection(ctx, row.connectionId, args.now);
@@ -614,7 +618,7 @@ export const rotateRefresh = internalMutation({
     if (!(await connectionUsable(ctx, row.connectionId))) return refused("invalid_grant", "This connection is closed.");
     await ctx.db.patch(row._id, { usedAt: args.now, replacedBy: args.refreshHash });
     await issueTokens(ctx, row, args.accessHash, args.refreshHash, args.now);
-    return { ok: true };
+    return { ok: true, scope: row.scope };
   },
 });
 
@@ -685,7 +689,7 @@ export const token = httpAction(async (ctx, request) => {
     token_type: "Bearer",
     expires_in: oauth.ACCESS_TOKEN_SECONDS,
     refresh_token: refresh,
-    scope: oauth.OAUTH_SCOPE,
+    scope: result.scope,
   });
 });
 

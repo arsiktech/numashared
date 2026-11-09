@@ -279,6 +279,7 @@ export function fromWire(h: Household, listed: ListedEvent): LedgerEvent | null 
     id: ev.eventId,
     at: listed.recordedAtMillis ?? occurredAt,
     by: ev.actorMemberId,
+    ...(typeof listed.via === 'string' && listed.via.trim() ? { via: listed.via.trim().slice(0, 60) } : {}),
     seq: Number(listed.serverSequence),
     occurredAt,
     tz: ev.originatingTimeZone,

@@ -187,19 +187,29 @@ describe("Agent access (read-only MCP)", () => {
     expect(formatMinorUnits(0n, 2)).toBe("0.00");
   });
 
-  test("lists only read tools and says the connection cannot change anything", async () => {
+  test("lists the reading and writing tools, and nothing that deletes, leaves or removes", async () => {
     const t = convexTest(schema, modules);
     await seed(t);
     const { secret } = await connect(t, "alice");
     const init = await rpc(t, secret, { jsonrpc: "2.0", id: 1, method: "initialize", params: { protocolVersion: "2025-06-18" } });
     expect(init.body.result.serverInfo.name).toBe("numa-shared");
-    expect(init.body.result.instructions).toMatch(/only read/);
+    expect(init.body.result.instructions).toMatch(/never moves money/);
     const list = await rpc(t, secret, { jsonrpc: "2.0", id: 2, method: "tools/list" });
-    const tools = list.body.result.tools as Array<{ name: string; annotations: { readOnlyHint: boolean; destructiveHint: boolean } }>;
-    expect(tools.map((x) => x.name).sort()).toEqual(["get_balances", "list_households", "list_members", "list_records"]);
-    expect(tools.every((x) => x.annotations.readOnlyHint && !x.annotations.destructiveHint)).toBe(true);
-    const write = await rpc(t, secret, call("add_expense", { household: POT }));
-    expect(write.body.error.message).toMatch(/Unknown tool/);
+    const tools = list.body.result.tools as Array<{ name: string; description: string; annotations: { readOnlyHint: boolean; destructiveHint: boolean } }>;
+    expect(tools.map((x) => x.name).sort()).toEqual([
+      "add_expense", "add_person", "add_repayment", "create_invite", "edit_record", "get_balances", "list_households",
+      "list_members", "list_records", "rename_household", "update_groups", "void_record",
+    ]);
+    const reads = ["get_balances", "list_households", "list_members", "list_records"];
+    for (const x of tools) {
+      expect(x.annotations.readOnlyHint).toBe(reads.includes(x.name));
+      if (!reads.includes(x.name)) expect(x.description).toMatch(/never moves money/);
+    }
+    for (const name of ["delete_account", "delete_household", "leave_household", "remove_member", "archive_member", "transfer_ownership"]) {
+      expect(tools.some((x) => x.name.includes(name.split("_")[0]!) && x.name.includes(name.split("_")[1]!))).toBe(false);
+      const refused = await rpc(t, secret, call(name, { household: POT }));
+      expect(refused.body.error.message).toMatch(/Unknown tool/);
+    }
   });
 
   test("reads households, people, balances and records through the link and through a Bearer header", async () => {

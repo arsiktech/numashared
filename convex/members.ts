@@ -574,7 +574,7 @@ type PendingMemberBound = {
  * first (it is the server-readable sidecar that persists across offline windows),
  * then append the memberAdded event.
  */
-async function addOrBindPendingMember(
+export async function addOrBindPendingMember(
   { ctx, account, membership, args, mode }: PendingMemberBound,
 ): Promise<{ sequence: bigint }> {
   requireApprovedWriteTarget();
@@ -683,20 +683,33 @@ export const bindPendingMember = mutation({
 // Owner issues an invite. The owner's device generates a URL-safe high-entropy token and
 // a six-character code; only a token digest and secret-keyed code digest are stored.
 // Per-member invites bind 1:1 to an added-but-unclaimed member.
+const issueInviteArgs = {
+  potId: v.string(),
+  inviteId: v.string(),
+  kind: v.union(v.literal("perMember"), v.literal("potLink")),
+  pendingMemberId: v.optional(v.string()),
+  token: v.string(),
+  code: v.string(),
+  expiresAt: v.number(),
+};
+
 export const issueInvite = mutation({
-  args: {
-    potId: v.string(),
-    inviteId: v.string(),
-    kind: v.union(v.literal("perMember"), v.literal("potLink")),
-    pendingMemberId: v.optional(v.string()),
-    token: v.string(),
-    code: v.string(),
-    expiresAt: v.number(),
-  },
+  args: issueInviteArgs,
   handler: async (ctx, args) => {
     requireApprovedWriteTarget();
     const { account } = await requireSession(ctx);
     const membership = await requireActiveMembership(ctx, args.potId, account._id);
+    return await issueInviteForMember(ctx, account, membership, args);
+  },
+});
+
+/** The body of issueInvite, shared with connected agents (convex/agentWrites.ts). */
+export async function issueInviteForMember(
+  ctx: MutationCtx,
+  account: { _id: Id<"accounts"> },
+  membership: Doc<"potMembers">,
+  args: { potId: string; inviteId: string; kind: "perMember" | "potLink"; pendingMemberId?: string; token: string; code: string; expiresAt: number },
+): Promise<{ inviteId: string }> {
     if (membership.role !== "owner") fail("NOT_OWNER");
     const now = Date.now();
     if (!isCanonicalInviteToken(args.token)) {
@@ -789,8 +802,7 @@ export const issueInvite = mutation({
       createdAt: now,
     });
     return { inviteId: args.inviteId };
-  },
-});
+}
 
 // Owners can inspect active invite metadata without recovering either secret.
 // Expired records remain visible until revoked so the device can explain why a
@@ -829,6 +841,16 @@ export const revokeInvite = mutation({
     requireApprovedWriteTarget();
     const { account } = await requireSession(ctx);
     const membership = await requireActiveMembership(ctx, args.potId, account._id);
+    return await revokeInviteForMember(ctx, membership, args);
+  },
+});
+
+/** The body of revokeInvite, shared with connected agents (convex/agentWrites.ts). */
+export async function revokeInviteForMember(
+  ctx: MutationCtx,
+  membership: Doc<"potMembers">,
+  args: { potId: string; inviteId: string },
+): Promise<{ status: "revoked" }> {
     if (membership.role !== "owner") fail("NOT_OWNER");
     const invite = await ctx.db
       .query("invites")
@@ -838,8 +860,7 @@ export const revokeInvite = mutation({
     if (invite.status === "consumed") fail("INVITE_ALREADY_USED");
     if (invite.status === "active") await ctx.db.patch(invite._id, { status: "revoked" });
     return { status: "revoked" as const };
-  },
-});
+}
 
 // A signed-in account claims a per-member invite by presenting the raw token. The server
 // fills the private pot/member fields into the append-only event; the client supplies only
@@ -1158,6 +1179,17 @@ export const renamePot = mutation({
     requireApprovedWriteTarget();
     const { account } = await requireSession(ctx);
     const membership = await requireActiveMembership(ctx, args.potId, account._id);
+    return await renamePotForMember(ctx, account, membership, args);
+  },
+});
+
+/** The body of renamePot, shared with connected agents (convex/agentWrites.ts). */
+export async function renamePotForMember(
+  ctx: MutationCtx,
+  account: { _id: Id<"accounts"> },
+  membership: Doc<"potMembers">,
+  args: { potId: string; event: EventInput },
+): Promise<{ sequence: bigint; name: string }> {
     if (membership.role !== "owner") fail("NOT_OWNER");
     if (args.event.payload.kind !== "potRenamed") fail("EXPECTED_POT_RENAMED");
     if (args.event.potId !== args.potId) fail("EVENT_POT_MISMATCH");
@@ -1180,8 +1212,7 @@ export const renamePot = mutation({
     );
     await ctx.db.patch(pot._id, { name });
     return { sequence, name };
-  },
-});
+}
 
 // Owner detaches a wrong claim (J7): the account that claimed this identity loses its
 // binding, the identity becomes unclaimed and can be invited again. The append-only log

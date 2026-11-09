@@ -169,7 +169,7 @@ describe("Agent connection with OAuth (MCP authorization)", () => {
       const prm = await t.fetch(path, { method: "GET" });
       expect(prm.status).toBe(200);
       expect(prm.headers.get("access-control-allow-origin")).toBe("*");
-      expect(await body(prm)).toMatchObject({ resource: RESOURCE, authorization_servers: [SITE], scopes_supported: ["shared:read"] });
+      expect(await body(prm)).toMatchObject({ resource: RESOURCE, authorization_servers: [SITE], scopes_supported: ["shared:read", "shared:write"] });
     }
     const branded = await body(await t.fetch("/.well-known/oauth-protected-resource/mcp", { method: "GET", headers: { "x-numa-public-origin": BRANDED } }));
     expect(branded.resource).toBe(`${BRANDED}/mcp`);
@@ -191,7 +191,7 @@ describe("Agent connection with OAuth (MCP authorization)", () => {
     const unauthenticated = await t.fetch("/mcp", { method: "POST", body: JSON.stringify({ jsonrpc: "2.0", id: 1, method: "tools/list" }) });
     expect(unauthenticated.status).toBe(401);
     expect(unauthenticated.headers.get("www-authenticate")).toBe(
-      `Bearer resource_metadata="${SITE}/.well-known/oauth-protected-resource/mcp", scope="shared:read"`,
+      `Bearer resource_metadata="${SITE}/.well-known/oauth-protected-resource/mcp", scope="shared:read shared:write"`,
     );
     const preflight = await t.fetch("/mcp", { method: "OPTIONS", headers: { origin: "https://claude.ai" } });
     expect(preflight.status).toBe(204);
@@ -253,7 +253,8 @@ describe("Agent connection with OAuth (MCP authorization)", () => {
 
     const tokens = await tokenRequest(t, { grant_type: "authorization_code", code, code_verifier: verifier, client_id: client.client_id, redirect_uri: REDIRECT, resource: RESOURCE });
     expect(tokens.status).toBe(200);
-    expect(tokens.body).toMatchObject({ token_type: "Bearer", expires_in: 3600, scope: "shared:read" });
+    // The request named only shared:read; the grant is both, and the response says so.
+    expect(tokens.body).toMatchObject({ token_type: "Bearer", expires_in: 3600, scope: "shared:read shared:write" });
     expect(tokens.body.access_token).toMatch(/^nsat_/);
     expect(tokens.body.refresh_token).toMatch(/^nsrt_/);
     const stored = JSON.stringify(await t.run(async (ctx) => [...await ctx.db.query("oauthTokens").collect(), ...await ctx.db.query("oauthCodes").collect()]));
@@ -525,7 +526,9 @@ describe("Agent connection with OAuth (MCP authorization)", () => {
     expect(discover.body.result).toMatchObject({ resultType: "complete", supportedVersions: expect.arrayContaining(["2026-07-28", "2025-11-25"]) });
     const list = await mcp(t, access, "tools/list", meta, { "mcp-protocol-version": "2026-07-28", "mcp-method": "tools/list" });
     expect(list.body.result).toMatchObject({ resultType: "complete", cacheScope: "public" });
-    expect(list.body.result.tools.every((tool: { annotations: { readOnlyHint: boolean } }) => tool.annotations.readOnlyHint)).toBe(true);
+    const tools = list.body.result.tools as Array<{ name: string; annotations: { readOnlyHint: boolean } }>;
+    expect(tools.filter((tool) => tool.name.startsWith("list_") || tool.name.startsWith("get_")).every((tool) => tool.annotations.readOnlyHint)).toBe(true);
+    expect(tools.find((tool) => tool.name === "add_expense")?.annotations.readOnlyHint).toBe(false);
     const call = await mcp(t, access, "tools/call", { ...meta, name: "list_households", arguments: {} },
       { "mcp-protocol-version": "2026-07-28", "mcp-method": "tools/call", "mcp-name": "list_households" });
     expect(call.body.result.resultType).toBe("complete");
@@ -680,5 +683,78 @@ describe("Agent connection with OAuth (MCP authorization)", () => {
     expect(left.connections).toEqual([bob]);
     expect(left.clients).toEqual([shared]);
     expect(left.clients).not.toContain(aliceOnly.clientId);
+  });
+});
+
+describe("OAuth scopes for writes", () => {
+  async function approvedWith(t: Tester, scope: string | null) {
+    const client = (await register(t)).body;
+    const { verifier, challenge } = pkce();
+    const started = await authorize(t, client.client_id, await challenge, scope === null ? {} : { scope });
+    if (scope === null) {
+      // The helper names shared:read by default; this case sends no scope at all.
+      const url = new URL(`http://x/oauth/authorize?${new URLSearchParams({
+        response_type: "code", client_id: client.client_id, redirect_uri: REDIRECT, code_challenge: await challenge,
+        code_challenge_method: "S256", state: "s", resource: RESOURCE,
+      })}`);
+      const bare = await t.fetch(`${url.pathname}${url.search}`, { method: "GET" });
+      return finish(t, client.client_id, verifier, requestIdOf(bare.headers.get("location")!));
+    }
+    return finish(t, client.client_id, verifier, requestIdOf(started.headers.get("location")!));
+  }
+  async function finish(t: Tester, clientId: string, verifier: string, request: string) {
+    const approved = await identity(t, "alice").action(api.agentOAuth.approve, { request });
+    const code = new URL(approved.redirectTo).searchParams.get("code")!;
+    const tokens = await tokenRequest(t, { grant_type: "authorization_code", code, code_verifier: verifier, client_id: clientId, redirect_uri: REDIRECT, resource: RESOURCE });
+    const [connection] = (await identity(t, "alice").query(api.agentAccess.listMine, {})).slice(0, 1);
+    return { scope: tokens.body.scope as string, permissions: connection!.permissions, refresh: tokens.body.refresh_token as string, clientId };
+  }
+
+  test("every new connection is granted both scopes and starts with every switch on, whatever it asked for", async () => {
+    for (const scope of ["shared:read", "shared:read offline_access", "shared:read shared:write", "shared:write offline_access", null]) {
+      const t = convexTest(schema, modules);
+      await seed(t);
+      const granted = await approvedWith(t, scope);
+      expect(granted.scope).toBe("shared:read shared:write");
+      expect(granted.permissions).toEqual({ addRecords: true, editRecords: true, manageHousehold: true });
+      const refreshed = await tokenRequest(t, { grant_type: "refresh_token", refresh_token: granted.refresh, client_id: granted.clientId, resource: RESOURCE });
+      expect(refreshed.body.scope).toBe("shared:read shared:write");
+    }
+  });
+
+  test("the consent page shows the same text for every request: there is no read-only variant", async () => {
+    const t = convexTest(schema, modules);
+    await seed(t);
+    const client = (await register(t)).body;
+    const { challenge } = pkce();
+    const started = await authorize(t, client.client_id, await challenge, { scope: "shared:read" });
+    const described = await t.query(api.agentOAuth.describeRequest, { request: requestIdOf(started.headers.get("location")!) });
+    expect(described).not.toHaveProperty("canWrite");
+  });
+
+  test("a connection made before writes existed keeps shared:read and stays read-only until switched on", async () => {
+    const t = convexTest(schema, modules);
+    await seed(t);
+    const granted = await approvedWith(t, "shared:read");
+    // Make it look like a pre-change connection: no switches stored, tokens granted shared:read.
+    await t.run(async (ctx) => {
+      const connection = (await ctx.db.query("agentConnections").collect())[0]!;
+      await ctx.db.replace(connection._id, (({ _id, _creationTime, permissions, ...rest }) => rest)(connection));
+      for (const token of await ctx.db.query("oauthTokens").collect()) await ctx.db.patch(token._id, { scope: "shared:read" });
+    });
+    const [connection] = await identity(t, "alice").query(api.agentAccess.listMine, {});
+    expect(connection!.permissions).toEqual({ addRecords: false, editRecords: false, manageHousehold: false });
+    const refreshed = await tokenRequest(t, { grant_type: "refresh_token", refresh_token: granted.refresh, client_id: granted.clientId, resource: RESOURCE });
+    expect(refreshed.body.scope).toBe("shared:read");
+    const refused = await callTool(t, refreshed.body.access_token, "rename_household", { household: POT, name: "Casa Nova", request_id: "legacy-1" });
+    expect(refused.body.result.isError).toBe(true);
+    expect(JSON.stringify(refused.body.result)).toContain(String.raw`the \"Manage the household\" switch is off`);
+  });
+
+  test("an unknown scope is still refused", async () => {
+    const t = convexTest(schema, modules);
+    const client = (await register(t)).body;
+    const { challenge } = pkce();
+    expect((await authorize(t, client.client_id, await challenge, { scope: "shared:admin" })).status).toBe(400);
   });
 });

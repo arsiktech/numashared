@@ -5,6 +5,7 @@ import { ConvexClient } from 'convex/browser';
 import { AppState, Platform } from 'react-native';
 import { useSyncExternalStore } from 'react';
 import type { Household, ID } from '../core/types';
+import { ALL_ON, type AgentPermission, type AgentPermissions } from '../features/agents/permissions';
 import { claimParked, forgetAccount, getState, putHousehold, removeHousehold, showAccount, switchHousehold } from '../store/store';
 import { previewDeletion, runDeletion, type DeletionDeps, type DeletionPreview } from './accountDeletion';
 import { accessToken, currentSession, forgetSession, loadSession, post, readDeletion, writeDeletion, signInWithApple, signInWithGoogle, signOutSession, subscribeSession } from './auth';
@@ -336,7 +337,10 @@ export const CARD_SYNC_URL = `${SITE_URL}/card-sync/spends`;
 // ---------- AI agent access (convex/agentAccess.ts, convex/agentOAuth.ts) ----------
 
 export type AgentConnection = {
-  id: string; name: string; kind: 'oauth' | 'link'; hint: string | null; potId: string | null; createdAt: number; lastUsedAt: number | null;
+  id: string; name: string; kind: 'oauth' | 'link'; hint: string | null; potId: string | null;
+  /** Older servers don't send it; the agent can then only read. */
+  permissions?: AgentPermissions;
+  createdAt: number; lastUsedAt: number | null;
 };
 export type AgentActivity = { id: string; agent: string; tool: string; ok: boolean; at: number };
 export type AgentRequest =
@@ -367,10 +371,13 @@ export const agents = {
     const Crypto = await import('expo-crypto');
     const secret = `nsag_${base64url(Crypto.getRandomBytes(32))}`;
     const keyHash = (await Crypto.digestStringAsync(Crypto.CryptoDigestAlgorithm.SHA256, secret, { encoding: Crypto.CryptoEncoding.HEX })).toLowerCase();
-    await within(backend.mutation('agentAccess:connect', { name, keyHash, keyHint: secret.slice(0, 9), ...(potId ? { potId } : {}) }));
+    await within(backend.mutation('agentAccess:connect', { name, keyHash, keyHint: secret.slice(0, 9), permissions: ALL_ON, ...(potId ? { potId } : {}) }));
     return { link: `${AGENT_MCP_URL}/${secret}` };
   },
   disconnect: (id: string) => within(backend.mutation('agentAccess:disconnect', { id })),
+  /** Turns one write switch on or off. The agent's next call follows it. */
+  setPermission: (id: string, permission: AgentPermission, allowed: boolean) =>
+    within(backend.mutation<{ permissions: AgentPermissions }>('agentAccess:setPermission', { id, permission, allowed })),
   /** The "Connect to Numa Shared" page (app/src/app/connect.tsx). */
   consent: {
     describe: async (request: string) => within((await anonymousClient()).query(ref('agentOAuth:describeRequest'), { request } as never) as Promise<AgentRequest>),

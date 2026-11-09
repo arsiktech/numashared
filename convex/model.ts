@@ -254,4 +254,14 @@ export const textStateValidator = v.union(
   textRedactedStateValidator,
 );
 
+/** What a connected agent may change, besides reading (always allowed). */
+export const agentPermissionsValidator = v.object({
+  /** Add expenses and repayments. */
+  addRecords: v.boolean(),
+  /** Edit and void records. */
+  editRecords: v.boolean(),
+  /** Rename the household, create invite codes, edit groups and add people who haven't joined. */
+  manageHousehold: v.boolean(),
+});
+
 export const redactedTextPlaceholder = "[redacted]";

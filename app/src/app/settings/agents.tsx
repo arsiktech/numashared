@@ -1,17 +1,20 @@
-// AI agents: let an assistant read this person's households.
+// AI agents: let an assistant read this person's households and, switch by switch, change them.
 // - Copy setup prompt: one tap makes a secret-link connection for all households and copies a prompt
 //   the person pastes into their agent (Claude Code, Codex, Cursor, Hermes, any MCP client). The
 //   secret is made on this device; only its SHA-256 reaches the server (features/agents/setupPrompt.ts).
 // - Claude and ChatGPT chat apps can't add a connector from a prompt, so they get the bare address
 //   and the person approves them on the "Connect to Numa Shared" page (app/src/app/connect.tsx).
-// A connection can only read. It can't add, change or delete anything, and Numa Shared never moves money.
+// Every connection reads. Three switches per connection (features/agents/permissions.ts) let it add,
+// edit, or manage the household as this person; new connections start with all three on and the
+// server checks them on every call. No agent can delete the account or a household, leave or
+// remove anyone. Numa Shared never moves money.
 import { useCallback, useEffect, useState } from 'react';
 import { Linking, Share, View } from 'react-native';
 import { Redirect } from 'expo-router';
 import { Copy, Warn } from '@/ui/icons';
-import { Banner, BannerText, CTA, haptic, Press, T } from '@/ui/primitives';
+import { Banner, BannerText, CTA, haptic, Press, T, Toggle } from '@/ui/primitives';
 import { useTheme } from '@/ui/theme';
-import { fonts, isWeb } from '@/ui/tokens';
+import { fonts, isAndroid, isWeb } from '@/ui/tokens';
 import { Caption } from '@/features/onboarding/chrome';
 import { copyText } from '@/features/onboarding/share';
 import { SGroup, SRow, SettingsShell } from '@/features/settings/parts';
@@ -20,6 +23,7 @@ import { explainFailure } from '@/features/account/session';
 import { showToast } from '@/store/ui';
 import { failureOf } from '@/sync/engine';
 import { AGENT_APPS, agentFailure } from '@/features/agents/links';
+import { AGENT_SWITCHES, READ_ONLY, permissionSummary, withPermission, type AgentPermission } from '@/features/agents/permissions';
 import { copySetupPrompt, writeClipboardLater } from '@/features/agents/setupPrompt';
 import { AGENT_MCP_URL, agents, type AgentActivity, type AgentConnection } from '@/sync/runtime';
 
@@ -81,6 +85,14 @@ export default function AgentsScreen() {
     const target = AGENT_APPS[app];
     if (await copyText(AGENT_MCP_URL, `Address copied. ${target.paste}`)) openURL(target.open);
   };
+  // The switch moves at once; the server's answer confirms it or puts it back.
+  const setPermission = async (agent: AgentConnection, key: AgentPermission, allowed: boolean) => {
+    const before = agent.permissions ?? READ_ONLY;
+    const patch = (permissions: typeof before) => setList((rows) => rows?.map((row) => (row.id === agent.id ? { ...row, permissions } : row)));
+    patch(withPermission(before, key, allowed));
+    setError(null);
+    try { patch((await agents.setPermission(agent.id, key, allowed)).permissions); } catch (e) { patch(before); setError(explainFailure(failureOf(e).code)); }
+  };
   const disconnect = async (id: string) => {
     setBusy(true); setError(null);
     try { await agents.disconnect(id); await refresh(); } catch (e) { setError(explainFailure(failureOf(e).code)); }
@@ -99,7 +111,7 @@ export default function AgentsScreen() {
   return (
     <SettingsShell title="AI agents" back="Settings" active="agents">
       <T style={{ fontSize: 16, lineHeight: 22, color: c.ink2, marginTop: 8, paddingHorizontal: 4 }}>
-        An agent you connect can read who paid, who owes whom and the records in all your households. It can’t add, change or delete anything, and Numa Shared never moves money.
+        An agent you connect acts as you in all your households. It can always read who paid and who owes whom. Its switches below decide what else it can do; its changes show in the history as yours, and recent versions of the app add “via” the agent. No agent can delete your account or a household, or remove anyone. Numa Shared never moves money.
       </T>
 
       <CTA style={{ marginTop: 20 }} label={busy ? 'Copying…' : 'Copy setup prompt'} disabled={busy}
@@ -138,20 +150,22 @@ export default function AgentsScreen() {
         <SRow label={AGENT_APPS.chatgpt.label} onPress={() => { void addTo('chatgpt'); }} last />
       </SGroup>
 
-      {list && list.length > 0 ? (
-        <SGroup title="Connected">
-          {list.map((agent, i) => (
-            <SRow key={agent.id} label={agent.name} chevron={false} last={i === list.length - 1}
-              sub={details(agent)}
-              right={(
-                <Press onPress={busy ? undefined : () => { void disconnect(agent.id); }} accessibilityRole="button" accessibilityLabel={`Disconnect ${agent.name}, ${details(agent)}`}
-                  style={{ minHeight: 44, justifyContent: 'center', paddingLeft: 8 }}>
-                  <T style={{ fontFamily: fonts.semibold, fontSize: 15, color: c.bad }}>Disconnect</T>
-                </Press>
-              )} />
-          ))}
-        </SGroup>
-      ) : null}
+      {list?.map((agent) => {
+        const permissions = agent.permissions ?? READ_ONLY;
+        return (
+          <SGroup key={agent.id} title={agent.name}>
+            <SRow label="Read households" value="Always" chevron={false} sub={permissionSummary(permissions)} />
+            {AGENT_SWITCHES.map((item) => (
+              <SRow key={item.key} label={item.label} sub={item.sub} chevron={false}
+                right={<Toggle label={`${item.label}, ${agent.name}`} value={permissions[item.key]} android={isAndroid}
+                  onChange={(allowed) => { void setPermission(agent, item.key, allowed); }} />} />
+            ))}
+            <SRow label="Disconnect" danger chevron={false} last sub={details(agent)}
+              a11y={`Disconnect ${agent.name}, ${details(agent)}`}
+              onPress={busy ? undefined : () => { void disconnect(agent.id); }} />
+          </SGroup>
+        );
+      })}
 
       {activity.length > 0 ? (
         <SGroup title="Recent activity">

@@ -26,6 +26,14 @@ export function settlementTitle(h: Household, r: LedgerRecord) {
 export const personName = (h: Household, id: ID, viewerAware = true) =>
   viewerAware && id === h.youId ? 'You' : h.people.find((p) => p.id === id)?.name ?? 'Someone';
 
+/** "Arseny via Claude" when a connected AI agent made the change for that person; else their name. */
+export const authorName = (h: Household, id: ID, via?: string) =>
+  via ? `${personName(h, id)} via ${via}` : personName(h, id);
+
+/** " · added by Sam" on an expense someone else paid; " · added by You via Claude" whenever an agent added it. */
+export const addedByLine = (h: Household, r: { createdBy: ID; createdVia?: string }, payerId: ID) =>
+  r.createdBy !== payerId || r.createdVia ? ` · added by ${authorName(h, r.createdBy, r.createdVia)}` : '';
+
 export const initials = (h: Household, id: ID) => (id === h.youId ? 'Y' : (h.people.find((p) => p.id === id)?.name ?? '?').slice(0, 1).toUpperCase());
 
 export const money = (h: Household, cents: number, hide = false) => (hide ? '€••••' : formatMoney(cents, h.currency));

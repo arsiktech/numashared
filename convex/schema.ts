@@ -2,6 +2,7 @@ import { defineSchema, defineTable } from "convex/server";
 import { v } from "convex/values";
 
 import {
+  agentPermissionsValidator,
   budgetGroupTopologyValidator,
   eventPayloadValidator,
   memberRoleValidator,
@@ -221,6 +222,10 @@ export default defineSchema({
     textFields: v.array(textFieldValidator),
     legacyAuthoredText: v.optional(v.boolean()),
     groupExpectedRevision: v.optional(v.int64()),
+    // Set when a connected AI agent appended the event for the actor (convex/agentWrites.ts): the
+    // connection's name at that moment, so the history can read "Arseny via Claude". Server
+    // metadata only: it is not part of the event envelope, its text manifest or replay checks.
+    via: v.optional(v.string()),
     createdAt: v.number(),
   })
     .index("by_pot_sequence", ["potId", "sequence"])
@@ -282,13 +287,15 @@ export default defineSchema({
     .index("by_token_hash", ["tokenHash"])
     .index("by_code_hash", ["codeHash"]),
 
-  // Read-only access for an AI agent acting as one account (convex/agentAccess.ts). Two kinds:
+  // Access for an AI agent acting as one account (convex/agentAccess.ts). Two kinds:
   // - a secret link (no clientId): the secret is made on the device and shown once; only its
   //   SHA-256 is kept in keyHash;
   // - an OAuth grant (clientId set, convex/agentOAuth.ts): the person approved an agent on the
   //   "Connect to Numa Shared" page; its tokens live in oauthTokens. Each approval is its own
   //   connection, even for the same agent.
   // A connection can be limited to one household. Disconnecting stops it on the next call.
+  // Reading is always allowed. `permissions` holds the person's switches for writing; a
+  // connection made before writes existed has none and stays read-only until switched on.
   agentConnections: defineTable({
     accountId: v.id("accounts"),
     name: v.string(),
@@ -296,11 +303,15 @@ export default defineSchema({
     keyHint: v.optional(v.string()),
     clientId: v.optional(v.string()),
     potId: v.optional(v.string()),
+    permissions: v.optional(agentPermissionsValidator),
     createdAt: v.number(),
     lastUsedAt: v.optional(v.number()),
     revokedAt: v.optional(v.number()),
     windowStartedAt: v.number(),
     windowCount: v.number(),
+    // Writes have their own, lower per-minute limit.
+    writeWindowStartedAt: v.optional(v.number()),
+    writeWindowCount: v.optional(v.number()),
   })
     .index("by_account", ["accountId"])
     .index("by_key_hash", ["keyHash"])
@@ -317,6 +328,25 @@ export default defineSchema({
     at: v.number(),
   })
     .index("by_account", ["accountId", "at"]),
+
+  // An agent's write, by the request id the agent chose, so a retried call answers the same and
+  // never adds twice. `result` is the answer: ids, plus what the write recorded (an amount and
+  // split, a new household or person name). No invite secrets. Answers retries for 23 hours; the
+  // hourly purge (convex/crons.ts) deletes it within 24, as the privacy policy
+  // (convex/lib/webContent.ts) says.
+  agentRequests: defineTable({
+    connectionId: v.id("agentConnections"),
+    accountId: v.id("accounts"),
+    requestId: v.string(),
+    tool: v.string(),
+    inputHash: v.string(),
+    result: v.string(),
+    createdAt: v.number(),
+    expiresAt: v.number(),
+  })
+    .index("by_connection_request", ["connectionId", "requestId"])
+    .index("by_account", ["accountId"])
+    .index("by_expires_at", ["expiresAt"]),
 
   // OAuth clients that may ask a person to connect (convex/agentOAuth.ts). "registered" clients
   // came through Dynamic Client Registration; "metadata" clients are HTTPS client ids whose

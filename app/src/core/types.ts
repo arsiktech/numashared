@@ -73,6 +73,8 @@ type Base = {
   /** When it was recorded (server time once synced). */
   at: number;
   by: ID;
+  /** The connected AI agent that made it for `by` ("Claude"); absent for changes made in the app. */
+  via?: string;
   /** Server sequence once the server has accepted the event; absent while it waits to be sent. */
   seq?: number;
   /** The wire occurredAtMillis and time zone, fixed at creation so a resend is byte-identical. */
@@ -162,11 +164,11 @@ export type SyncMeta = {
 export type RecordKind = 'expense' | 'settlement' | 'opening';
 
 export type TimelineEntry =
-  | { type: 'added'; at: number; by: ID; eventId: ID }
-  | { type: 'edited'; at: number; by: ID; eventId: ID; reason?: string; changes: FieldChange[] }
-  | { type: 'voided'; at: number; by: ID; eventId: ID; reason: string }
-  | { type: 'restored'; at: number; by: ID; eventId: ID }
-  | { type: 'flagged'; at: number; by: ID; eventId: ID; reason?: string }
+  | { type: 'added'; at: number; by: ID; via?: string; eventId: ID }
+  | { type: 'edited'; at: number; by: ID; via?: string; eventId: ID; reason?: string; changes: FieldChange[] }
+  | { type: 'voided'; at: number; by: ID; via?: string; eventId: ID; reason: string }
+  | { type: 'restored'; at: number; by: ID; via?: string; eventId: ID }
+  | { type: 'flagged'; at: number; by: ID; via?: string; eventId: ID; reason?: string }
   | { type: 'seen'; at: number; personId: ID; eventId: ID };
 
 export type FieldChange = { field: 'amount' | 'payer' | 'category' | 'title' | 'note' | 'date' | 'split'; from: string; to: string };
@@ -176,6 +178,8 @@ export type LedgerRecord = {
   kind: RecordKind;
   createdAt: number;
   createdBy: ID;
+  /** The AI agent that added it for `createdBy`, when one did. */
+  createdVia?: string;
   updatedAt: number;
   /** Current content (latest revision). */
   expense?: ExpenseContent;
