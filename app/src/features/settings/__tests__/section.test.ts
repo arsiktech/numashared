@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'vitest';
-import { applySettingsSection, settingsSectionFromParam, settingsSectionToParam } from '../section';
+import { applySettingsSection, SETTINGS_NAV, settingsSectionFromParam, settingsSectionToParam } from '../section';
 
 describe('settings section URL', () => {
   test('reads You and Account, and treats anything else as Household', () => {
@@ -28,6 +28,11 @@ describe('settings section URL', () => {
     expect(writes).toEqual(['you', 'account', undefined]);
     expect(applySettingsSection('household', 'people', write)).toBe(false);
     expect(applySettingsSection('you', 'data', write)).toBe(false);
+    expect(applySettingsSection('household', 'agents', write)).toBe(false);
     expect(writes).toEqual(['you', 'account', undefined]);
+  });
+
+  test('AI agents has its own place in the tablet and desk section list', () => {
+    expect(SETTINGS_NAV.find((n) => n.key === 'agents')).toEqual({ key: 'agents', label: 'AI agents', href: '/settings/agents' });
   });
 });

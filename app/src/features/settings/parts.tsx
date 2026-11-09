@@ -11,6 +11,7 @@ import { useTheme } from '@/ui/theme';
 import { fonts, isAndroid } from '@/ui/tokens';
 import { ScreenHeader } from '@/features/onboarding/chrome';
 import { WebTopBar } from '@/features/web/topbar';
+import { SETTINGS_NAV, type DeskSection } from './section';
 
 export const useDesk = () => {
   const { layout } = useTheme();
@@ -83,15 +84,7 @@ export function SNote({ children }: { children: string }) {
   return <T style={{ fontSize: 13.5, lineHeight: 19, color: c.ink2, paddingHorizontal: 16, paddingVertical: 14, paddingLeft: material ? 56 : 16 }}>{children}</T>;
 }
 
-export type DeskSection = 'household' | 'people' | 'you' | 'data' | 'account';
-
-const NAV: { key: DeskSection; label: string; href: '/settings' | '/settings/people' | '/settings/export' | '/settings?section=you' | '/settings?section=account' }[] = [
-  { key: 'household', label: 'Household', href: '/settings' },
-  { key: 'people', label: 'People and groups', href: '/settings/people' },
-  { key: 'you', label: 'You', href: '/settings?section=you' },
-  { key: 'data', label: 'Data and export', href: '/settings/export' },
-  { key: 'account', label: 'Account', href: '/settings?section=account' },
-];
+export type { DeskSection };
 
 /**
  * Page frame for the settings screens. Phones get the back header and a scrolling list; tablet and
@@ -123,7 +116,7 @@ export function SettingsShell({ title, back, active, children, footer, onSection
         <View style={{ width: '100%', maxWidth: 1100, alignSelf: 'center', flexDirection: desk ? 'row' : 'column', gap: desk ? 48 : 20, alignItems: 'flex-start' }}>
           <View accessibilityRole="tablist" accessibilityLabel="Settings sections"
             style={desk ? { width: 220, gap: 4 } : { flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
-            {NAV.map((n) => {
+            {SETTINGS_NAV.map((n) => {
               const on = n.key === active;
               return (
                 <Press key={n.key} noScale accessibilityRole="tab" accessibilityState={{ selected: on }} accessibilityLabel={n.label}

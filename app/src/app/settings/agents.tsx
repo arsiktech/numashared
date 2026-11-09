@@ -52,7 +52,7 @@ export default function AgentsScreen() {
   if (!h) return <Redirect href="/welcome" />;
   if (!h.sync || h.sync.setup) {
     return (
-      <SettingsShell title="AI agents" back="Settings" active="household">
+      <SettingsShell title="AI agents" back="Settings" active="agents">
         <T style={{ fontSize: 16, lineHeight: 22, color: c.ink2, marginTop: 12 }}>Share {h.name} first. Agents connect to your account, so you need to be signed in with a shared household.</T>
       </SettingsShell>
     );
@@ -89,7 +89,7 @@ export default function AgentsScreen() {
   ].join(' · ');
 
   return (
-    <SettingsShell title="AI agents" back="Settings" active="household">
+    <SettingsShell title="AI agents" back="Settings" active="agents">
       <T style={{ fontSize: 16, lineHeight: 22, color: c.ink2, marginTop: 8, paddingHorizontal: 4 }}>
         An agent you connect can read who paid, who owes whom and the records in your households. It can’t add, change or delete anything, and Numa Shared never moves money.
       </T>

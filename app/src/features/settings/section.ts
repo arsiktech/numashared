@@ -14,10 +14,10 @@ export function settingsSectionToParam(section: SettingsInPageSection): Settings
   return section === 'household' ? undefined : section;
 }
 
-type SettingsNavSection = SettingsInPageSection | 'people' | 'data';
+type SettingsNavSection = SettingsInPageSection | 'people' | 'data' | 'agents';
 
 /**
- * You and Account stay on this screen and are written to the URL. People and Data are other
+ * You and Account stay on this screen and are written to the URL. People, Data and AI agents are other
  * screens, so this returns false and the caller navigates.
  */
 export function applySettingsSection(
@@ -30,3 +30,15 @@ export function applySettingsSection(
   if (param !== settingsSectionToParam(current)) write(param);
   return true;
 }
+
+export type DeskSection = 'household' | 'people' | 'you' | 'data' | 'agents' | 'account';
+
+/** The section list on tablet and desk. Every settings screen a phone reaches from a row needs a place here too. */
+export const SETTINGS_NAV: { key: DeskSection; label: string; href: '/settings' | '/settings/people' | '/settings/export' | '/settings/agents' | '/settings?section=you' | '/settings?section=account' }[] = [
+  { key: 'household', label: 'Household', href: '/settings' },
+  { key: 'people', label: 'People and groups', href: '/settings/people' },
+  { key: 'you', label: 'You', href: '/settings?section=you' },
+  { key: 'data', label: 'Data and export', href: '/settings/export' },
+  { key: 'agents', label: 'AI agents', href: '/settings/agents' },
+  { key: 'account', label: 'Account', href: '/settings?section=account' },
+];
