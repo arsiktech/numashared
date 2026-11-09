@@ -1,8 +1,22 @@
-# Agent access (read-only MCP)
+# Agent access (MCP)
 
 A person can let an AI agent (Claude Code, Codex, Cursor, Hermes, Claude, ChatGPT, any MCP
-client) read their households. This is **read only**: an agent cannot add, change or delete anything, and
-Numa Shared never moves money.
+client) act as them in their households. Reading is always allowed. Three switches per
+connection decide what else the agent may do:
+
+| Switch (Settings, AI agents) | Tools |
+| --- | --- |
+| Add expenses and repayments | `add_expense`, `add_repayment` |
+| Edit and void records | `edit_record`, `void_record` |
+| Manage the household | `rename_household`, `add_person`, `update_groups`, `create_invite` |
+
+New connections start with all three on; the person turns any off at any time, and the server
+checks the switch on the agent's next call. Numa Shared never moves money.
+
+**Never available to agents**, whatever the switches say: deleting an account, deleting a
+household, leaving a household, removing or archiving a member, transferring ownership. There is
+no tool for these and no other path: the write mutation's validator admits only the eight tools
+above (`convex/agentWrites.test.ts` checks the list).
 
 ## How a person connects an agent
 
@@ -16,10 +30,13 @@ Numa Shared never moves money.
 2. The person pastes the prompt into their agent. The prompt holds the link
    `https://shared.numaworth.com/mcp/<secret>` and one setup line for each harness: Claude
    Code, Codex CLI, Cursor, Hermes Agent and any client that supports Streamable HTTP. It names
-   the four tools, says the access is read-only, tells the agent to keep the link out of its
-   replies and in its MCP config only, and to call `list_households` to confirm.
-3. The agent appears under **Connected** with when it was connected and when it was last used.
-   **Disconnect** stops it on its next call.
+   every tool under the switch that allows it, explains minor units and `request_id`, says changes
+   show as the person's "via" the agent, tells the agent to keep the link out of its replies and
+   in its MCP config only, and to call `list_households` to confirm.
+3. The agent appears in Settings, AI agents with its three switches, when it was connected and
+   when it was last used. **Disconnect** stops it on its next call. A setup-prompt connection is
+   named `Agent, <date>` until the agent's first MCP `initialize`, when it takes the client's
+   name (`claude-code` becomes "Claude Code"), once. That name is what the history shows.
 
 The prompt is built in `app/src/features/agents/setupPrompt.ts`, which also records where each
 setup line's syntax was checked. On the web the clipboard write starts inside the tap, with the
@@ -45,7 +62,8 @@ Claude and ChatGPT can't add a connector from a prompt, so they sign in instead:
    names the agent, the households it can read and the address it returns to. It warns when
    that address is on the person's own computer.
 3. The signed-in person chooses **Connect** or **Don’t connect**. Connecting covers all their
-   households. The browser goes back to the agent.
+   households and turns the three switches on (the page says so). An agent that asked only for
+   `shared:read` starts with the switches off. The browser goes back to the agent.
 
 Each approval is its own connection, with its own tokens and its own **Disconnect**, even for
 the same agent. Approving Claude on a second computer never changes what the first one may
@@ -56,7 +74,8 @@ Connections made by earlier app versions may be limited to one household. They k
 and Settings shows **Only <household>** for them. The server still accepts a household on
 `agentAccess:connect` and `agentOAuth:approve`; the app no longer sends one.
 
-At most 5 agents can be connected per account. An agent may make 60 calls per minute.
+At most 5 agents can be connected per account. An agent may make 60 calls per minute, of which
+at most 20 may change something.
 
 ## Authorization (MCP spec revision 2026-07-28)
 
@@ -72,11 +91,15 @@ The code is in `convex/agentOAuth.ts` and `convex/lib/oauth.ts`.
 | Tokens | `POST /oauth/token`: `authorization_code` and `refresh_token` grants |
 | Revocation | `POST /oauth/revoke` (RFC 7009). Revoking a refresh token closes the connection. |
 
-- **Scope**: one scope, `shared:read`. An approval covers all the person's households.
+- **Scopes**: `shared:read` and `shared:write`. A request with no scope or with `shared:write`
+  is granted both and the connection starts with every switch on; a request for `shared:read`
+  alone is granted that and starts with the switches off. The switches, not the token's scope,
+  decide each call, so the person can later turn writes on or off for any connection. Tokens and
+  refreshes keep the scope they were granted. An approval covers all the person's households.
 - **Resource indicators** (RFC 8707): tokens are bound to `<origin>/mcp`. The server accepts
   only its own addresses: the site URL and each origin in `NUMA_SHARED_WEB_ORIGINS`.
 - **First call**: `/mcp` without a valid token answers `401` with
-  `WWW-Authenticate: Bearer resource_metadata="<origin>/.well-known/oauth-protected-resource/mcp", scope="shared:read"`.
+  `WWW-Authenticate: Bearer resource_metadata="<origin>/.well-known/oauth-protected-resource/mcp", scope="shared:read shared:write"`.
   An expired or revoked token adds `error="invalid_token"`.
 - **Redirects**: must match a registered address exactly. Loopback `http` addresses may use
   any port (RFC 8252). Allowed (an allowlist): https, loopback http, `cursor://`, and
@@ -121,14 +144,14 @@ local test deployment.
 
 ## What the agent can read
 
-`POST /mcp` speaks MCP over Streamable HTTP with JSON answers. Tools, all read-only:
+`POST /mcp` speaks MCP over Streamable HTTP with JSON answers. Reading tools:
 
 | Tool | Returns |
 | --- | --- |
 | `list_households` | Households the person belongs to, with currency and role. |
 | `list_members` | The people in one household. |
 | `get_balances` | Net balance per person or group. Positive means owed money. The amounts add up to zero. |
-| `list_records` | Expenses, repayments and opening balances, newest first, with payer and split. Pages with `before_sequence`. |
+| `list_records` | Expenses, repayments and opening balances, newest first, with payer and split, the `revision` to pass to `edit_record` and `addedVia` (the agent that added it, if any). Pages with `before_sequence`. |
 
 Each call runs as the connection's account and passes the same membership checks the app
 does. A connection limited to one household cannot read another. Archived members,
@@ -137,11 +160,68 @@ households being deleted and accounts being deleted are refused. Amounts are ret
 the same financial-record state that admits writes (`convex/lib/financialRecordState.ts`).
 A household with more than 6,000 financial events is refused as too large for an agent.
 
+## What the agent can change
+
+Writing tools (`convex/agentWrites.ts`, definitions in `convex/lib/agentTools.ts`):
+
+| Tool | Changes | Rules on top of the app's own |
+| --- | --- | --- |
+| `add_expense` | Adds an expense: amount, payer, split (`equal` between everyone or some, optionally per person; or `exact` shares), title, category, note, date. | Payer must be a person. Shares must add up to the amount. |
+| `add_repayment` | Records that one person or group paid another back elsewhere, with method and note. | The two sides must differ. |
+| `edit_record` | Changes an expense; only the fields given change. | Needs the `revision` from `list_records`; refused if someone changed the record since, if it is voided, contested, a repayment or an opening balance. A new amount on an unequal split needs the new split. |
+| `void_record` | Voids an expense or opening balance, with a reason everyone sees. | Not for repayments or already voided records. |
+| `rename_household` | Renames the household. | Owner only (as in the app). |
+| `add_person` | Adds someone who hasn't joined yet. | Owner only. |
+| `update_groups` | Sets who pays as one group. | Owner only, before any money is recorded, group size by client contract. |
+| `create_invite` | Makes a 6-character code and link for one person who hasn't joined, valid 29 days. | Owner only. Refused when that person has a live code unless `replace_existing` is true, which revokes it. |
+
+**Same write path as the app.** Each tool builds the wire events the app builds
+(`app/src/sync/mapping.ts`, `engine.ts`) and passes them to the same server functions:
+`appendEventsToPot` for money, and the bodies of `members:renamePot`, `addPendingMember`,
+`changeBudgetGroups` and `issueInvite`/`revokeInvite` for the household. So event validation, the
+text manifest, the currency lock, group limits, revision rules, the account write quota and the
+client contract (`lib/clientContract.ts`) apply unchanged, and pushes are queued exactly as for
+`events:appendEvents`. While production still serves Swift build 11, a note, repayment method or
+edit reason is not saved, and the tool's answer says so in `warnings`.
+
+**Input.** Amounts are whole minor units (`amount_minor_units: 1250` for 12.50) plus a
+`currency` that must be the household's; 12.5, strings with decimals and other currencies are
+refused. Unknown arguments are refused. People are `member_id`s (groups may also be `unitId`s)
+from `list_members`.
+
+**Idempotency.** Every write takes a `request_id` (8 to 100 characters). A retry with the same
+id and the same input answers the first result with `replayed: true` and changes nothing; the
+same id with other input is refused. Requests are kept for a day in `agentRequests` (ids only).
+An invite's secrets are not stored: they are derived from the request with an HMAC under
+`NUMA_SHARED_TOKEN_HASH_SECRET`, so a retry shows the same code.
+
+**Attribution.** The events are appended as the connection's person (their `actorMemberId`, their
+account for text authorship and quotas). Each also gets `events.via`, the connection's name at
+that moment. `events:listEvents` returns it next to `recordedAtMillis`, outside the event
+envelope, so it is not part of the text manifest or replay comparison, and older readers (Swift
+build 11 decodes `HydratedWireEventV1` with fixed keys) ignore it, as they ignore
+`recordedAtMillis`. The app shows "Ana via Claude" in history lines, bubbles, repayment cards, the
+record detail and the CSV export.
+
+**Refusals** come back as tool errors (`isError: true`) with a sentence the agent can act on. A
+switch that is off is named: `Refused: the "Add expenses and repayments" switch is off for this
+agent.` The activity list records the tool and answered or refused, nothing else.
+
+**Safety is on the server.** Tool descriptions mention what each changes and that Numa Shared
+never moves money, and the instructions tell the agent to change only what the person asked
+for. None of that is relied on: switches, scope, membership, ownership and the never-list are
+enforced in `agentWrites.write` on every call.
+
 ## What is stored
 
-- `agentConnections`: account, name, optional household, timestamps, call counter. A secret
-  link adds its key hash and the first 9 characters of the secret. An OAuth grant adds its
-  client id.
+- `agentConnections`: account, name, optional household, the three switches (absent on
+  connections made before writes, which stay read-only until switched), timestamps, call and write
+  counters. A secret link adds its key hash and the first 9 characters of the secret. An OAuth
+  grant adds its client id.
+- `agentRequests`: per write, the connection, the agent's `request_id`, the tool, a hash of the
+  input and the ids it produced. Kept for a day. No amounts, names or invite secrets.
+- `events.via`: the connection name on events an agent appended. It stays with the household's
+  history.
 - `agentActivity`: connection, tool name, answered or refused, timestamp. No amounts, names or
   error text. Entries older than 90 days are dropped.
 - `oauthClients`: registered and metadata-document clients (name, redirect addresses). No
@@ -149,7 +229,9 @@ A household with more than 6,000 financial events is refused as too large for an
 - `oauthRequests`: consent requests waiting on the page, for 10 minutes. No account.
 - `oauthCodes`, `oauthTokens`: hashes, with the account, connection, resource and expiry.
 
-Account deletion (`convex/accountDeletion.ts`) erases tokens, codes, connections and activity.
+Account deletion (`convex/accountDeletion.ts`) erases tokens, codes, connections, activity and
+agent requests. `events.via` stays on the household's history, like the event itself; it names
+the agent, not the person.
 It also erases each registered client that only the departing account had connected.
 
 ## Before this ships
@@ -163,4 +245,8 @@ It also erases each registered client that only the departing account had connec
   ChatGPT, Claude Code, Codex, Cursor and Hermes clients against production.
 - The setup prompt's link uses `shared.numaworth.com/mcp/<secret>`, so it needs the web host
   Worker deployed first.
-- Writes through reviewed proposals, and Shared balances into Numa Pro, are separate work.
+- Privacy text: if `docs/privacy-agent-access` has not merged first, `PRIVACY.md`, the privacy
+  page and App Privacy answers must also say that an agent the person connects can change their
+  households as them, that its changes are stored with the agent's name, and that Numa Shared
+  stores request ids for a day.
+- Shared balances into Numa Pro is separate work.
