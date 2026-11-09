@@ -12,11 +12,12 @@ import {
   claimInvite, issueInvites, leaveOnline, pull, resolveInvite, startSync, type Access, type Backend,
 } from "../app/src/sync/engine";
 import { EXTENDED_CONTRACT, LEGACY_CONTRACT, setContract } from "../app/src/sync/contract";
-import { AGENT_SWITCHES } from "../app/src/features/agents/permissions";
+import { AGENT_SWITCHES, ALL_ON } from "../app/src/features/agents/permissions";
 import { setupPrompt } from "../app/src/features/agents/setupPrompt";
 import { clientLabel } from "./agentAccess";
 import { errorText } from "./agentMcp";
-import { agentWriteOps, agentWriteTools, writesPerMinute } from "./agentWrites";
+import { agentWriteOps, agentWriteTools, localNoon, requestKeepMillis, requestPurgeBatch, writesPerMinute } from "./agentWrites";
+import crons from "./crons";
 import { ConvexError } from "convex/values";
 import { sha256Hex } from "./lib/hash";
 import { agentTools } from "./lib/agentTools";
@@ -126,10 +127,11 @@ async function sharedHousehold(t: T, options: { money?: boolean; leoJoins?: bool
   };
 }
 
-async function connectAgent(backend: Backend, name = "Claude") {
+/** A setup-prompt connection as the current app makes it: all three switches sent explicitly. */
+async function connectAgent(backend: Backend, name = "Claude", permissions: Record<string, boolean> | null = ALL_ON) {
   const secret = `nsag_${Math.random().toString(36).slice(2)}0123456789abcdefghij`;
   const { id } = await backend.mutation<{ id: string }>("agentAccess:connect", {
-    name, keyHash: await sha256Hex(secret), keyHint: secret.slice(0, 9),
+    name, keyHash: await sha256Hex(secret), keyHint: secret.slice(0, 9), ...(permissions ? { permissions } : {}),
   });
   return { id, secret };
 }
@@ -503,5 +505,172 @@ describe("agent writes", () => {
       .toMatch(/Too many changes in a minute/);
     // Reading still works.
     await ok(t, secret, "list_households", {});
+  });
+});
+
+describe("review fixes (PR #31)", () => {
+  const purge = makeFunctionReference<"mutation">("agentWrites:purgeExpiredRequests");
+  const ageRequests = (t: T) => t.run(async (ctx) => {
+    for (const row of await ctx.db.query("agentRequests").collect()) await ctx.db.patch(row._id, { expiresAt: Date.now() - 1 });
+  });
+
+  test("B1 an hourly job deletes expired request rows, so none outlives the policy's 24 hours", async () => {
+    // The job is registered, hourly.
+    const job = (crons as unknown as { crons: Record<string, { name: string; schedule: { type: string } }> }).crons["purge expired agent requests"]!;
+    expect(job.name).toBe("agentWrites:purgeExpiredRequests");
+    expect(job.schedule.type).toBe("hourly");
+    // A row stops answering retries after 23 hours; the next hourly run is within the 24th.
+    expect(requestKeepMillis + 3_600_000).toBeLessThanOrEqual(24 * 3_600_000);
+
+    const t = convexTest(schema, modules);
+    const s = await sharedHousehold(t);
+    const { secret } = await connectAgent(s.ana);
+    await ok(t, secret, "add_expense", { household: s.id, request_id: rid(), amount_minor_units: 4321, currency: "EUR", title: "Rent", split: { mode: "equal" } });
+    await ok(t, secret, "add_expense", { household: s.id, request_id: rid(), amount_minor_units: 1234, currency: "EUR", title: "Gas", split: { mode: "equal" } });
+    await t.run(async (ctx) => {
+      const [old] = await ctx.db.query("agentRequests").collect();
+      await ctx.db.patch(old!._id, { expiresAt: Date.now() - 3_600_000 });
+    });
+    // Reads alone remove nothing; the job does, and leaves the row that is still live.
+    await ok(t, secret, "list_records", { household: s.id });
+    expect(await t.mutation(purge, {})).toEqual({ deleted: 1 });
+    const rows = await t.run(async (ctx) => ctx.db.query("agentRequests").collect());
+    expect(rows).toHaveLength(1);
+    expect(rows[0]!.expiresAt).toBeGreaterThan(Date.now());
+  });
+
+  test("B1 the purge works in bounded batches and schedules itself until none are left", async () => {
+    vi.useFakeTimers();
+    try {
+      const t = convexTest(schema, modules);
+      const s = await sharedHousehold(t, { leoJoins: false });
+      const { id } = await connectAgent(s.ana);
+      const total = requestPurgeBatch * 2 + 7;
+      await t.run(async (ctx) => {
+        const connection = await ctx.db.get(id as never) as unknown as { accountId: never };
+        for (let i = 0; i < total; i += 1) {
+          await ctx.db.insert("agentRequests", {
+            connectionId: id as never, accountId: connection.accountId, requestId: `old-request-${i}`, tool: "add_expense",
+            inputHash: "x", result: "{}", createdAt: 1, expiresAt: Date.now() - 1,
+          });
+        }
+      });
+      expect(await t.mutation(purge, {})).toEqual({ deleted: requestPurgeBatch });
+      await t.finishAllScheduledFunctions(vi.runAllTimers);
+      expect(await t.run(async (ctx) => ctx.db.query("agentRequests").collect())).toHaveLength(0);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  // UTC+13 (New Zealand summer), UTC+14 (Kiribati, Line Islands) and UTC-11 (American Samoa).
+  for (const zone of ["Pacific/Auckland", "Pacific/Kiritimati", "Pacific/Pago_Pago"]) {
+    test(`B2 a dated record shows on the day asked for to a viewer in ${zone}`, async () => {
+      const t = convexTest(schema, modules);
+      const s = await sharedHousehold(t);
+      const { secret } = await connectAgent(s.ana);
+      const added = await ok(t, secret, "add_expense", {
+        household: s.id, request_id: rid(), amount_minor_units: 1000, currency: "EUR", title: "Dinner",
+        split: { mode: "equal" }, date: "2026-11-05", time_zone: zone,
+      });
+      const paid = await ok(t, secret, "add_repayment", {
+        household: s.id, request_id: rid(), amount_minor_units: 500, currency: "EUR", from: s.leoId, to: s.anaId,
+        date: "2026-11-06", time_zone: zone,
+      });
+      const listed = await ok(t, secret, "list_records", { household: s.id, record_id: added.recordId });
+      await ok(t, secret, "edit_record", {
+        household: s.id, request_id: rid(), record_id: added.recordId, revision: listed.records[0].revision, date: "2026-11-07",
+      });
+      const rows = await events(t, s.id) as unknown as Array<{ recordId?: string; originatingTimeZone: string; occurredAtMillis: bigint }>;
+      for (const row of rows.filter((r) => r.recordId === added.recordId || r.recordId === paid.recordId)) {
+        expect(row.originatingTimeZone).toBe(zone);
+      }
+      // The phone reads dates in its own zone (mapping.ts localISO), as a real phone in that zone does.
+      vi.stubEnv("TZ", zone);
+      expect(Intl.DateTimeFormat().resolvedOptions().timeZone).toBe(zone);
+      await pull(s.ana, s.phoneA, s.id);
+      const records = reduce(s.phoneA.get(s.id)!).records;
+      expect(records.find((r) => r.id === added.recordId)!.expense!.date).toBe("2026-11-07");
+      expect(records.find((r) => r.id === paid.recordId)!.settlement!.date).toBe("2026-11-06");
+    });
+  }
+
+  test("B2 without time_zone, the date is placed in the zone of the person's phone", async () => {
+    const t = convexTest(schema, modules);
+    const s = await sharedHousehold(t);
+    await t.run(async (ctx) => {
+      const account = (await ctx.db.query("accounts").collect()).find((a) => a.publicAccountId === "account-ana")!;
+      await ctx.db.insert("pushTokens", { accountId: account._id, deviceToken: "ana-phone", environment: "sandbox", timeZone: "Pacific/Kiritimati", updatedAt: 1 });
+    });
+    const { secret } = await connectAgent(s.ana);
+    const added = await ok(t, secret, "add_expense", {
+      household: s.id, request_id: rid(), amount_minor_units: 1000, currency: "EUR", title: "Dinner", split: { mode: "equal" }, date: "2026-11-05",
+    });
+    const row = (await events(t, s.id) as unknown as Array<{ recordId?: string; originatingTimeZone: string; occurredAtMillis: bigint }>)
+      .find((r) => r.recordId === added.recordId)!;
+    expect(row.originatingTimeZone).toBe("Pacific/Kiritimati");
+    expect(Number(row.occurredAtMillis)).toBe(Date.UTC(2026, 10, 4, 22)); // noon at UTC+14
+  });
+
+  test("B2 localNoon is noon on that day in the zone, across offsets and daylight saving", () => {
+    expect(localNoon(2026, 11, 5, "Pacific/Auckland")).toBe(Date.UTC(2026, 10, 4, 23)); // NZDT, +13
+    expect(localNoon(2026, 6, 5, "Pacific/Auckland")).toBe(Date.UTC(2026, 5, 5, 0)); // NZST, +12
+    expect(localNoon(2026, 11, 5, "Pacific/Kiritimati")).toBe(Date.UTC(2026, 10, 4, 22));
+    expect(localNoon(2026, 11, 5, "Pacific/Pago_Pago")).toBe(Date.UTC(2026, 10, 5, 23));
+    expect(localNoon(2026, 3, 29, "Europe/Madrid")).toBe(Date.UTC(2026, 2, 29, 10)); // the day clocks go forward
+    expect(localNoon(2026, 11, 5, "UTC")).toBe(Date.UTC(2026, 10, 5, 12));
+  });
+
+  test("nit 1 after leaving the household, a replayed request id is refused too", async () => {
+    const t = convexTest(schema, modules);
+    const s = await sharedHousehold(t);
+    const { secret } = await connectAgent(s.leo, "Leo agent");
+    const args = { household: s.id, request_id: "leave-replay-01", amount_minor_units: 900, currency: "EUR", title: "Snacks", split: { mode: "equal" } };
+    await ok(t, secret, "add_expense", args);
+    await pull(s.leo, s.phoneB, s.id);
+    await leaveOnline(s.leo, s.phoneB, s.id);
+    expect(await refused(t, secret, "add_expense", { ...args, request_id: "leave-replay-02" })).toMatch(/no longer an active member/);
+    expect(await refused(t, secret, "add_expense", args)).toMatch(/no longer an active member/);
+  });
+
+  test("nit 2 prototype names are unknown arguments", async () => {
+    const t = convexTest(schema, modules);
+    const s = await sharedHousehold(t, { leoJoins: false });
+    const { secret } = await connectAgent(s.ana);
+    expect(await refused(t, secret, "list_households", { constructor: "x" })).toMatch(/has no argument "constructor"/);
+    expect(await refused(t, secret, "list_households", { toString: "y" })).toMatch(/has no argument "toString"/);
+  });
+
+  test("nit 4 a setup-prompt connection is read-only unless the app sends the switches", async () => {
+    const t = convexTest(schema, modules);
+    const s = await sharedHousehold(t, { leoJoins: false });
+    const old = await connectAgent(s.ana, "Old app", null);
+    const current = await connectAgent(s.ana, "Current app");
+    const listed = await s.ana.query<Array<{ id: string; permissions: Record<string, boolean> }>>("agentAccess:listMine", {});
+    expect(listed.find((c) => c.id === old.id)!.permissions).toEqual({ addRecords: false, editRecords: false, manageHousehold: false });
+    expect(listed.find((c) => c.id === current.id)!.permissions).toEqual(ALL_ON);
+    const expense = { household: s.id, amount_minor_units: 100, currency: "EUR", title: "Tea", split: { mode: "equal" } };
+    expect(await refused(t, old.secret, "add_expense", { ...expense, request_id: rid() })).toMatch(/switch is off/);
+    await ok(t, current.secret, "add_expense", { ...expense, request_id: rid() });
+  });
+
+  test("nit 5 a create_invite request id used again after its answer is purged makes a new invite", async () => {
+    const t = convexTest(schema, modules);
+    await fenceBuild11(t);
+    const s = await sharedHousehold(t, { leoJoins: false });
+    const { secret } = await connectAgent(s.ana);
+    const args = { household: s.id, request_id: "invite-mia-0001", member_id: s.miaId };
+    const first = await ok(t, secret, "create_invite", args);
+    expect((await ok(t, secret, "create_invite", args)).code).toBe(first.code);
+    await ageRequests(t);
+    await t.mutation(purge, {});
+    const again = await ok(t, secret, "create_invite", { ...args, replace_existing: true });
+    expect(again.replayed).toBeUndefined();
+    expect(again.code).not.toBe(first.code);
+    expect(again.link).not.toBe(first.link);
+    // The invite errors the shared helper can still raise read as sentences, not codes.
+    for (const code of ["INVITE_CODE_UNAVAILABLE", "INVITE_SECRET_ALREADY_USED"]) {
+      expect(errorText(new ConvexError({ code }))).toMatch(/new request_id/);
+    }
   });
 });

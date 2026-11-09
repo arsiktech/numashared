@@ -14,6 +14,8 @@ export const AGENT_SWITCHES: ReadonlyArray<{ key: AgentPermission; label: string
 ];
 
 export const READ_ONLY: AgentPermissions = { addRecords: false, editRecords: false, manageHousehold: false };
+/** What a new connection gets (the consent text and Settings say so). The app sends it explicitly: the server makes a connection without it read-only. */
+export const ALL_ON: AgentPermissions = { addRecords: true, editRecords: true, manageHousehold: true };
 
 /** One switch changed, the rest kept. */
 export const withPermission = (current: AgentPermissions, key: AgentPermission, allowed: boolean): AgentPermissions =>

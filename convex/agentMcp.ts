@@ -95,6 +95,8 @@ const CODE_MESSAGES: Record<string, string> = {
   AGENT_REPAYMENT_SAME_GROUP: "A repayment needs two different people or groups.",
   AGENT_GROUP_TOO_LARGE: "That group is too large.",
   AGENT_GROUPS_OVERLAP: "A person can be in only one group.",
+  INVITE_CODE_UNAVAILABLE: "That invite code is already taken. Call again with a new request_id to make another.",
+  INVITE_SECRET_ALREADY_USED: "That invite link was already issued. Call again with a new request_id to make another.",
   AGENT_INVITE_EXISTS: "That person already has a live invite code, made in the app or earlier. Ask the owner to share it from the app, or call again with replace_existing true, which stops the old code working.",
   // Records.
   AGENT_RECORD_NOT_FOUND: "That record doesn't exist in this household. Use list_records.",

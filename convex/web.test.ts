@@ -488,7 +488,7 @@ describe("free-host web entry", () => {
     expect(privacyBody).toContain("United States (US East, Virginia)");
     expect(privacyBody).toContain("Apple Push Notification service");
     expect(privacyBody).toContain('href="/terms"');
-    expect(privacyBody).toContain("Last updated 9 November 2026");
+    expect(privacyBody).toContain("Last updated 10 November 2026");
     // Agent access: who decides, what a connected agent reads and changes, who receives it, what
     // is kept, and how to stop it. Keep in step with docs/PRIVACY.md and docs/AGENT-ACCESS.md.
     const agents = privacyBody.slice(privacyBody.indexOf("<h2>AI agents you connect</h2>"), privacyBody.indexOf("<h2>Your choices and rights</h2>"));
@@ -499,13 +499,14 @@ describe("free-host web entry", () => {
       "add expenses and repayments, edit and void records, and manage the household",
       "A new connection starts with all three switches on",
       "The agent acts as you",
-      "everyone in the household sees its changes with your name and the agent’s name",
+      "everyone in the household sees its changes under your name",
+      "Recent versions of the Numa Shared app also show the agent’s name",
       "It can never delete your account, delete or leave a household, or remove a member",
       "Numa Shared never moves money",
       "its own terms and privacy policy apply",
       "one-way hashes",
       "The activity list never records amounts, names or what the agent was shown",
-      "for 24 hours",
+      "for at most 24 hours",
       "Settings, AI agents and choose Disconnect",
       "Deleting your account erases all your connections, tokens, activity and request ids",
     ]) expect(agents).toContain(phrase);

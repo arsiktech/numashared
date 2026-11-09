@@ -111,7 +111,7 @@ export default function AgentsScreen() {
   return (
     <SettingsShell title="AI agents" back="Settings" active="agents">
       <T style={{ fontSize: 16, lineHeight: 22, color: c.ink2, marginTop: 8, paddingHorizontal: 4 }}>
-        An agent you connect acts as you in all your households. It can always read who paid and who owes whom. Its switches below decide what else it can do; its changes show in the history as yours, “via” the agent. No agent can delete your account or a household, or remove anyone. Numa Shared never moves money.
+        An agent you connect acts as you in all your households. It can always read who paid and who owes whom. Its switches below decide what else it can do; its changes show in the history as yours, and recent versions of the app add “via” the agent. No agent can delete your account or a household, or remove anyone. Numa Shared never moves money.
       </T>
 
       <CTA style={{ marginTop: 20 }} label={busy ? 'Copying…' : 'Copy setup prompt'} disabled={busy}

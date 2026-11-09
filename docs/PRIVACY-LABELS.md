@@ -80,7 +80,7 @@ user's choice**. It is **not tracking**.
   content type.
 - New data we keep: connection name, switches and timestamps; hashed tokens; an
   activity list (tool, answered or refused, time) for up to 90 days; request ids
-  with their answers for 24 hours. Linked to the account; only for people who
+  with their answers for at most 24 hours. Linked to the account; only for people who
   connect an agent.
 
 ### App Store App Privacy

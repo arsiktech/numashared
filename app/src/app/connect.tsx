@@ -120,7 +120,7 @@ export default function Connect() {
       ) : pending ? (
         <>
           <T style={{ fontSize: 16, lineHeight: 22, color: c.ink2, marginTop: 12 }}>
-            {`${agent} will act as you in all your households. It can read who paid, who owes whom and the records, add expenses and repayments, edit and void records, and manage the household. Everyone in the household sees its changes as yours, via ${agent}. You can turn each of these off in Settings, AI agents. It can’t delete your account, delete or leave a household, or remove anyone, and Numa Shared never moves money.`}
+            {`${agent} will act as you in all your households. It can read who paid, who owes whom and the records, add expenses and repayments, edit and void records, and manage the household. Its changes show in the household as yours, and recent versions of the Numa Shared app add “via ${agent}”. You can turn each of these off in Settings, AI agents. It can’t delete your account, delete or leave a household, or remove anyone, and Numa Shared never moves money.`}
           </T>
           <View style={{ marginTop: 18, backgroundColor: c.card, borderRadius: 18, paddingHorizontal: 16, paddingVertical: 4 }}>
             {pending.verifiedHost ? (

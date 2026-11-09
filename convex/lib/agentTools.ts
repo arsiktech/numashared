@@ -90,7 +90,7 @@ function optionalText(args: Json, key: string): string | undefined {
 /** Refuses properties the tool doesn't define, so a misspelt field never goes unnoticed. */
 function onlyKnown(args: Json, tool: AgentTool): void {
   for (const key of Object.keys(args)) {
-    if (!(key in tool.inputSchema.properties)) throw new AgentInputError(`${tool.name} has no argument "${key}"`);
+    if (!Object.hasOwn(tool.inputSchema.properties, key)) throw new AgentInputError(`${tool.name} has no argument "${key}"`);
   }
 }
 

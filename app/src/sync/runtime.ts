@@ -5,7 +5,7 @@ import { ConvexClient } from 'convex/browser';
 import { AppState, Platform } from 'react-native';
 import { useSyncExternalStore } from 'react';
 import type { Household, ID } from '../core/types';
-import type { AgentPermission, AgentPermissions } from '../features/agents/permissions';
+import { ALL_ON, type AgentPermission, type AgentPermissions } from '../features/agents/permissions';
 import { claimParked, forgetAccount, getState, putHousehold, removeHousehold, showAccount, switchHousehold } from '../store/store';
 import { previewDeletion, runDeletion, type DeletionDeps, type DeletionPreview } from './accountDeletion';
 import { accessToken, currentSession, forgetSession, loadSession, post, readDeletion, writeDeletion, signInWithApple, signInWithGoogle, signOutSession, subscribeSession } from './auth';
@@ -371,7 +371,7 @@ export const agents = {
     const Crypto = await import('expo-crypto');
     const secret = `nsag_${base64url(Crypto.getRandomBytes(32))}`;
     const keyHash = (await Crypto.digestStringAsync(Crypto.CryptoDigestAlgorithm.SHA256, secret, { encoding: Crypto.CryptoEncoding.HEX })).toLowerCase();
-    await within(backend.mutation('agentAccess:connect', { name, keyHash, keyHint: secret.slice(0, 9), ...(potId ? { potId } : {}) }));
+    await within(backend.mutation('agentAccess:connect', { name, keyHash, keyHint: secret.slice(0, 9), permissions: ALL_ON, ...(potId ? { potId } : {}) }));
     return { link: `${AGENT_MCP_URL}/${secret}` };
   },
   disconnect: (id: string) => within(backend.mutation('agentAccess:disconnect', { id })),

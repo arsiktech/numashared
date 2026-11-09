@@ -14,6 +14,7 @@
 // admits nothing else.
 import { ConvexError, v, type Infer } from "convex/values";
 
+import { internal } from "./_generated/api";
 import type { Doc, Id } from "./_generated/dataModel";
 import { internalMutation, type MutationCtx } from "./_generated/server";
 import { accountIsUsable, permissionsOf, type AgentSwitch } from "./agentAccess";
@@ -35,9 +36,20 @@ import { generateUUIDv7 } from "./lib/uuidV7";
 
 declare const process: { env: Record<string, string | undefined> };
 
-/** Changes per agent per minute. Reads allow 60 (agentAccess.callsPerMinute). */
+/**
+ * Changes per agent per minute. Reads allow 60 (agentAccess.callsPerMinute). Only writes that
+ * succeed count: a refused write rolls back with everything else it did, its count included, so an
+ * agent retrying refused writes is held only by the general limit of 60 calls a minute.
+ */
 export const writesPerMinute = 20;
-const requestKeepMillis = 24 * 3_600_000;
+/**
+ * How long a retry with the same request id gets the stored answer. The hourly purge
+ * (convex/crons.ts) deletes a row within the hour after it expires, so none is older than 24
+ * hours, as the privacy policy says (convex/lib/webContent.ts).
+ */
+export const requestKeepMillis = 23 * 3_600_000;
+/** Rows one purge run deletes before it schedules the next run. */
+export const requestPurgeBatch = 200;
 /** Same lifetime the app gives a new invite code (app/src/sync/engine.ts). */
 const inviteLifetimeMillis = 29 * 24 * 3_600_000;
 
@@ -194,13 +206,44 @@ function categoryOf(value: string | undefined): string | undefined {
   return key;
 }
 
-/** The wire time of a record dated YYYY-MM-DD: noon UTC, the same day in every zone people live in. */
-function occurredAt(c: Context, date: string | undefined): bigint {
+/** How far `timeZone`'s clock is ahead of UTC at the instant `ms`, in milliseconds. */
+function zoneOffsetMillis(timeZone: string, ms: number): number {
+  const parts = new Intl.DateTimeFormat("en-US", {
+    timeZone, hourCycle: "h23", year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit", second: "2-digit",
+  }).formatToParts(new Date(ms));
+  const part = (type: Intl.DateTimeFormatPartTypes) => Number(parts.find((p) => p.type === type)!.value);
+  const wall = Date.UTC(part("year"), part("month") - 1, part("day"), part("hour"), part("minute"), part("second"));
+  return wall - (ms - (((ms % 1000) + 1000) % 1000));
+}
+
+/**
+ * Noon on `year-month-day` in `timeZone`, as a UTC instant. The app does the same in the phone's
+ * zone (app/src/sync/mapping.ts occurredAtFor), so a viewer in that zone reads back the same day.
+ * The second pass corrects for a daylight-saving change between UTC noon and local noon.
+ */
+export function localNoon(year: number, month: number, day: number, timeZone: string): number {
+  const wall = Date.UTC(year, month - 1, day, 12);
+  const first = wall - zoneOffsetMillis(timeZone, wall);
+  return wall - zoneOffsetMillis(timeZone, first);
+}
+
+/**
+ * The wire time of a record dated YYYY-MM-DD: noon that day in `timeZone`, the zone the event also
+ * records as `originatingTimeZone`. Without a date, now.
+ */
+function occurredAt(c: Context, date: string | undefined, timeZone: string): bigint {
   if (date === undefined) return BigInt(c.now);
   const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(date.trim());
-  const ms = m ? Date.UTC(Number(m[1]), Number(m[2]) - 1, Number(m[3]), 12) : NaN;
-  if (!m || Number.isNaN(ms) || new Date(ms).toISOString().slice(0, 10) !== date.trim()) {
+  const utc = m ? Date.UTC(Number(m[1]), Number(m[2]) - 1, Number(m[3]), 12) : NaN;
+  if (!m || Number.isNaN(utc) || new Date(utc).toISOString().slice(0, 10) !== date.trim()) {
     refuse("AGENT_DATE_INVALID", "date must be YYYY-MM-DD");
+  }
+  let ms: number;
+  try {
+    ms = localNoon(Number(m[1]), Number(m[2]), Number(m[3]), timeZone);
+  } catch {
+    // A zone this runtime doesn't know (an old record's): noon UTC, as before.
+    ms = utc;
   }
   if (ms < Date.UTC(2000, 0, 1) || ms > c.now + 366 * 86_400_000) refuse("AGENT_DATE_INVALID", "date is out of range");
   return BigInt(ms);
@@ -321,6 +364,7 @@ async function addExpense(c: Context, op: Op<"add_expense">) {
   }
   const recordId = generateUUIDv7(c.now);
   const schema = c.pot.minimumReaderSchemaVersion;
+  const zone = await timeZoneOf(c, op.timeZone);
   const event = newEvent(c, {
     kind: "expenseAdded",
     recordId,
@@ -331,7 +375,7 @@ async function addExpense(c: Context, op: Op<"add_expense">) {
       ...(schema >= 2n ? { payerMemberId: payer } : {}),
       allocations: parts,
     },
-  }, occurredAt(c, op.date), await timeZoneOf(c, op.timeZone), authored({ title, category: category ?? "other", note }));
+  }, occurredAt(c, op.date, zone), zone, authored({ title, category: category ?? "other", note }));
   const [receipt] = await appendFinancial(c, [event]);
   return {
     recordId, revision: event.eventId, sequence: receipt!.sequence.toString(),
@@ -364,10 +408,11 @@ async function addRepayment(c: Context, op: Op<"add_repayment">) {
     c.warnings.push("The method and note weren't saved: someone in this household uses an older app that can't show them yet.");
   }
   const recordId = generateUUIDv7(c.now);
+  const zone = await timeZoneOf(c, op.timeZone);
   const event = newEvent(c, {
     kind: "settlementRecorded", recordId,
     content: { amount: money(c, amount), fromUnitId, toUnitId },
-  }, occurredAt(c, op.date), await timeZoneOf(c, op.timeZone), authored({ title: SETTLEMENT_TITLE, category: method, note }));
+  }, occurredAt(c, op.date, zone), zone, authored({ title: SETTLEMENT_TITLE, category: method, note }));
   const [receipt] = await appendFinancial(c, [event]);
   return { recordId, sequence: receipt!.sequence.toString(), fromUnitId, toUnitId, ...shown(c, amount) };
 }
@@ -448,7 +493,8 @@ async function editRecord(c: Context, op: Op<"edit_record">) {
     note = undefined;
     reason = undefined;
   }
-  const occurred = op.date === undefined ? headEvent.occurredAtMillis : occurredAt(c, op.date);
+  // A new date is noon in the zone the record was made in, which the revision keeps.
+  const occurred = op.date === undefined ? headEvent.occurredAtMillis : occurredAt(c, op.date, headEvent.originatingTimeZone);
   const unchanged = canonicalValue(content) === canonicalValue({ ...before, ...(schema >= 2n ? {} : { payerMemberId: undefined }) })
     && occurred === headEvent.occurredAtMillis
     && title === headText.get("title") && category === headText.get("category") && note === headText.get("note");
@@ -557,12 +603,14 @@ function base64url(bytes: Uint8Array): string {
 
 /**
  * The invite secrets for one agent request. They are derived, not stored: a retried call gets the
- * same code again, and the server keeps only their hashes, as for an invite made in the app.
+ * same code again (the stored answer keeps the invite id), and the server keeps only their hashes,
+ * as for an invite made in the app. The new invite's id is part of the label, so a request id used
+ * again after its stored answer is gone makes new secrets rather than colliding with the old ones.
  */
-async function inviteSecrets(connectionId: string, requestId: string): Promise<{ token: string; code: string }> {
+async function inviteSecrets(connectionId: string, requestId: string, inviteId: string): Promise<{ token: string; code: string }> {
   const secret = readInviteTicketSecret(process.env);
-  const token = base64url(await hmac(secret, `agent-invite-token:${connectionId}:${requestId}`));
-  const codeBytes = await hmac(secret, `agent-invite-code:${connectionId}:${requestId}`);
+  const token = base64url(await hmac(secret, `agent-invite-token:${connectionId}:${requestId}:${inviteId}`));
+  const codeBytes = await hmac(secret, `agent-invite-code:${connectionId}:${requestId}:${inviteId}`);
   const code = Array.from(codeBytes.slice(0, 6), (b) => CODE_ALPHABET[b & 31]).join("");
   return { token, code };
 }
@@ -580,8 +628,8 @@ async function createInvite(c: Context, op: Op<"create_invite">, connectionId: s
     if (!op.replaceExisting) refuse("AGENT_INVITE_EXISTS");
     for (const invite of live) await revokeInviteForMember(c.ctx, c.membership, { potId: c.pot.potId, inviteId: invite.inviteId });
   }
-  const { token, code } = await inviteSecrets(connectionId, requestId);
   const inviteId = generateUUIDv7(c.now);
+  const { token, code } = await inviteSecrets(connectionId, requestId, inviteId);
   const expiresAt = c.now + inviteLifetimeMillis;
   await issueInviteForMember(c.ctx, { _id: c.accountId }, c.membership, {
     potId: c.pot.potId, inviteId, kind: "perMember", pendingMemberId: op.memberId, token, code, expiresAt,
@@ -594,8 +642,9 @@ async function createInvite(c: Context, op: Op<"create_invite">, connectionId: s
 
 /**
  * One write, as the connection's person. Checks, in order: the connection, the switch for this
- * tool, the household scope, a retry of the same request id, the per-minute write limit, active
- * membership; then the shared server functions check everything the app's own writes go through.
+ * tool, the household scope, active membership, a retry of the same request id, the per-minute
+ * write limit; then the shared server functions check everything the app's own writes go through.
+ * Membership comes before the retry, so a person who left gets no stored answer either.
  */
 export const write = internalMutation({
   args: {
@@ -614,6 +663,7 @@ export const write = internalMutation({
     if (!permissionsOf(connection)[permission]) refuse(switchCodes[permission]);
     if (connection.potId !== undefined && connection.potId !== args.op.potId) refuse("AGENT_NOT_ALLOWED");
     if (!/^[A-Za-z0-9._:-]{8,100}$/.test(args.requestId)) refuse("AGENT_REQUEST_ID_INVALID");
+    const membership = await requireActiveMembership(ctx, args.op.potId, connection.accountId);
 
     const inputHash = await sha256Hex(canonicalValue(args.op));
     const earlier = await ctx.db.query("agentRequests")
@@ -623,7 +673,7 @@ export const write = internalMutation({
       if (earlier.tool !== args.op.tool || earlier.inputHash !== inputHash) refuse("AGENT_REQUEST_ID_REUSED");
       const result = JSON.parse(earlier.result) as Record<string, unknown>;
       if (args.op.tool === "create_invite") {
-        const { token, code } = await inviteSecrets(args.connectionId, args.requestId);
+        const { token, code } = await inviteSecrets(args.connectionId, args.requestId, String(result.inviteId));
         return { ...result, code, link: inviteLink(args.origin, token, code), replayed: true };
       }
       return { ...result, replayed: true };
@@ -638,7 +688,6 @@ export const write = internalMutation({
       writeWindowCount: count + 1,
     });
 
-    const membership = await requireActiveMembership(ctx, args.op.potId, connection.accountId);
     const pot = await ctx.db.query("pots").withIndex("by_pot_id", (q) => q.eq("potId", args.op.potId)).unique();
     if (!pot) refuse("POT_MISSING");
     const c: Context = {
@@ -685,8 +734,22 @@ export const write = internalMutation({
       createdAt: now,
       expiresAt: now + requestKeepMillis,
     });
-    const expired = await ctx.db.query("agentRequests").withIndex("by_expires_at", (q) => q.lt("expiresAt", now)).take(20);
-    for (const row of expired) await ctx.db.delete(row._id);
     return { ...result, householdId: pot.potId };
+  },
+});
+
+/**
+ * Deletes expired request rows: they can hold amounts and names. Runs every hour (convex/crons.ts);
+ * deletes at most `requestPurgeBatch` rows and schedules itself at once while more are left.
+ */
+export const purgeExpiredRequests = internalMutation({
+  args: {},
+  handler: async (ctx): Promise<{ deleted: number }> => {
+    const expired = await ctx.db.query("agentRequests")
+      .withIndex("by_expires_at", (q) => q.lte("expiresAt", Date.now()))
+      .take(requestPurgeBatch);
+    for (const row of expired) await ctx.db.delete(row._id);
+    if (expired.length === requestPurgeBatch) await ctx.scheduler.runAfter(0, internal.agentWrites.purgeExpiredRequests, {});
+    return { deleted: expired.length };
   },
 });

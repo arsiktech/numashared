@@ -39,7 +39,9 @@ The privacy policy (`privacyHTML` in `convex/lib/webContent.ts`, served at
   removes a member. Numa Shared never moves money.
 - **Acts as the person**: writes go through the app's write path as the person,
   with their membership and ownership checks. Each event stores the agent's
-  name in `events.via`; the app shows "<name> via <agent>" to every member.
+  name in `events.via`; the Expo app shows "<name> via <agent>" to every member.
+  Swift build 11 and push notifications show only the name, so the consent text
+  and the policy say "recent versions of the Numa Shared app".
 - **Who receives it**: the provider of the agent the person chose, at the
   person's instruction. That provider is not a Numa Shared processor; its own
   terms apply. Records include other members' text, so the policy asks people
@@ -52,15 +54,16 @@ The privacy policy (`privacyHTML` in `convex/lib/webContent.ts`, served at
   - `agentActivity`: the tool name, answered or refused, and the time. No
     amounts, names or results.
   - `agentRequests`: the agent's request id, the tool, a hash of the input and
-    the answer, for 24 hours. The answer can hold an amount, a split or a name,
+    the answer, for at most 24 hours. The answer can hold an amount, a split or a name,
     so the policy says so.
 - **Retention**: codes last 5 minutes, access tokens 1 hour and refresh tokens
   30 days. Activity older than 90 days is removed lazily: each new call deletes
   at most the account's oldest entry if it is past 90 days
   (`agentAccess.record`). The policy says "as your agents make new calls" for
   that reason. Do not change it to a fixed deadline unless a scheduled purge is
-  added. Request rows expire after 24 hours and are deleted as new writes
-  arrive. Disconnect (`agentAccess.disconnect`) marks the connection closed and
+  added. Request rows stop answering retries after 23 hours, and an hourly
+  scheduled purge (`convex/crons.ts`) deletes them within the next hour, so
+  none is kept longer than 24 hours; the policy says "for at most 24 hours". Disconnect (`agentAccess.disconnect`) marks the connection closed and
   deletes its OAuth tokens. The connection row stays until account deletion.
 - **Deletion**: account deletion (`convex/accountDeletion.ts`) erases
   connections, tokens, codes, activity, request rows, and each registered client

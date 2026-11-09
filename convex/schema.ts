@@ -331,8 +331,9 @@ export default defineSchema({
 
   // An agent's write, by the request id the agent chose, so a retried call answers the same and
   // never adds twice. `result` is the answer: ids, plus what the write recorded (an amount and
-  // split, a new household or person name). No invite secrets. Kept for a day; the privacy policy
-  // (convex/lib/webContent.ts) says so.
+  // split, a new household or person name). No invite secrets. Answers retries for 23 hours; the
+  // hourly purge (convex/crons.ts) deletes it within 24, as the privacy policy
+  // (convex/lib/webContent.ts) says.
   agentRequests: defineTable({
     connectionId: v.id("agentConnections"),
     accountId: v.id("accounts"),

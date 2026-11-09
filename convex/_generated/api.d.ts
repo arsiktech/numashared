@@ -18,6 +18,7 @@ import type * as apns from "../apns.js";
 import type * as authSessions from "../authSessions.js";
 import type * as cardSync from "../cardSync.js";
 import type * as configuration from "../configuration.js";
+import type * as crons from "../crons.js";
 import type * as events from "../events.js";
 import type * as http from "../http.js";
 import type * as identityHttp from "../identityHttp.js";
@@ -75,6 +76,7 @@ declare const fullApi: ApiFromModules<{
   authSessions: typeof authSessions;
   cardSync: typeof cardSync;
   configuration: typeof configuration;
+  crons: typeof crons;
   events: typeof events;
   http: typeof http;
   identityHttp: typeof identityHttp;

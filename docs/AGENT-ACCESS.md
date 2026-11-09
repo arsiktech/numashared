@@ -24,7 +24,9 @@ above (`convex/agentWrites.test.ts` checks the list).
 
 1. Settings, AI agents: **Copy setup prompt**. There is nothing to choose. One tap:
    - makes a secret on the device or in the browser (`nsag_` plus 32 random bytes) and sends
-     only its SHA-256 to `agentAccess:connect`, for all households, named `Agent, <date>`;
+     only its SHA-256 to `agentAccess:connect`, for all households, named `Agent, <date>`, with
+     all three switches on (`permissions`). The server makes a connection without `permissions`
+     read-only: an app from before writes told the person the access was read-only;
    - copies a plain-text prompt for the agent. A toast confirms it. On a phone the share sheet
      opens instead, which offers Copy.
 2. The person pastes the prompt into their agent. The prompt holds the link
@@ -97,7 +99,10 @@ The code is in `convex/agentOAuth.ts` and `convex/lib/oauth.ts`.
   switches, not the token's scope, decide each call, so the person can turn writes off or on for
   any connection. Tokens and refreshes keep the scope they were granted, so a connection made
   before writes existed keeps `shared:read` and stays read-only until the person switches one
-  on. An approval covers all the person's households.
+  on. After that, its tokens still say `shared:read` but can write what the switches allow: the
+  stored scope records what the agent was granted at approval, not what it may do now. `/mcp`
+  does not check the token's scope; only the person can turn a switch on, so this is not an
+  escalation. An approval covers all the person's households.
 - **Resource indicators** (RFC 8707): tokens are bound to `<origin>/mcp`. The server accepts
   only its own addresses: the site URL and each origin in `NUMA_SHARED_WEB_ORIGINS`.
 - **First call**: `/mcp` without a valid token answers `401` with
@@ -181,9 +186,14 @@ Writing tools (`convex/agentWrites.ts`, definitions in `convex/lib/agentTools.ts
 (`app/src/sync/mapping.ts`, `engine.ts`) and passes them to the same server functions:
 `appendEventsToPot` for money, and the bodies of `members:renamePot`, `addPendingMember`,
 `changeBudgetGroups` and `issueInvite`/`revokeInvite` for the household. So event validation, the
-text manifest, the currency lock, group limits, revision rules, the account write quota and the
+text manifest, the currency lock, group limits, revision rules and the
 client contract (`lib/clientContract.ts`) apply unchanged, and pushes are queued exactly as for
-`events:appendEvents`. While production still serves Swift build 11, a note, repayment method or
+`events:appendEvents`. The account's hourly write quota (`lib/accountWriteQuota.ts`) applies
+where the app's own path applies it: money events, `update_groups` and `create_invite`.
+`rename_household` and `add_person` have no account quota, as in the app; for an agent they are
+held by the write limit of 20 a minute per connection, at most 5 connections. A refused write
+does not count toward that limit (it rolls back with the rest of the call), so an agent retrying
+refused writes is held by the general limit of 60 calls a minute. While production still serves Swift build 11, a note, repayment method or
 edit reason is not saved, and the tool's answer says so in `warnings`.
 
 **Input.** Amounts are whole minor units (`amount_minor_units: 1250` for 12.50) plus a
@@ -193,18 +203,29 @@ from `list_members`.
 
 **Idempotency.** Every write takes a `request_id` (8 to 100 characters). A retry with the same
 id and the same input answers the first result with `replayed: true` and changes nothing; the
-same id with other input is refused. Requests and their answers are kept for a day in
-`agentRequests`.
-An invite's secrets are not stored: they are derived from the request with an HMAC under
-`NUMA_SHARED_TOKEN_HASH_SECRET`, so a retry shows the same code.
+same id with other input is refused. A retry is recognised for 23 hours. An hourly purge
+(`convex/crons.ts`, `agentWrites.purgeExpiredRequests`, in batches of 200 that reschedule while
+rows are left) deletes each `agentRequests` row within the next hour, so none is older than 24
+hours. After that the same id counts as new.
+An invite's secrets are not stored: they are derived with an HMAC under
+`NUMA_SHARED_TOKEN_HASH_SECRET` from the connection, the request id and the new invite's id (kept
+in the stored answer), so a retry shows the same code, and an id used again after 24 hours makes
+a new one.
+
+**Dates.** A `date` is placed at noon that day in the resolved zone: the call's `time_zone`, else
+the zone of the person's latest phone (push registration), else UTC. That is what the app does in
+the phone's zone (`occurredAtFor`), and the event records the same zone as
+`originatingTimeZone`. A viewer in that zone sees the date asked for, including UTC+13, UTC+14 and
+UTC−11. An edit's new `date` uses the record's own zone.
 
 **Attribution.** The events are appended as the connection's person (their `actorMemberId`, their
 account for text authorship and quotas). Each also gets `events.via`, the connection's name at
 that moment. `events:listEvents` returns it next to `recordedAtMillis`, outside the event
 envelope, so it is not part of the text manifest or replay comparison, and older readers (Swift
 build 11 decodes `HydratedWireEventV1` with fixed keys) ignore it, as they ignore
-`recordedAtMillis`. The app shows "Ana via Claude" in history lines, bubbles, repayment cards, the
-record detail and the CSV export.
+`recordedAtMillis`. The Expo app shows "Ana via Claude" in history lines, bubbles, repayment cards, the
+record detail and the CSV export. Swift build 11 and push notifications show only the person's
+name; the consent page and the privacy policy say "recent versions of the app" for that reason.
 
 **Refusals** come back as tool errors (`isError: true`) with a sentence the agent can act on. A
 switch that is off is named: `Refused: the "Add expenses and repayments" switch is off for this
@@ -224,7 +245,7 @@ enforced in `agentWrites.write` on every call.
 - `agentRequests`: per write, the connection, the agent's `request_id`, the tool, a hash of the
   input and the answer, so a retry gets the same answer. The answer holds ids and can hold what
   the write recorded: an expense's amount and split, a new household name, a new person's name.
-  Kept for a day (expired rows are deleted as new writes arrive). No invite secrets.
+  Deleted by the hourly purge, at most 24 hours after the write. No invite secrets.
 - `events.via`: the connection name on events an agent appended. It stays with the household's
   history.
 - `agentActivity`: connection, tool name, answered or refused, timestamp. No amounts, names or

@@ -23,7 +23,10 @@ import { requireApprovedWriteTarget } from "./lib/deployment";
 export type AgentPermissions = Doc<"agentConnections">["permissions"] & {};
 export type AgentSwitch = keyof AgentPermissions;
 export const agentSwitches: readonly AgentSwitch[] = ["addRecords", "editRecords", "manageHousehold"];
-/** What a new connection may do: everything an agent can do (owner decision, Phase 2). */
+/**
+ * What a new OAuth connection may do: everything an agent can do (owner decision, Phase 2). A
+ * setup-prompt connection gets the switches the app sends (`connect`).
+ */
 export const defaultAgentPermissions: AgentPermissions = { addRecords: true, editRecords: true, manageHousehold: true };
 /** A connection made before writes existed: read-only until the person switches something on. */
 export const readOnlyAgentPermissions: AgentPermissions = { addRecords: false, editRecords: false, manageHousehold: false };
@@ -38,13 +41,20 @@ const activityListLimit = 50;
 
 const keyHashPattern = /^[0-9a-f]{64}$/;
 
-/** Connects an agent. The secret never reaches the server; only its hash does. */
+const switchesValidator = v.object({ addRecords: v.boolean(), editRecords: v.boolean(), manageHousehold: v.boolean() });
+
+/**
+ * Connects an agent. The secret never reaches the server; only its hash does. The switches are the
+ * ones the app sends, after showing them on screen. An app from before writes sends none and told
+ * the person the access is read-only, so its connections stay read-only.
+ */
 export const connect = mutation({
   args: {
     name: v.string(),
     keyHash: v.string(),
     keyHint: v.string(),
     potId: v.optional(v.string()),
+    permissions: v.optional(switchesValidator),
   },
   handler: async (ctx, args) => {
     requireApprovedWriteTarget();
@@ -66,7 +76,7 @@ export const connect = mutation({
       keyHash: args.keyHash,
       keyHint: args.keyHint.slice(0, 12),
       ...(args.potId === undefined ? {} : { potId: args.potId }),
-      permissions: defaultAgentPermissions,
+      permissions: args.permissions ?? readOnlyAgentPermissions,
       createdAt: now,
       windowStartedAt: now,
       windowCount: 0,
