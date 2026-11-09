@@ -32,7 +32,7 @@ vi.mock('../auth', () => ({
   withCurrentSession: async () => { throw new Error('Unexpected deletion in invite regression'); },
   signInWithApple: async () => {}, signInWithGoogle: async () => {}, signOutSession: async () => {},
 }));
-vi.mock('../config', () => ({ CONVEX_URL: 'https://sync.invalid', SITE_URL: 'https://site.invalid' }));
+vi.mock('../config', () => ({ CONVEX_URL: 'https://sync.invalid', SITE_URL: 'https://site.invalid', PUBLIC_SITE_URL: 'https://public.invalid' }));
 const preview = { status: 'active', kind: 'perMember', potName: 'Synthetic', expiresAt: 1800000000000, minimumReaderSchemaVersion: 2, claimTicket: 'synthetic-ticket' } as const;
 beforeEach(() => { vi.resetModules(); vi.useFakeTimers(); h.accountId = 'account-a'; h.households = []; h.calls = []; h.resolve = null; h.switches = []; h.clients = 0; h.auth = []; h.stale = false; });
 afterEach(() => { vi.clearAllTimers(); vi.useRealTimers(); });

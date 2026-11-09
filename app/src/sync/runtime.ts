@@ -8,7 +8,7 @@ import type { Household, ID } from '../core/types';
 import { claimParked, forgetAccount, getState, putHousehold, removeHousehold, showAccount, switchHousehold } from '../store/store';
 import { previewDeletion, runDeletion, type DeletionDeps, type DeletionPreview } from './accountDeletion';
 import { accessToken, currentSession, forgetSession, loadSession, post, readDeletion, writeDeletion, signInWithApple, signInWithGoogle, signOutSession, subscribeSession } from './auth';
-import { CONVEX_URL, SITE_URL } from './config';
+import { CONVEX_URL, PUBLIC_SITE_URL, SITE_URL } from './config';
 import { refreshContract } from './contract';
 import {
   base64url, isFrozenPot, inviteUsable, INVITE_RECHECK_MS,
@@ -333,18 +333,35 @@ export const cardSync = {
 /** Where the sync script sends spends. */
 export const CARD_SYNC_URL = `${SITE_URL}/card-sync/spends`;
 
-// ---------- AI agent access (convex/agentAccess.ts) ----------
+// ---------- AI agent access (convex/agentAccess.ts, convex/agentOAuth.ts) ----------
 
-export type AgentConnection = { id: string; name: string; hint: string; potId: string | null; createdAt: number; lastUsedAt: number | null };
-export type AgentActivity = { id: string; agent: string; tool: string; ok: boolean; error: string | null; at: number };
+export type AgentConnection = {
+  id: string; name: string; kind: 'oauth' | 'link'; hint: string | null; potId: string | null; createdAt: number; lastUsedAt: number | null;
+};
+export type AgentActivity = { id: string; agent: string; tool: string; ok: boolean; at: number };
+export type AgentRequest =
+  | { status: 'expired' }
+  | { status: 'pending'; agent: string; verifiedHost: string | null; returnsTo: string; returnsToThisComputer: boolean };
 
-/** Where an agent connects. The secret goes after the slash. */
+/** The address people add to Claude, ChatGPT or Cursor. The agent then asks them to approve it. */
+export const AGENT_MCP_URL = `${PUBLIC_SITE_URL}/mcp`;
+/** Where a terminal agent's secret link points. The secret goes after the slash. */
 export const AGENT_URL = `${SITE_URL}/mcp`;
+
+let anonymous: import('convex/browser').ConvexHttpClient | null = null;
+/** The consent page is read before sign-in, so it uses a client without an account. */
+async function anonymousClient() {
+  if (!anonymous) {
+    const { ConvexHttpClient } = await import('convex/browser');
+    anonymous = new ConvexHttpClient(CONVEX_URL);
+  }
+  return anonymous;
+}
 
 export const agents = {
   list: () => within(backend.query<AgentConnection[]>('agentAccess:listMine', {})),
   activity: () => within(backend.query<AgentActivity[]>('agentAccess:recentActivity', {})),
-  /** Connects a read-only agent. The secret is made here and shown once; only its SHA-256 reaches the server. */
+  /** Connects a terminal agent with a secret link. The secret is made here and shown once; only its SHA-256 reaches the server. */
   connect: async (name: string, potId: string | null): Promise<{ link: string }> => {
     const Crypto = await import('expo-crypto');
     const secret = `nsag_${base64url(Crypto.getRandomBytes(32))}`;
@@ -353,6 +370,16 @@ export const agents = {
     return { link: `${AGENT_URL}/${secret}` };
   },
   disconnect: (id: string) => within(backend.mutation('agentAccess:disconnect', { id })),
+  /** The "Connect to Numa Shared" page (app/src/app/connect.tsx). */
+  consent: {
+    describe: async (request: string) => within((await anonymousClient()).query(ref('agentOAuth:describeRequest'), { request } as never) as Promise<AgentRequest>),
+    households: () => within(backend.query<Array<{ id: string; name: string | null }>>('agentOAuth:myHouseholds', {})),
+    approve: (request: string, household: string | null) => {
+      if (!client) return Promise.reject({ data: { code: 'AUTH_REQUIRED', retryable: false } });
+      return within(client.action(ref('agentOAuth:approve'), { request, household } as never) as Promise<{ redirectTo: string }>);
+    },
+    deny: async (request: string) => within((await anonymousClient()).mutation(ref('agentOAuth:deny'), { request } as never) as Promise<{ redirectTo: string | null }>),
+  },
 };
 
 /** Online-only household changes. Each throws when offline so the screen can say so. */
