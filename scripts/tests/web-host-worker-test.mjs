@@ -68,6 +68,19 @@ test("the app, including the Connect page, may not be framed by another site", a
   assert.equal(missing.headers.get("cache-control"), null);
 });
 
+test("a feedback address adds its origin to the app connect-src", async () => {
+  const assets = { fetch: async () => new Response("app", { status: 200, headers: { "content-type": "text/html" } }) };
+  const on = await worker.fetch(new Request("https://shared.numaworth.com/app/"), {
+    ASSETS: assets,
+    FEEDBACK_URL: "https://feedback.invalid/notes",
+  });
+  assert.equal(on.headers.get("content-security-policy"), "frame-ancestors 'none'; connect-src 'self' https: wss: https://feedback.invalid");
+  for (const extra of [{}, { FEEDBACK_URL: "" }, { FEEDBACK_URL: "not a url" }]) {
+    const off = await worker.fetch(new Request("https://shared.numaworth.com/app/home"), { ASSETS: assets, ...extra });
+    assert.equal(off.headers.get("content-security-policy"), "frame-ancestors 'none'");
+  }
+});
+
 test("other POSTs still redirect so rate limits see the caller", async () => {
   const calls = capture();
   const response = await worker.fetch(new Request("https://shared.numaworth.com/auth/refresh", { method: "POST", body: "{}" }), env);

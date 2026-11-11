@@ -4,7 +4,7 @@ A Cloudflare Worker that puts Numa Shared under its own address:
 
 | Path | What happens |
 |---|---|
-| `/app/…` | The web app (an Expo web export of `app/`, served as a single-page app). Sent with `Content-Security-Policy: frame-ancestors 'none'` and `X-Frame-Options: DENY`, so no other site can frame it (the Connect page must not be overlaid). |
+| `/app/…` | The web app (an Expo web export of `app/`, served as a single-page app). Sent with `Content-Security-Policy: frame-ancestors 'none'` and `X-Frame-Options: DENY`, so no other site can frame it (the Connect page must not be overlaid). When `FEEDBACK_URL` is set, that origin is added to `connect-src`. |
 | `/`, `/assets/…`, `/privacy`, `/support`, `/terms`, `/join/<token>`, `/.well-known/apple-app-site-association` | Fetched from the backend and served here, so the address stays branded. |
 | `/mcp`, `/mcp/…`, `/.well-known/oauth-protected-resource[/mcp]` | Passed through to the backend (method, body and `Authorization` kept), with `x-numa-public-origin` naming this origin. AI agents connect here. |
 | any other page a browser opens | A small "page not found" with links home and to the app. |
@@ -23,6 +23,8 @@ npm install
 GOOGLE_WEB_CLIENT_ID=<web OAuth client id> APPLE_WEB_CLIENT_ID=<Apple Services ID> npm run build   # exports app/ under /app into dist/
 CLOUDFLARE_API_TOKEN=… npm run deploy
 ```
+
+The export keeps `EXPO_PUBLIC_FEEDBACK_URL`, `EXPO_PUBLIC_FEEDBACK_APP` and `EXPO_PUBLIC_FEEDBACK_KEY` when they are already set. With any of them empty, the web app shows no feedback button. `FEEDBACK_URL` on the worker, when set, is the same address.
 
 The token needs Workers Scripts edit and Workers Routes edit on the `numaworth.com` zone. The
 hostname must not be attached to another Pages project or Worker.

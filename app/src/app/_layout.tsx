@@ -17,6 +17,7 @@ import { SheetHost } from '@/sheets/host';
 import { sheetBackdrop } from '@/ui/sheet';
 import { UndoLane } from '@/ui/lane';
 import { Celebrate, Toast } from '@/ui/celebrate';
+import { FeedbackButton } from '@/features/feedback/button';
 
 SplashScreen.preventAutoHideAsync().catch(() => {});
 
@@ -62,6 +63,7 @@ function Shell() {
       </Animated.View>
       <UndoLane />
       <SheetHost />
+      <FeedbackButton />
       <Celebrate />
       <Toast />
     </View>

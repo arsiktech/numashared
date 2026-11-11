@@ -32,6 +32,7 @@ export function WebTopBar() {
     if (!isWeb || typeof window === 'undefined') return;
     const onKey = (e: KeyboardEvent) => {
       if (e.metaKey || e.ctrlKey || e.altKey || e.defaultPrevented) return;
+      if (document.querySelector('[data-fb-self]')) return;
       const el = e.target as HTMLElement | null;
       if (el && (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA' || el.tagName === 'SELECT' || el.isContentEditable)) return;
       if (busy.current > 0) return;

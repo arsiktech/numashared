@@ -26,6 +26,26 @@ const PROXIED = [/^\/mcp(\/.*)?$/, /^\/\.well-known\/oauth-protected-resource(\/
 const PROXY_HEADERS = ['accept', 'authorization', 'content-type', 'mcp-protocol-version', 'mcp-method', 'mcp-name', 'origin', 'access-control-request-method', 'access-control-request-headers'];
 const PAGES = [/^\/$/, /^\/assets\//, /^\/privacy$/, /^\/support$/, /^\/terms$/, /^\/join\/[^/]+$/, /^\/\.well-known\/apple-app-site-association$/];
 
+// FEEDBACK_URL, when set, adds that origin to connect-src. Unset leaves the policy as it is.
+function feedbackOrigin(env) {
+  const raw = typeof env?.FEEDBACK_URL === 'string' ? env.FEEDBACK_URL.trim() : '';
+  if (!raw) return '';
+  try {
+    const url = new URL(raw);
+    if (url.protocol !== 'https:' && url.protocol !== 'http:') return '';
+    return url.origin;
+  } catch {
+    return '';
+  }
+}
+
+function appContentSecurityPolicy(env) {
+  const frame = "frame-ancestors 'none'";
+  const origin = feedbackOrigin(env);
+  if (!origin) return frame;
+  return `${frame}; connect-src 'self' https: wss: ${origin}`;
+}
+
 export default {
   async fetch(request, env) {
     const url = new URL(request.url);
@@ -37,7 +57,7 @@ export default {
       const headers = new Headers(res.headers);
       // No other site may frame the app: the "Connect to Numa Shared" page must not be overlaid
       // (clickjacking).
-      headers.set('Content-Security-Policy', "frame-ancestors 'none'");
+      headers.set('Content-Security-Policy', appContentSecurityPolicy(env));
       headers.set('X-Frame-Options', 'DENY');
       // Bundles and fonts carry a content hash in their names, so a return visit needn't fetch them.
       if (res.ok && /^\/(_expo\/static|assets)\//.test(inner.pathname)) {

@@ -23,7 +23,7 @@ export const haptic = {
 
 // ---------- text ----------
 
-export function T({ style, ...p }: TextProps & { style?: StyleProp<TextStyle> }) {
+export function T({ style, ...p }: TextProps & { style?: StyleProp<TextStyle>; dataSet?: Record<string, boolean | string | number> }) {
   const { c } = useTheme();
   return <Text {...p} style={[{ color: c.ink, fontFamily: fonts.regular, fontSize: 16 }, style]} />;
 }
@@ -147,7 +147,7 @@ export function OrbView({ size = 92, plus = 32, pressed }: { size?: number; plus
 // ---------- chips, words, avatars ----------
 
 /** Tonal chip used on a color band: the band's ink at 9%. */
-export function TChip({ label, amount, on, onPress, tone, small, leading, accessibilityLabel }: {
+export function TChip({ label, amount, on, onPress, tone, small, leading, accessibilityLabel, }: {
   label: string; amount?: string; on?: boolean; onPress?: () => void; tone: GroupTone; small?: boolean;
   leading?: ReactNode; accessibilityLabel?: string;
 }) {
