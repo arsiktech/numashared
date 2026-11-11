@@ -11,7 +11,7 @@ import Svg, { Defs, RadialGradient, Rect, Stop } from 'react-native-svg';
 import type { Origin } from '@/store/ui';
 import { useTheme } from './theme';
 import { haptic } from './primitives';
-import { alpha, isWeb } from './tokens';
+import { alpha, fonts, isWeb, textLine } from './tokens';
 import { escapeSheet, ownsSheetFocus, takeSheetFocus } from './sheet-focus';
 
 /**
@@ -230,7 +230,7 @@ export function SheetHead({ left, title, right, color }: { left?: ReactNode; tit
     <View style={{ minHeight: 46, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 10 }}>
       <View style={{ minWidth: 76, alignItems: 'flex-start' }}>{left}</View>
       {title ? (
-        <Animated.Text accessibilityRole="header" style={{ fontFamily: 'Instrument-600', fontSize: 17, color: color ?? c.ink }}>{title}</Animated.Text>
+        <Animated.Text accessibilityRole="header" style={{ fontFamily: fonts.semibold, fontSize: 17, lineHeight: textLine(17), color: color ?? c.ink }}>{title}</Animated.Text>
       ) : <View />}
       <View style={{ minWidth: 76, alignItems: 'flex-end' }}>{right}</View>
     </View>

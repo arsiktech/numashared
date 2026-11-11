@@ -12,7 +12,7 @@ import { CategoryIcon, Close, House, Pencil, Repay, VoidX, ArrowRight } from '@/
 import { Badge, Banner, BannerText, Dot, Press, T, TextButton } from '@/ui/primitives';
 import { SheetScrollView, useSheet } from '@/ui/sheet';
 import { useTheme } from '@/ui/theme';
-import { fonts, isAndroid, isWeb } from '@/ui/tokens';
+import { fonts, isAndroid, isWeb, textLine } from '@/ui/tokens';
 import { editSpoken, speak } from './spoken';
 import { authorName, clock, money, nameOf, personName, recordTitle, useHousehold } from '../hooks';
 import { dayMonth, fullDay, isoDay, joinNames, METHOD_LABEL, splitLabel, weekday } from '../history/model';
@@ -178,7 +178,7 @@ function Amount({ value, panel, badges }: { value: string; panel: boolean; badge
   const size = panel ? 56 : 64;
   return (
     <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12, marginTop: 14, flexWrap: 'wrap' }}>
-      <T numberOfLines={1} adjustsFontSizeToFit style={{ fontFamily: fonts.cond, fontSize: size, lineHeight: size * 1.05, letterSpacing: -1, fontVariant: ['tabular-nums'], flexShrink: 1 }}>{value}</T>
+      <T numberOfLines={1} adjustsFontSizeToFit style={{ fontFamily: fonts.bold, fontSize: size, lineHeight: textLine(size), letterSpacing: -0.4, fontVariant: ['tabular-nums'], flexShrink: 1 }}>{value}</T>
       {badges}
     </View>
   );

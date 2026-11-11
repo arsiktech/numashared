@@ -12,7 +12,7 @@ import { openSheet } from '@/store/ui';
 import { ArrowBack, Back, CategoryIcon, Check, Checks, Close, Search } from '@/ui/icons';
 import { Avatar, Press, T } from '@/ui/primitives';
 import { useTheme } from '@/ui/theme';
-import { alpha, fonts, isAndroid, isWeb } from '@/ui/tokens';
+import { alpha, fonts, isAndroid, isWeb, textLine } from '@/ui/tokens';
 import { OrbButton } from '../records';
 import { addedByLine, authorName, clock, effectLine, initials, money, personName, recordTitle, settlementTitle, useHousehold } from '../hooks';
 import {
@@ -156,7 +156,7 @@ function PhoneHeader({ h, filter, setFilter, query }: { h: Household; filter: Fi
         )}
       </View>
       <View style={{ flexDirection: 'row', alignItems: 'baseline', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
-        <T accessibilityRole="header" style={{ fontFamily: fonts.cond, fontSize: 40, lineHeight: 44, letterSpacing: -0.4 }}>History</T>
+        <T accessibilityRole="header" style={{ fontFamily: fonts.bold, fontSize: 34, lineHeight: textLine(34), letterSpacing: -0.3 }}>History</T>
         <T style={{ fontFamily: fonts.semibold, fontSize: 12.5, color: c.ink2 }}>Nothing is ever deleted</T>
       </View>
       <View style={{ marginTop: 2 }}><Filters filter={filter} setFilter={setFilter} compact /></View>
@@ -169,7 +169,7 @@ function DeskHeader({ filter, setFilter, query }: { filter: Filter; setFilter: (
   return (
     <View style={{ padding: 20, paddingBottom: 8 }}>
       <View style={{ width: '100%', maxWidth: 720, alignSelf: 'center', flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 16, flexWrap: 'wrap' }}>
-        <T accessibilityRole="header" style={{ fontFamily: fonts.cond, fontSize: 34, lineHeight: 38 }}>History</T>
+        <T accessibilityRole="header" style={{ fontFamily: fonts.bold, fontSize: 28, lineHeight: textLine(28), letterSpacing: -0.3 }}>History</T>
         <Filters filter={filter} setFilter={setFilter} />
       </View>
       {query || searchOpen ? (
@@ -186,7 +186,7 @@ function DeskHeader({ filter, setFilter, query }: { filter: Filter; setFilter: (
 function DaySeparator({ at, desk }: { at: number; desk: boolean }) {
   const { c } = useTheme();
   return (
-    <T accessibilityRole="header" style={{ alignSelf: 'center', fontFamily: fonts.bold, fontSize: 12.5, color: c.ink2, paddingTop: 8, paddingBottom: 2 }}>{dayLabel(at, desk)}</T>
+    <T accessibilityRole="header" style={{ alignSelf: 'center', fontFamily: fonts.medium, fontSize: 12.5, lineHeight: textLine(12.5), color: c.ink2, paddingTop: 8, paddingBottom: 2 }}>{dayLabel(at, desk)}</T>
   );
 }
 
@@ -232,17 +232,17 @@ function Bubble({ h, r, hide, desk, selected, onSelect }: { h: Household; r: Led
               borderBottomLeftRadius: mine ? 22 : 6, borderBottomRightRadius: mine ? 6 : 22, opacity: r.voided ? 0.72 : 1 }}>
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
               {desk ? <CategoryIcon category={e.category} size={20} color={t.ink} /> : null}
-              <T numberOfLines={2} style={[{ fontFamily: fonts.bold, fontSize: 15, color: t.ink, flexShrink: 1 }, strike]}>{title}</T>
+              <T numberOfLines={2} style={[{ fontFamily: fonts.semibold, fontSize: 15, lineHeight: textLine(15), color: t.ink, flexShrink: 1 }, strike]}>{title}</T>
             </View>
-            <T style={[{ fontFamily: fonts.display, fontSize: 26, lineHeight: 30, letterSpacing: -0.5, color: t.ink, fontVariant: ['tabular-nums'] }, strike]}>{money(h, e.amount, hide)}</T>
-            {e.note && !r.voided ? <T style={{ fontFamily: fonts.semibold, fontSize: 13.5, color: t.ink, marginTop: 1 }}>“{e.note}”</T> : null}
-            <T style={{ fontFamily: fonts.semibold, fontSize: 13, color: t.ink, opacity: 0.88 }}>
+            <T style={[{ fontFamily: fonts.bold, fontSize: 20, lineHeight: textLine(20), letterSpacing: -0.3, color: t.ink, fontVariant: ['tabular-nums'] }, strike]}>{money(h, e.amount, hide)}</T>
+            {e.note && !r.voided ? <T style={{ fontFamily: fonts.regular, fontSize: 13, lineHeight: textLine(13), color: t.ink, marginTop: 1 }}>“{e.note}”</T> : null}
+            <T style={{ fontFamily: fonts.regular, fontSize: 13, lineHeight: textLine(13), color: t.ink, opacity: 0.8 }}>
               {splitLabel(r)}{effect ? ` · ${effect}` : ''}
             </T>
             {!desk || deskFoot ? (
-              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5, marginTop: 4, opacity: 0.9 }}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5, marginTop: 4, opacity: 0.8 }}>
                 {seen ? <Checks size={16} color={t.ink} /> : null}
-                <T style={{ fontFamily: fonts.bold, fontSize: 12, color: t.ink, flexShrink: 1 }}>{desk ? deskFoot : foot}</T>
+                <T style={{ fontFamily: fonts.medium, fontSize: 12, lineHeight: textLine(12), color: t.ink, flexShrink: 1 }}>{desk ? deskFoot : foot}</T>
               </View>
             ) : null}
           </Press>
@@ -265,9 +265,9 @@ function RepayCard({ h, r, hide, selected, onSelect }: { h: Household; r: Ledger
       <Ring on={selected} radius={20} gap={2}>
         <Press noScale onPress={() => onSelect(r.id)} accessibilityLabel={`Repayment: ${title}. ${meta}. ${foot}. Open details`} accessibilityState={{ selected }}
           style={{ backgroundColor: c.ink, borderRadius: 20, paddingHorizontal: 16, paddingVertical: 10, alignItems: 'center', opacity: r.voided ? 0.6 : 1 }}>
-          <T style={[{ fontFamily: fonts.bold, fontSize: 15, color: c.bg, textAlign: 'center' }, strike]}>{title}</T>
-          {meta ? <T style={{ fontFamily: fonts.semibold, fontSize: 13.5, color: c.bg, marginTop: 3, textAlign: 'center' }}>{meta}</T> : null}
-          <T style={{ fontFamily: fonts.semibold, fontSize: 12.5, color: alpha(c.bg, 0.75), marginTop: 2, textAlign: 'center' }}>{foot}</T>
+          <T style={[{ fontFamily: fonts.semibold, fontSize: 15, lineHeight: textLine(15), color: c.bg, textAlign: 'center' }, strike]}>{title}</T>
+          {meta ? <T style={{ fontFamily: fonts.regular, fontSize: 13, lineHeight: textLine(13), color: c.bg, marginTop: 3, textAlign: 'center' }}>{meta}</T> : null}
+          <T style={{ fontFamily: fonts.medium, fontSize: 12, lineHeight: textLine(12), color: alpha(c.bg, 0.75), marginTop: 2, textAlign: 'center' }}>{foot}</T>
         </Press>
       </Ring>
     </View>

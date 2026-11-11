@@ -12,7 +12,7 @@ import { BigAmount, Keypad, Word } from '@/ui/money-ui';
 import { Banner, BannerText, CTA, haptic, T, TChip } from '@/ui/primitives';
 import { saveGuard, Sheet, SheetScrollView, useSheet } from '@/ui/sheet';
 import { useTheme } from '@/ui/theme';
-import { fonts, isWeb, type GroupTone } from '@/ui/tokens';
+import { fonts, isWeb, textLine, type GroupTone } from '@/ui/tokens';
 import { nameOf, useHousehold } from '@/features/hooks';
 import { simulate, spokenName, standingLine, type Line } from '@/features/add/draft';
 import {
@@ -183,7 +183,7 @@ function RepayBody({ h, spec, groups, setGroups, t }: {
   // ---------- layout ----------
 
   const wordSize = screenH < 740 ? 26 : 30;
-  const sentenceText: TextStyle = { fontFamily: fonts.display, fontSize: wordSize, lineHeight: wordSize * 1.18, letterSpacing: -wordSize * 0.02, color: t.ink };
+  const sentenceText: TextStyle = { fontFamily: fonts.bold, fontSize: wordSize, lineHeight: textLine(wordSize), letterSpacing: -wordSize * 0.02, color: t.ink };
   const lineStyle = { flexDirection: 'row', alignItems: 'center', gap: 10, minHeight: wordSize > 26 ? 52 : 46, flexWrap: 'wrap' } as const;
   const contentW = Math.min(screenW, isWeb ? 560 : screenW) - 44;
   const amtSize = amountSize(screenH < 740 ? 54 : 66, contentW, formatMoney(amount, cur, { symbol: false }));

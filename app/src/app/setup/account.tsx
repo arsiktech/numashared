@@ -7,7 +7,7 @@ import { Redirect, useLocalSearchParams, useRouter } from 'expo-router';
 import { CloudOff } from '@/ui/icons';
 import { Banner, BannerText, CTA, T } from '@/ui/primitives';
 import { useTheme } from '@/ui/theme';
-import { fonts, isWeb } from '@/ui/tokens';
+import { fonts, isWeb, textLine } from '@/ui/tokens';
 import { Screen, ScreenHeader } from '@/features/onboarding/chrome';
 import { inExpoGo, SignInButtons, useSession, useSignInOptions } from '@/features/account/session';
 import { showToast } from '@/store/ui';
@@ -40,14 +40,14 @@ export default function Account() {
       <View style={{ flexDirection: 'row', alignSelf: 'flex-start', height: 56, borderRadius: 28, overflow: 'hidden', marginTop: phone ? 16 : 40 }}
         accessibilityElementsHidden importantForAccessibility="no-hide-descendants">
         <View style={{ backgroundColor: citrus.band, justifyContent: 'center', paddingLeft: 22, paddingRight: 16 }}>
-          <T maxFontSizeMultiplier={1.2} style={{ fontFamily: fonts.cond, fontSize: 28, color: citrus.ink }}>{returning ? 'Welcome' : 'One'}</T>
+          <T maxFontSizeMultiplier={1.2} style={{ fontFamily: fonts.bold, fontSize: 28, lineHeight: textLine(28), color: citrus.ink }}>{returning ? 'Welcome' : 'One'}</T>
         </View>
         <View style={{ backgroundColor: lilac.band, justifyContent: 'center', paddingLeft: 16, paddingRight: 22 }}>
-          <T maxFontSizeMultiplier={1.2} style={{ fontFamily: fonts.cond, fontSize: 28, color: lilac.ink }}>{returning ? 'back' : 'balance'}</T>
+          <T maxFontSizeMultiplier={1.2} style={{ fontFamily: fonts.bold, fontSize: 28, lineHeight: textLine(28), color: lilac.ink }}>{returning ? 'back' : 'balance'}</T>
         </View>
       </View>
       <T accessibilityRole="header" maxFontSizeMultiplier={1.4}
-        style={{ fontFamily: fonts.display, fontSize: phone ? 34 : 40, lineHeight: phone ? 38 : 44, letterSpacing: -0.8, marginTop: 20 }}>
+        style={{ fontFamily: fonts.bold, fontSize: phone ? 32 : 36, lineHeight: textLine(phone ? 32 : 36), letterSpacing: -0.3, marginTop: 20 }}>
         {returning ? 'Sign in to Numa Shared' : 'Create your account'}
       </T>
       <T style={{ fontSize: 16, lineHeight: 22, color: c.ink2, marginTop: 12 }}>

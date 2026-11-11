@@ -12,7 +12,7 @@ import { openSheet } from '@/store/ui';
 import { ArrowDown, ArrowUp, Check, ChevDown, Gear, People } from '@/ui/icons';
 import { Dot, Pill, Press, T } from '@/ui/primitives';
 import { useTheme } from '@/ui/theme';
-import { alpha, fonts, isAndroid } from '@/ui/tokens';
+import { alpha, fonts, isAndroid, textLine } from '@/ui/tokens';
 import { cappedSize, TEXT_CAP } from '@/ui/textScale';
 import { OrbButton } from '../records';
 import { money, nameOf, standingWords } from '../hooks';
@@ -27,10 +27,12 @@ export function Bands({ h, balances, hide, compact, tail }: { h: Household; bala
   const t = tone(mine);
   const bal = balances[mine.id] ?? 0;
   const many = others.length > 1;
-  const nameSize = compact ? 56 : Math.min(74, (width - 44) / 4.6);
+  // A text-face title, sized so "You + Арина" and "Юра + Люда" share one line in the band.
+  const nameSize = compact ? 32 : Math.min(34, Math.max(28, (width - 44) / 10));
+  const nameLine = textLine(nameSize);
   const plan = planSettlement(balances);
   const transfers = plan.status === 'exact' ? plan.transfers : [];
-  const topH = (compact ? 20 : insets.top) + (compact ? 0 : 44) + 14 + 20 + nameSize * 0.95 + (many ? 34 : 60);
+  const topH = (compact ? 20 : insets.top) + (compact ? 0 : 44) + 14 + 20 + nameLine + (many ? 34 : 60);
   const square = Object.values(balances).every((v) => v === 0);
   const empty = h.events.length === 0;
   const partners = mine.memberIds.filter((id) => id !== h.youId).map((id) => h.people.find((p) => p.id === id)!);
@@ -55,7 +57,7 @@ export function Bands({ h, balances, hide, compact, tail }: { h: Household; bala
         large ? { flex: 1, paddingVertical: 12 } : { position: 'absolute', left: 20, top: ticketTop, height: 78, maxWidth: (compact ? 360 : width) - 132 }]}>
       {square || empty ? (
         <>
-          <T maxFontSizeMultiplier={TEXT_CAP.display} style={{ flexShrink: 1, fontFamily: fonts.cond, fontSize: 30, color: ticketInk }}>All square</T>
+          <T maxFontSizeMultiplier={TEXT_CAP.display} style={{ flexShrink: 1, fontFamily: fonts.bold, fontSize: 24, lineHeight: textLine(24), color: ticketInk }}>All square</T>
           <Check size={22} color={ticketInk} />
         </>
       ) : (
@@ -66,7 +68,7 @@ export function Bands({ h, balances, hide, compact, tail }: { h: Household; bala
             </T>
             {/* The amount is sized here, the system text size included, so it always fits on one line. */}
             <T numberOfLines={1} adjustsFontSizeToFit maxFontSizeMultiplier={large ? 1 : undefined}
-              style={{ fontFamily: fonts.display, fontSize: amountSize, lineHeight: large ? Math.ceil(amountSize * 1.12) : compact ? 36 : 42, letterSpacing: -1, color: ticketInk, fontVariant: ['tabular-nums'] }}>
+              style={{ fontFamily: fonts.bold, fontSize: amountSize, lineHeight: textLine(amountSize), letterSpacing: -0.4, color: ticketInk, fontVariant: ['tabular-nums'] }}>
               {amountText}
             </T>
           </View>
@@ -103,7 +105,7 @@ export function Bands({ h, balances, hide, compact, tail }: { h: Household; bala
             </View>
           ))}
         </View>
-        <T accessibilityRole="header" numberOfLines={1} adjustsFontSizeToFit maxFontSizeMultiplier={TEXT_CAP.display} style={{ fontFamily: fonts.cond, fontSize: nameSize, lineHeight: nameSize * 0.98, color: t.ink, marginTop: 2 }}>
+        <T accessibilityRole="header" numberOfLines={1} adjustsFontSizeToFit maxFontSizeMultiplier={TEXT_CAP.display} style={{ fontFamily: fonts.bold, fontSize: nameSize, lineHeight: nameLine, letterSpacing: -0.4, color: t.ink, marginTop: 2 }}>
           {nameOf(h, mine)}
         </T>
         {large ? (
@@ -140,7 +142,7 @@ function TwoGroupBand({ h, g, balances, nameSize, square, large }: { h: Househol
   const members = g.memberIds.map((id) => h.people.find((p) => p.id === id)!);
   return (
     <View style={{ backgroundColor: t.band, paddingTop: large ? 22 : 58, paddingHorizontal: 22, paddingBottom: 52, minHeight: large ? 0 : 250 }}>
-      <T numberOfLines={1} adjustsFontSizeToFit maxFontSizeMultiplier={TEXT_CAP.display} style={{ fontFamily: fonts.cond, fontSize: nameSize, lineHeight: nameSize * 0.98, color: t.ink }}>{nameOf(h, g)}</T>
+      <T numberOfLines={1} adjustsFontSizeToFit maxFontSizeMultiplier={TEXT_CAP.display} style={{ fontFamily: fonts.bold, fontSize: nameSize, lineHeight: textLine(nameSize), letterSpacing: -0.4, color: t.ink }}>{nameOf(h, g)}</T>
       <View style={{ flexDirection: 'row', gap: 10, marginTop: 6, flexWrap: 'wrap' }}>
         {members.map((p) => (
           <View key={p.id} style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
@@ -172,7 +174,7 @@ function CompactBand({ h, g, hide, first, last, balances, transfers, mine }: {
     <View style={{ backgroundColor: t.band, paddingTop: first ? 50 : 16, paddingBottom: last ? 44 : 16, paddingHorizontal: 22 }}>
       <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
         <View style={{ flex: 1, minWidth: 0 }}>
-          <T numberOfLines={1} adjustsFontSizeToFit maxFontSizeMultiplier={TEXT_CAP.display} style={{ fontFamily: fonts.cond, fontSize: 48, lineHeight: 48, color: t.ink }}>{nameOf(h, g)}</T>
+          <T numberOfLines={1} adjustsFontSizeToFit maxFontSizeMultiplier={TEXT_CAP.display} style={{ fontFamily: fonts.bold, fontSize: 32, lineHeight: textLine(32), letterSpacing: -0.4, color: t.ink }}>{nameOf(h, g)}</T>
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 4 }}>
             <Dot color={g.memberIds.every((id) => h.people.find((p) => p.id === id)?.joined) ? c.good : alpha('#000000', 0.3)} />
             <T style={{ fontFamily: fonts.semibold, fontSize: 14, color: t.ink, opacity: 0.85 }}>{overall}</T>
@@ -206,7 +208,7 @@ function AloneBand() {
   const router = useRouter();
   return (
     <View style={{ backgroundColor: c.chip, paddingTop: 58, paddingHorizontal: 22, paddingBottom: 52, minHeight: 230 }}>
-      <T style={{ fontFamily: fonts.cond, fontSize: 48, lineHeight: 50, color: c.ink }}>Who else lives here?</T>
+      <T style={{ fontFamily: fonts.bold, fontSize: 32, lineHeight: textLine(32), letterSpacing: -0.4, color: c.ink }}>Who else lives here?</T>
       <T style={{ fontSize: 15, color: c.ink2, marginTop: 6, maxWidth: 320 }}>Add the people you share costs with. Each one gets a color.</T>
       <Pill style={{ marginTop: 18 }} label="Add people" onPress={() => router.push('/settings/people')} />
     </View>

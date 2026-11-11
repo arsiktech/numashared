@@ -7,7 +7,7 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 import { CloudOff, Warn } from '@/ui/icons';
 import { Banner, BannerText, CTA, haptic, Press, T } from '@/ui/primitives';
 import { useTheme } from '@/ui/theme';
-import { fonts, isWeb } from '@/ui/tokens';
+import { fonts, isWeb, textLine } from '@/ui/tokens';
 import { Brand, Field, Screen, ScreenHeader } from '@/features/onboarding/chrome';
 import { cleanCode, showCode } from '@/features/onboarding/model';
 import { explainFailure, SignInButtons, useSession, useSignInOptions } from '@/features/account/session';
@@ -91,14 +91,14 @@ export default function Join() {
       <View style={{ flexDirection: 'row', alignSelf: 'flex-start', height: 56, borderRadius: 28, overflow: 'hidden', marginTop: phone ? 16 : 40 }}
         accessibilityElementsHidden importantForAccessibility="no-hide-descendants">
         <View style={{ backgroundColor: citrus.band, justifyContent: 'center', paddingLeft: 22, paddingRight: 16 }}>
-          <T maxFontSizeMultiplier={1.2} style={{ fontFamily: fonts.cond, fontSize: 28, color: citrus.ink }}>You’re</T>
+          <T maxFontSizeMultiplier={1.2} style={{ fontFamily: fonts.bold, fontSize: 28, lineHeight: textLine(28), color: citrus.ink }}>You’re</T>
         </View>
         <View style={{ backgroundColor: lilac.band, justifyContent: 'center', paddingLeft: 16, paddingRight: 22 }}>
-          <T maxFontSizeMultiplier={1.2} style={{ fontFamily: fonts.cond, fontSize: 28, color: lilac.ink }}>invited</T>
+          <T maxFontSizeMultiplier={1.2} style={{ fontFamily: fonts.bold, fontSize: 28, lineHeight: textLine(28), color: lilac.ink }}>invited</T>
         </View>
       </View>
       <T accessibilityRole="header" maxFontSizeMultiplier={1.4}
-        style={{ fontFamily: fonts.display, fontSize: phone ? 34 : 40, lineHeight: phone ? 38 : 44, letterSpacing: -0.8, marginTop: 20 }}>
+        style={{ fontFamily: fonts.bold, fontSize: phone ? 32 : 36, lineHeight: textLine(phone ? 32 : 36), letterSpacing: -0.3, marginTop: 20 }}>
         {active ? `Join ${potName}` : 'Join a household on Numa Shared'}
       </T>
       <T style={{ fontSize: 16, lineHeight: 22, color: c.ink2, marginTop: 12 }}>
