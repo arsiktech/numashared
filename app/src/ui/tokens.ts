@@ -1,6 +1,7 @@
 // Design tokens: the same values as the approved canvas (direction B "Color is who").
 // Color always means a group of people, never debt direction. Orange means one thing: add an expense.
 import { Platform, type TextStyle } from 'react-native';
+import { FontDisplay, type FontSource } from 'expo-font';
 import type { GroupColor } from '@/core/types';
 
 export const fonts = {
@@ -12,13 +13,17 @@ export const fonts = {
   bold: 'Instrument-700',
 } as const;
 
-export const fontFiles = {
-  [fonts.cond]: require('../../assets/fonts/BricolageCondensed-ExtraBold.ttf'),
-  [fonts.display]: require('../../assets/fonts/Bricolage-ExtraBold.ttf'),
-  [fonts.regular]: require('../../assets/fonts/InstrumentSans-Regular.ttf'),
-  [fonts.medium]: require('../../assets/fonts/InstrumentSans-Medium.ttf'),
-  [fonts.semibold]: require('../../assets/fonts/InstrumentSans-SemiBold.ttf'),
-  [fonts.bold]: require('../../assets/fonts/InstrumentSans-Bold.ttf'),
+// Same six files as before. font-display: swap, and the splash still waits for them.
+// Cyrillic is not in these files; src/ui/cyrillicFaces.ts adds it on the web under the same names.
+const source = (file: number): FontSource => ({ uri: file, display: FontDisplay.SWAP });
+
+export const fontFiles: Record<string, FontSource> = {
+  [fonts.cond]: source(require('../../assets/fonts/BricolageCondensed-ExtraBold.ttf')),
+  [fonts.display]: source(require('../../assets/fonts/Bricolage-ExtraBold.ttf')),
+  [fonts.regular]: source(require('../../assets/fonts/InstrumentSans-Regular.ttf')),
+  [fonts.medium]: source(require('../../assets/fonts/InstrumentSans-Medium.ttf')),
+  [fonts.semibold]: source(require('../../assets/fonts/InstrumentSans-SemiBold.ttf')),
+  [fonts.bold]: source(require('../../assets/fonts/InstrumentSans-Bold.ttf')),
 };
 
 export type Palette = {

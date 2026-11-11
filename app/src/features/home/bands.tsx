@@ -2,6 +2,7 @@
 // other group. Two groups get the big two-band layout; three or more get compact bands that say what
 // each group means for you. At the accessibility text sizes the ticket and orb leave the seam and sit
 // in a row under your name, so the bands grow with the text instead of clipping it.
+import { useEffect, useRef, useState } from 'react';
 import { useRouter } from 'expo-router';
 import { View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -12,7 +13,7 @@ import { openSheet } from '@/store/ui';
 import { ArrowDown, ArrowUp, Check, ChevDown, Gear, People } from '@/ui/icons';
 import { Dot, Pill, Press, T } from '@/ui/primitives';
 import { useTheme } from '@/ui/theme';
-import { alpha, fonts, isAndroid } from '@/ui/tokens';
+import { alpha, fonts, isAndroid, isWeb } from '@/ui/tokens';
 import { cappedSize, TEXT_CAP } from '@/ui/textScale';
 import { OrbButton } from '../records';
 import { money, nameOf, standingWords } from '../hooks';
@@ -103,9 +104,7 @@ export function Bands({ h, balances, hide, compact, tail }: { h: Household; bala
             </View>
           ))}
         </View>
-        <T accessibilityRole="header" numberOfLines={1} adjustsFontSizeToFit maxFontSizeMultiplier={TEXT_CAP.display} style={{ fontFamily: fonts.cond, fontSize: nameSize, lineHeight: nameSize * 0.98, color: t.ink, marginTop: 2 }}>
-          {nameOf(h, mine)}
-        </T>
+        <GroupTitle text={nameOf(h, mine)} size={nameSize} color={t.ink} header />
         {large ? (
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12, marginTop: 12 }}>
             {ticket}
@@ -140,7 +139,7 @@ function TwoGroupBand({ h, g, balances, nameSize, square, large }: { h: Househol
   const members = g.memberIds.map((id) => h.people.find((p) => p.id === id)!);
   return (
     <View style={{ backgroundColor: t.band, paddingTop: large ? 22 : 58, paddingHorizontal: 22, paddingBottom: 52, minHeight: large ? 0 : 250 }}>
-      <T numberOfLines={1} adjustsFontSizeToFit maxFontSizeMultiplier={TEXT_CAP.display} style={{ fontFamily: fonts.cond, fontSize: nameSize, lineHeight: nameSize * 0.98, color: t.ink }}>{nameOf(h, g)}</T>
+      <GroupTitle text={nameOf(h, g)} size={nameSize} color={t.ink} />
       <View style={{ flexDirection: 'row', gap: 10, marginTop: 6, flexWrap: 'wrap' }}>
         {members.map((p) => (
           <View key={p.id} style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
@@ -172,7 +171,7 @@ function CompactBand({ h, g, hide, first, last, balances, transfers, mine }: {
     <View style={{ backgroundColor: t.band, paddingTop: first ? 50 : 16, paddingBottom: last ? 44 : 16, paddingHorizontal: 22 }}>
       <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
         <View style={{ flex: 1, minWidth: 0 }}>
-          <T numberOfLines={1} adjustsFontSizeToFit maxFontSizeMultiplier={TEXT_CAP.display} style={{ fontFamily: fonts.cond, fontSize: 48, lineHeight: 48, color: t.ink }}>{nameOf(h, g)}</T>
+          <GroupTitle text={nameOf(h, g)} size={48} color={t.ink} />
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 4 }}>
             <Dot color={g.memberIds.every((id) => h.people.find((p) => p.id === id)?.joined) ? c.good : alpha('#000000', 0.3)} />
             <T style={{ fontFamily: fonts.semibold, fontSize: 14, color: t.ink, opacity: 0.85 }}>{overall}</T>
@@ -191,6 +190,38 @@ function CompactBand({ h, g, hide, first, last, balances, transfers, mine }: {
           </View>
         )}
       </View>
+    </View>
+  );
+}
+
+/**
+ * The condensed display size stays as designed. On the web, `numberOfLines` turns overflow into
+ * an ellipsis ("Юра + Лю…"), and adjustsFontSizeToFit does not run there. If the line is wider
+ * than the band, scale that one name down; a name that fits keeps the full size.
+ */
+function GroupTitle({ text, size, color, header }: { text: string; size: number; color: string; header?: boolean }) {
+  const ref = useRef<View>(null);
+  const [fontSize, setFontSize] = useState(size);
+  const fit = () => {
+    if (!isWeb) return;
+    const host = ref.current as unknown as HTMLElement | null;
+    const el = host?.firstElementChild as HTMLElement | null;
+    if (!host || !el) return;
+    el.style.whiteSpace = 'nowrap';
+    el.style.fontSize = `${size}px`;
+    const available = host.clientWidth;
+    const needed = el.scrollWidth;
+    const next = available > 8 && needed > available + 1 ? Math.max(20, Math.floor(size * available / needed)) : size;
+    setFontSize((cur) => (cur === next ? cur : next));
+  };
+  useEffect(() => { fit(); }, [text, size]);
+  return (
+    <View ref={ref} style={{ width: '100%', minWidth: 0 }} onLayout={fit}>
+      <T accessibilityRole={header ? 'header' : undefined} numberOfLines={isWeb ? undefined : 1}
+        adjustsFontSizeToFit={!isWeb} maxFontSizeMultiplier={TEXT_CAP.display}
+        style={{ fontFamily: fonts.cond, fontSize, lineHeight: fontSize * 0.98, color, marginTop: header ? 2 : 0 }}>
+        {text}
+      </T>
     </View>
   );
 }
