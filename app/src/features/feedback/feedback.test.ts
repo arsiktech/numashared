@@ -1,5 +1,5 @@
 import { afterEach, expect, test, vi } from 'vitest';
-import { feedbackCaptureAllowed, feedbackCloneSkipped, fetchFeedbackConfig, sendFeedback } from './feedback-client';
+import { feedbackCaptureAllowed, feedbackCloneSkips, fetchFeedbackConfig, sendFeedback } from './feedback-client';
 import { feedbackContext, feedbackEndpoint, feedbackEndpointFrom, feedbackLocale, shouldCaptureFeedback } from './config';
 
 const KEYS = ['EXPO_PUBLIC_FEEDBACK_URL', 'EXPO_PUBLIC_FEEDBACK_APP', 'EXPO_PUBLIC_FEEDBACK_KEY'] as const;
@@ -36,31 +36,48 @@ test('feedback stays off unless the address, app and key are all set', () => {
 });
 
 test('the screenshot clone skips noscript and other elements that are not shown', () => {
-  const element = (tag: string, extra: { hidden?: boolean; self?: boolean; connected?: boolean; style?: { display: string; visibility: string; contentVisibility: string } } = {}) => ({
-    nodeType: 1,
-    isConnected: extra.connected ?? false,
+  class Element {
+    parentElement: Element | null = null;
+    hidden = false;
+    display = 'block';
+    self = false;
+    ownerDocument!: { defaultView: { Element: typeof Element; getComputedStyle: (node: Element) => { display: string } } };
+    constructor(readonly tagName: string) {}
+    hasAttribute(name: string) { return name === 'hidden' && this.hidden; }
     matches(selector: string) {
       return selector.split(',').some((part) => {
         const token = part.trim();
-        if (token === tag) return true;
-        if (token === '[hidden]') return extra.hidden === true;
-        if (token === '[data-fb-self]') return extra.self === true;
+        if (token === this.tagName.toLowerCase()) return true;
+        if (token === '[data-fb-self]') return this.self;
         return false;
       });
-    },
-    ownerDocument: extra.style ? { defaultView: { getComputedStyle: () => extra.style } } : undefined,
-  });
-  const shown = { display: 'block', visibility: 'visible', contentVisibility: 'visible' };
-  expect(feedbackCloneSkipped(element('noscript') as never)).toBe(true);
-  expect(feedbackCloneSkipped(element('script') as never)).toBe(true);
-  expect(feedbackCloneSkipped(element('template') as never)).toBe(true);
-  expect(feedbackCloneSkipped(element('div', { hidden: true }) as never)).toBe(true);
-  expect(feedbackCloneSkipped(element('video') as never)).toBe(true);
-  expect(feedbackCloneSkipped(element('div', { self: true }) as never)).toBe(true);
-  expect(feedbackCloneSkipped(element('div', { connected: true, style: { ...shown, display: 'none' } }) as never)).toBe(true);
-  expect(feedbackCloneSkipped(element('div', { connected: true, style: { ...shown, visibility: 'hidden' } }) as never)).toBe(true);
-  expect(feedbackCloneSkipped(element('div', { connected: true, style: shown }) as never)).toBe(false);
-  expect(feedbackCloneSkipped({ nodeType: 3 } as never)).toBe(false);
+    }
+  }
+  const view = { Element, getComputedStyle: (node: Element) => ({ display: node.display }) };
+  const ownerDocument = { defaultView: view };
+  const make = (tag: string) => {
+    const node = new Element(tag);
+    node.ownerDocument = ownerDocument;
+    return node;
+  };
+  const inside = make('span');
+  inside.parentElement = make('noscript');
+  expect(feedbackCloneSkips(make('noscript') as never)).toBe(true);
+  expect(feedbackCloneSkips(make('script') as never)).toBe(true);
+  expect(feedbackCloneSkips(make('template') as never)).toBe(true);
+  expect(feedbackCloneSkips(inside as never)).toBe(true);
+  const hidden = make('div');
+  hidden.hidden = true;
+  expect(feedbackCloneSkips(hidden as never)).toBe(true);
+  expect(feedbackCloneSkips(make('video') as never)).toBe(true);
+  const self = make('div');
+  self.self = true;
+  expect(feedbackCloneSkips(self as never)).toBe(true);
+  const folded = make('div');
+  folded.display = 'none';
+  expect(feedbackCloneSkips(folded as never)).toBe(true);
+  expect(feedbackCloneSkips(make('div') as never)).toBe(false);
+  expect(feedbackCloneSkips({ ownerDocument: undefined } as never)).toBe(false);
 });
 
 test('a failed lookup keeps the button off', async () => {
