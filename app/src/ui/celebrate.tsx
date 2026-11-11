@@ -7,7 +7,7 @@ import { activeHousehold, useStore, yourGroup } from '@/store/store';
 import { clearToast, endCelebrate, useUI } from '@/store/ui';
 import { CTA, haptic, T } from './primitives';
 import { useTheme } from './theme';
-import { fonts, textLine } from './tokens';
+import { fonts } from './tokens';
 
 const DOTS = [
   [300, 120, 14, 1], [340, 200, 9, 2], [250, 250, 11, 1], [190, 150, 8, 0], [318, 300, 12, 1], [230, 330, 7, 2],
@@ -30,10 +30,10 @@ export function Celebrate() {
     <Animated.View entering={reduceMotion ? undefined : FadeIn.duration(200)} exiting={FadeOut.duration(200)}
       style={[StyleSheet.absoluteFill, { zIndex: 50 }]} accessibilityViewIsModal accessibilityLabel="All square. Nobody owes anybody.">
       <View style={{ height: split, backgroundColor: a.band, justifyContent: 'flex-end', paddingHorizontal: 22, paddingBottom: 34 }}>
-        <Animated.Text entering={reduceMotion ? undefined : ZoomIn.springify()} style={{ fontFamily: fonts.bold, fontSize: big, lineHeight: textLine(big), color: a.ink }}>All</Animated.Text>
+        <Animated.Text entering={reduceMotion ? undefined : ZoomIn.springify()} style={{ fontFamily: fonts.cond, fontSize: big, lineHeight: big * 0.86, color: a.ink }}>All</Animated.Text>
       </View>
       <View style={{ flex: 1, backgroundColor: b.band, paddingHorizontal: 22, paddingTop: 30 }}>
-        <Animated.Text entering={reduceMotion ? undefined : ZoomIn.delay(120).springify()} style={{ fontFamily: fonts.bold, fontSize: big, lineHeight: textLine(big), color: b.ink }}>square</Animated.Text>
+        <Animated.Text entering={reduceMotion ? undefined : ZoomIn.delay(120).springify()} style={{ fontFamily: fonts.cond, fontSize: big, lineHeight: big * 0.86, color: b.ink }}>square</Animated.Text>
         <View style={{ marginTop: 'auto', paddingBottom: insets.bottom + 16, gap: 14, maxWidth: 520 }}>
           <T style={{ fontFamily: fonts.semibold, fontSize: 17, color: b.ink }}>Nobody owes anybody.</T>
           <CTA label="Done" onPress={endCelebrate} />

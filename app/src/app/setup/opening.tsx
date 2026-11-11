@@ -10,7 +10,7 @@ import { showToast } from '@/store/ui';
 import { CTA, haptic, Press, T, TextButton } from '@/ui/primitives';
 import { BigAmount, Keypad } from '@/ui/money-ui';
 import { useTheme } from '@/ui/theme';
-import { fonts, isWeb, textLine } from '@/ui/tokens';
+import { fonts, isWeb } from '@/ui/tokens';
 import { nameOf, useHousehold } from '@/features/hooks';
 import { Screen, ScreenHeader, Segmented } from '@/features/onboarding/chrome';
 
@@ -98,7 +98,7 @@ export default function Opening() {
         accessibilityLabel={`${which === 'from' ? 'Group that owes' : 'Group that is owed'}: ${nameOf(h, g)}. Change`}
         style={{ minHeight: 44, paddingHorizontal: 12, borderRadius: 14, backgroundColor: t.band, justifyContent: 'center', alignSelf: 'flex-start',
           borderWidth: open ? 2 : 0, borderColor: t.ink }}>
-        <T style={{ fontFamily: fonts.bold, fontSize: 28, lineHeight: textLine(28), letterSpacing: -0.3, color: t.ink }}>{nameOf(h, g)}</T>
+        <T style={{ fontFamily: fonts.display, fontSize: 28, lineHeight: 36, letterSpacing: -0.6, color: t.ink }}>{nameOf(h, g)}</T>
       </Press>
     );
   };
@@ -138,7 +138,7 @@ export default function Opening() {
           <View style={{ marginTop: 22, backgroundColor: c.card, borderRadius: 22, paddingTop: 24, paddingHorizontal: 20, paddingBottom: 20 }}>
             <View style={{ flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', gap: 8 }}>
               {token('from', fromG)}
-              <T style={{ fontFamily: fonts.bold, fontSize: 28, lineHeight: textLine(28), letterSpacing: -0.3 }}>{isPlural(fromG, h.people, h.youId) ? 'owe' : 'owes'}</T>
+              <T style={{ fontFamily: fonts.display, fontSize: 28, letterSpacing: -0.6 }}>{isPlural(fromG, h.people, h.youId) ? 'owe' : 'owes'}</T>
             </View>
             <View style={{ marginTop: 6 }}>{token('to', toG)}</View>
             {picker}

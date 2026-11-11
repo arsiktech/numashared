@@ -6,7 +6,7 @@ import type { Cents, ID } from '@/core/types';
 import { Backspace, ChevDown, ChevUp } from './icons';
 import { haptic, Press, T } from './primitives';
 import { useTheme } from './theme';
-import { alpha, fonts, orb, textLine, type GroupTone } from './tokens';
+import { alpha, fonts, orb, type GroupTone } from './tokens';
 import { TEXT_CAP } from './textScale';
 
 /** "€52.80" with ghosted decimals and an optional caret, as in the Add sheet. */
@@ -21,11 +21,11 @@ export function BigAmount({ cents, currency, size = 84, color, caret, typed, acc
   const typedDec = typed !== undefined && typed.includes('.') ? typed.split('.')[1] : undefined;
   return (
     <View accessible accessibilityLabel={label} style={{ flexDirection: 'row', alignItems: 'flex-end' }}>
-      <T maxFontSizeMultiplier={cap} style={{ fontFamily: fonts.bold, fontSize: size * 0.55, lineHeight: size * 0.95, color, marginRight: 4 }}>{parts.symbol}</T>
-      <T maxFontSizeMultiplier={cap} style={{ fontFamily: fonts.bold, fontSize: size, lineHeight: textLine(size), letterSpacing: -size * 0.02, color, fontVariant: ['tabular-nums'] }}>
+      <T maxFontSizeMultiplier={cap} style={{ fontFamily: fonts.display, fontSize: size * 0.55, lineHeight: size * 0.95, color, marginRight: 4 }}>{parts.symbol}</T>
+      <T maxFontSizeMultiplier={cap} style={{ fontFamily: fonts.display, fontSize: size, lineHeight: size * 1.06, letterSpacing: -size * 0.035, color, fontVariant: ['tabular-nums'] }}>
         {groupThousands(shownWhole)}
         {parts.decimals !== null ? (
-          <T maxFontSizeMultiplier={cap} style={{ fontFamily: fonts.bold, fontSize: size, color, opacity: typedDec !== undefined ? 1 : 0.38 }}>
+          <T maxFontSizeMultiplier={cap} style={{ fontFamily: fonts.display, fontSize: size, color, opacity: typedDec !== undefined ? 1 : 0.38 }}>
             {'.'}{typedDec !== undefined ? typedDec.padEnd(parts.decimals.length, '0').slice(0, parts.decimals.length) : parts.decimals}
           </T>
         ) : null}
@@ -69,7 +69,7 @@ export function Word({ children, onPress, color, open, chevron = true, leading, 
       style={{ flexDirection: 'row', alignItems: 'center', gap: 6, minHeight: 44 }}>
       {leading}
       <View style={{ borderBottomWidth: 3, borderBottomColor: alpha(color, 0.32), paddingBottom: 2 }}>
-        <T maxFontSizeMultiplier={TEXT_CAP.sentence} style={{ fontFamily: fonts.bold, fontSize: size, lineHeight: textLine(size), letterSpacing: -size * 0.02, color: placeholder ? alpha(color, 0.55) : color }}>{children}</T>
+        <T maxFontSizeMultiplier={TEXT_CAP.sentence} style={{ fontFamily: fonts.display, fontSize: size, lineHeight: size * 1.18, letterSpacing: -size * 0.02, color: placeholder ? alpha(color, 0.55) : color }}>{children}</T>
       </View>
       {chevron ? (open ? <ChevUp size={18} color={alpha(color, 0.55)} /> : <ChevDown size={18} color={alpha(color, 0.55)} />) : null}
     </Press>

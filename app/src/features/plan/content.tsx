@@ -12,7 +12,7 @@ import { ArrowRight, Check, Close } from '@/ui/icons';
 import { CTA, Dot, Pill, Press, T, TextButton } from '@/ui/primitives';
 import { SheetHead, useSheet } from '@/ui/sheet';
 import { useTheme } from '@/ui/theme';
-import { fonts, isAndroid, textLine } from '@/ui/tokens';
+import { fonts, isAndroid } from '@/ui/tokens';
 import { money, nameOf, objectName, useHousehold } from '../hooks';
 import { dayMonth, isoDay } from '../history/model';
 
@@ -66,7 +66,7 @@ export function PlanContent() {
         <SheetHead title="Balance" right={<TextButton label="Done" bold onPress={() => close('done')} />} />
       )}
       <ScrollView style={{ flex: 1 }} contentContainerStyle={{ paddingHorizontal: 22, paddingTop: 8, paddingBottom: 20 }}>
-        <T accessibilityRole="header" style={{ fontFamily: fonts.bold, fontSize: many || square ? 32 : 28, lineHeight: textLine(many || square ? 32 : 28), letterSpacing: -0.3 }}>{title}</T>
+        <T accessibilityRole="header" style={{ fontFamily: fonts.cond, fontSize: many || square ? 40 : 36, lineHeight: many || square ? 42 : 38, letterSpacing: -0.4 }}>{title}</T>
         <T style={{ fontSize: 14, lineHeight: 19, color: c.ink2, marginTop: 8 }}>{sub}</T>
 
         {square ? <AllSquare h={h} /> : null}
@@ -173,7 +173,7 @@ function Move({ h, t, mine, hide, onRecord }: { h: Household; t: Transfer; mine:
       accessibilityLabel={`${nameOf(h, from)} ${isPlural(from, h.people, h.youId) ? 'owe' : 'owes'} ${objectName(h, to)} ${money(h, t.amount, hide)}`}>
       <View style={{ flex: 1, minWidth: 0 }}>
         <Pair h={h} from={from} to={to} dot={(g) => tone(g).deep} />
-        <T style={{ fontFamily: fonts.bold, fontSize: 20, lineHeight: textLine(20), letterSpacing: -0.3, marginTop: 2, fontVariant: ['tabular-nums'] }}>{money(h, t.amount, hide)}</T>
+        <T style={{ fontFamily: fonts.display, fontSize: 26, letterSpacing: -0.8, marginTop: 2, fontVariant: ['tabular-nums'] }}>{money(h, t.amount, hide)}</T>
       </View>
       {yours ? (
         <Pill label="Record it" accessibilityLabel={`Record ${nameOf(h, from)} paying ${nameOf(h, to)} ${money(h, t.amount)}`} onPress={onRecord} />

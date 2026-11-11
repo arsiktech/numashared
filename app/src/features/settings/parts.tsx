@@ -8,7 +8,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ChevRight } from '@/ui/icons';
 import { Press, T } from '@/ui/primitives';
 import { useTheme } from '@/ui/theme';
-import { fonts, isAndroid, textLine } from '@/ui/tokens';
+import { fonts, isAndroid } from '@/ui/tokens';
 import { ScreenHeader } from '@/features/onboarding/chrome';
 import { WebTopBar } from '@/features/web/topbar';
 import { SETTINGS_NAV, type DeskSection } from './section';
@@ -130,7 +130,7 @@ export function SettingsShell({ title, back, active, children, footer, onSection
             })}
           </View>
           <View style={{ flex: desk ? 1 : undefined, width: desk ? undefined : '100%', minWidth: 0, maxWidth: 720 }}>
-            <T accessibilityRole="header" style={{ fontFamily: fonts.bold, fontSize: 32, lineHeight: textLine(32), letterSpacing: -0.3, marginBottom: 14 }}>{title}</T>
+            <T accessibilityRole="header" style={{ fontFamily: fonts.cond, fontSize: 40, lineHeight: 42, marginBottom: 14 }}>{title}</T>
             {children}
             {footer ? <View style={{ marginTop: 24, maxWidth: 360 }}>{footer}</View> : null}
           </View>

@@ -9,7 +9,7 @@ import { useLocalSearchParams } from 'expo-router';
 import { CloudOff, Warn } from '@/ui/icons';
 import { Banner, BannerText, CTA, haptic, T } from '@/ui/primitives';
 import { useTheme } from '@/ui/theme';
-import { fonts, isWeb, textLine } from '@/ui/tokens';
+import { fonts, isWeb } from '@/ui/tokens';
 import { Brand, Screen } from '@/features/onboarding/chrome';
 import { explainFailure, SignInButtons, useSession, useSignInOptions } from '@/features/account/session';
 import { signInColumn } from '@/features/account/signInWidth';
@@ -103,7 +103,7 @@ export default function Connect() {
   return (
     <Screen header={<Brand />}>
       <T accessibilityRole="header" maxFontSizeMultiplier={1.4}
-        style={{ fontFamily: fonts.bold, fontSize: phone ? 32 : 36, lineHeight: textLine(phone ? 32 : 36), letterSpacing: -0.3, marginTop: phone ? 20 : 36 }}>
+        style={{ fontFamily: fonts.display, fontSize: phone ? 32 : 38, lineHeight: phone ? 36 : 42, letterSpacing: -0.8, marginTop: phone ? 20 : 36 }}>
         {title}
       </T>
 

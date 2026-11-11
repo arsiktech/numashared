@@ -1,11 +1,11 @@
 Bricolage Grotesque: Copyright 2022 The Bricolage Grotesque Project Authors (https://github.com/ateliertriay/bricolage)
 Instrument Sans: Copyright 2022 The Instrument Sans Project Authors (https://github.com/Instrument/instrument-sans)
-Inter: Copyright 2024 The Inter Project Authors (https://github.com/rsms/inter)
+Sofia Sans: Copyright 2019 The Sofia Sans Project Authors (https://github.com/lettersoup/Sofia-Sans)
+Onest: Copyright 2021 The Onest Project Authors (https://github.com/simpals/onest)
 
-The app UI loads Inter (Latin, Latin Extended and Cyrillic). Bricolage Grotesque and Instrument Sans
-stay in this folder under the same license; the product UI no longer registers them.
-Subsets were made from the Google Fonts distribution. All three fonts are licensed under the
-SIL Open Font License, Version 1.1:
+Latin text uses the bundled Bricolage Grotesque and Instrument Sans files. Cyrillic uses a
+unicode-range subset of Sofia Sans Extra Condensed (the condensed display) and Onest (body and
+the wider display). All four fonts are licensed under the SIL Open Font License, Version 1.1:
 
 
 This Font Software is licensed under the SIL Open Font License, Version 1.1.

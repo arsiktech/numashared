@@ -9,7 +9,7 @@ import { loadSample, unlock, useStore } from '@/store/store';
 import { Lock } from '@/ui/icons';
 import { CTA, Press, T } from '@/ui/primitives';
 import { useTheme } from '@/ui/theme';
-import { fonts, isWeb, textLine } from '@/ui/tokens';
+import { fonts, isWeb } from '@/ui/tokens';
 import { PUBLIC_SITE_URL } from '@/sync/config';
 import { Brand, MiniOrb } from '@/features/onboarding/chrome';
 
@@ -27,8 +27,8 @@ function PhoneWelcome() {
   const heroH = Math.round(Math.min(560, Math.max(300, height - lowerH + 26)));
   const topH = Math.round(heroH * 0.56);
   // "house money." takes two lines on a phone; keep both inside the lower band on short screens.
-  const size = Math.max(36, Math.min(64, (width - 44) / 6, (heroH - topH - 26 - 18) / 2.5));
-  const big = { fontFamily: fonts.bold, fontSize: size, lineHeight: textLine(size) };
+  const size = Math.max(40, Math.min(80, (width - 44) / 4.3, (heroH - topH - 26 - 18) / 1.9));
+  const big = { fontFamily: fonts.cond, fontSize: size, lineHeight: size * 0.94 };
   const orb = Math.round(Math.min(92, size * 1.15));
   return (
     <ScrollView style={{ flex: 1, backgroundColor: c.bg }} contentContainerStyle={{ flexGrow: 1 }} bounces={false}>
@@ -54,8 +54,8 @@ function DeskWelcome() {
   const { c, tone, width, layout } = useTheme();
   const citrus = tone('citrus');
   const lilac = tone('lilac');
-  const size = Math.max(48, Math.min(80, width * 0.055));
-  const big = { fontFamily: fonts.bold, fontSize: size, lineHeight: textLine(size) };
+  const size = Math.max(56, Math.min(96, width * 0.067));
+  const big = { fontFamily: fonts.cond, fontSize: size, lineHeight: size * 0.94 };
   const pad = layout === 'desk' ? 48 : 28;
   const orb = layout === 'desk' ? 92 : 80;
   return (
@@ -74,7 +74,7 @@ function DeskWelcome() {
           borderWidth: c.dark ? 1 : 0, borderColor: c.hair,
           shadowColor: '#1E2420', shadowOpacity: 0.07, shadowRadius: 50, shadowOffset: { width: 0, height: 20 } }}>
           <Brand />
-          <T accessibilityRole="header" style={{ fontFamily: fonts.bold, fontSize: 30, lineHeight: textLine(30), letterSpacing: -0.3, marginTop: 28 }}>Get started</T>
+          <T accessibilityRole="header" style={{ fontFamily: fonts.display, fontSize: 30, lineHeight: 36, letterSpacing: -0.6, marginTop: 28 }}>Get started</T>
           <T style={{ fontSize: 14, color: c.ink2, marginTop: 6, marginBottom: 22 }}>One balance for everyone you live with.</T>
           <WelcomeActions desk />
         </View>

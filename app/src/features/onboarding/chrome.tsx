@@ -1,5 +1,5 @@
 // Screen chrome shared by the setup, join and settings screens: the back header (iOS text back
-// with a large title, Android arrow with a left-aligned title), a scrolling body with a
+// with a large condensed title, Android arrow with a left-aligned title), a scrolling body with a
 // pinned footer on phones, and the form pieces (label, text field, segmented control, select row).
 import { useState, type ReactNode } from 'react';
 import {
@@ -11,7 +11,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ArrowBack, Back, ChevDown, ChevUp } from '@/ui/icons';
 import { IconButton, OrbView, Press, T } from '@/ui/primitives';
 import { useTheme } from '@/ui/theme';
-import { fonts, isAndroid, isIOS, isWeb, radius, textLine } from '@/ui/tokens';
+import { fonts, isAndroid, isIOS, isWeb, radius } from '@/ui/tokens';
 
 /** Back control and screen title. `back` is the label of the place you return to. */
 /** `back={null}` leaves the Back control out, for a step that can't be undone by going back. */
@@ -25,7 +25,7 @@ export function ScreenHeader({ title, back = 'Back', onBack, titleSize = 40 }: {
   if (back === null) {
     return title ? (
       <T accessibilityRole="header" maxFontSizeMultiplier={1.4}
-        style={{ fontFamily: fonts.bold, fontSize: titleSize, lineHeight: textLine(titleSize), letterSpacing: -0.3, marginTop: 8 }}>{title}</T>
+        style={{ fontFamily: fonts.cond, fontSize: titleSize, lineHeight: titleSize * 1.05, marginTop: 8 }}>{title}</T>
     ) : null;
   }
   if (isAndroid) {
@@ -45,7 +45,7 @@ export function ScreenHeader({ title, back = 'Back', onBack, titleSize = 40 }: {
       </Press>
       {title ? (
         <T accessibilityRole="header" maxFontSizeMultiplier={1.4}
-          style={{ fontFamily: fonts.bold, fontSize: titleSize, lineHeight: textLine(titleSize), letterSpacing: -0.3, marginTop: 8 }}>{title}</T>
+          style={{ fontFamily: fonts.cond, fontSize: titleSize, lineHeight: titleSize * 1.05, marginTop: 8 }}>{title}</T>
       ) : null}
     </View>
   );
@@ -173,7 +173,7 @@ export function Brand({ size = 30 }: { size?: number }) {
   return (
     <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
       <MiniOrb size={size} />
-      <T style={{ fontFamily: fonts.bold, fontSize: 19, lineHeight: textLine(19), letterSpacing: -0.3 }}>Numa Shared</T>
+      <T style={{ fontFamily: fonts.display, fontSize: 19, letterSpacing: -0.4 }}>Numa Shared</T>
     </View>
   );
 }

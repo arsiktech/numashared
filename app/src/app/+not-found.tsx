@@ -4,7 +4,7 @@ import { useRouter } from 'expo-router';
 import { useStore } from '@/store/store';
 import { CTA, Press, T } from '@/ui/primitives';
 import { useTheme } from '@/ui/theme';
-import { fonts, isWeb, textLine } from '@/ui/tokens';
+import { fonts, isWeb } from '@/ui/tokens';
 import { Brand } from '@/features/onboarding/chrome';
 import { PUBLIC_SITE_URL } from '@/sync/config';
 
@@ -16,7 +16,7 @@ export default function NotFound() {
     <View style={{ flex: 1, backgroundColor: c.bg, alignItems: 'center', justifyContent: 'center', padding: 24 }}>
       <View style={{ width: '100%', maxWidth: 400, gap: 12 }}>
         <Brand />
-        <T accessibilityRole="header" style={{ fontFamily: fonts.bold, fontSize: 30, lineHeight: textLine(30), letterSpacing: -0.3, marginTop: 16 }}>
+        <T accessibilityRole="header" style={{ fontFamily: fonts.display, fontSize: 30, lineHeight: 36, letterSpacing: -0.6, marginTop: 16 }}>
           This page doesn’t exist
         </T>
         <T style={{ fontSize: 16, lineHeight: 22, color: c.ink2, marginBottom: 12 }}>The link may be old or mistyped. Your households are safe.</T>

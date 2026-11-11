@@ -18,7 +18,7 @@ import { saveGuard, Sheet, SheetScrollView, useSheet } from '@/ui/sheet';
 import { forwardSheetInputKey } from '@/ui/sheet-focus';
 import { isShortSheet, pinsKeypad, SHORT_KEY_HEIGHT } from '@/features/add/layout';
 import { useTheme } from '@/ui/theme';
-import { alpha, fonts, isWeb, textLine, type GroupTone } from '@/ui/tokens';
+import { alpha, fonts, isWeb, type GroupTone } from '@/ui/tokens';
 import { cappedSize, TEXT_CAP } from '@/ui/textScale';
 import { initials, nameOf, personName, useHousehold } from '@/features/hooks';
 import {
@@ -349,7 +349,7 @@ function AddBody({ h, spec, draft, set, t, pop }: {
 
   const wordSize = pop ? 24 : screenH < 740 ? 26 : 30;
   const lineStyle = { flexDirection: 'row', alignItems: 'center', gap: 10, minHeight: pop ? 44 : wordSize > 26 ? 52 : 46, flexWrap: 'wrap' } as const;
-  const sentenceText: TextStyle = { fontFamily: fonts.bold, fontSize: wordSize, lineHeight: textLine(wordSize), letterSpacing: -wordSize * 0.02, color: t.ink };
+  const sentenceText: TextStyle = { fontFamily: fonts.display, fontSize: wordSize, lineHeight: wordSize * 1.18, letterSpacing: -wordSize * 0.02, color: t.ink };
   const contentW = (pop ? 420 : Math.min(screenW, isWeb ? 560 : screenW)) - 44;
   const amtBase = large ? 48 : pop ? 56 : screenH < 740 ? 66 : 84;
   // The amount is sized for the width with the system text size included (up to a cap), then drawn at exactly that size.

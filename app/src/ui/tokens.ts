@@ -4,43 +4,27 @@ import { Platform, type TextStyle } from 'react-native';
 import { FontDisplay, type FontSource } from 'expo-font';
 import type { GroupColor } from '@/core/types';
 
-// One family for Latin and Cyrillic. Bricolage (the old display cut) and the bundled
-// Instrument Sans files contain no Cyrillic glyphs, so "You + Арина" mixed two faces and
-// "Юра + Люда" fell back to the browser default. History amounts used that extra-bold
-// condensed cut and read as a poster next to the text face. Inter is the text face
-// throughout: hierarchy is weight and size. Headlines and amounts are the bold weight.
-const face = {
-  regular: 'Inter-400',
-  medium: 'Inter-500',
-  semibold: 'Inter-600',
-  bold: 'Inter-700',
-} as const;
-
-const stack = (name: string) => (Platform.OS === 'web' ? `${name}, system-ui, sans-serif` : name);
-
 export const fonts = {
-  cond: stack(face.bold),
-  display: stack(face.bold),
-  regular: stack(face.regular),
-  medium: stack(face.medium),
-  semibold: stack(face.semibold),
-  bold: stack(face.bold),
+  cond: 'BricolageCondensed',      // names, titles, big amounts on bands
+  display: 'Bricolage',            // sentence, amounts
+  regular: 'Instrument-400',
+  medium: 'Instrument-500',
+  semibold: 'Instrument-600',
+  bold: 'Instrument-700',
 } as const;
 
-// font-display: swap, and only these four files. The splash still waits for them, so the
-// first paint is the real face; swap keeps text visible if a later load is slow. A missing
-// glyph falls through to system-ui, which has Cyrillic, rather than a serif default.
+// Same six files as before. font-display: swap, and the splash still waits for them.
+// Cyrillic is not in these files; src/ui/cyrillicFaces.ts adds it on the web under the same names.
 const source = (file: number): FontSource => ({ uri: file, display: FontDisplay.SWAP });
 
 export const fontFiles: Record<string, FontSource> = {
-  [face.regular]: source(require('../../assets/fonts/Inter-Regular.ttf')),
-  [face.medium]: source(require('../../assets/fonts/Inter-Medium.ttf')),
-  [face.semibold]: source(require('../../assets/fonts/Inter-SemiBold.ttf')),
-  [face.bold]: source(require('../../assets/fonts/Inter-Bold.ttf')),
+  [fonts.cond]: source(require('../../assets/fonts/BricolageCondensed-ExtraBold.ttf')),
+  [fonts.display]: source(require('../../assets/fonts/Bricolage-ExtraBold.ttf')),
+  [fonts.regular]: source(require('../../assets/fonts/InstrumentSans-Regular.ttf')),
+  [fonts.medium]: source(require('../../assets/fonts/InstrumentSans-Medium.ttf')),
+  [fonts.semibold]: source(require('../../assets/fonts/InstrumentSans-SemiBold.ttf')),
+  [fonts.bold]: source(require('../../assets/fonts/InstrumentSans-Bold.ttf')),
 };
-
-/** Inter's typographic em is 1.21. A tighter line box clips descenders, including Cyrillic у and д. */
-export const textLine = (size: number) => Math.round(size * 1.25);
 
 export type Palette = {
   bg: string; card: string; ink: string; ink2: string; ink3: string; hair: string;
@@ -105,13 +89,13 @@ export const space = { xs: 4, s: 8, m: 12, l: 16, xl: 20, side: 22, xxl: 24, xxx
 const tab: TextStyle = { fontVariant: ['tabular-nums'] };
 
 export const type = {
-  name: { fontFamily: fonts.bold, fontSize: 34, lineHeight: textLine(34), letterSpacing: -0.4 } as TextStyle,
-  title: { fontFamily: fonts.bold, fontSize: 28, lineHeight: textLine(28), letterSpacing: -0.3 } as TextStyle,
-  h1: { fontFamily: fonts.bold, fontSize: 34, lineHeight: textLine(34) } as TextStyle,
-  sentence: { fontFamily: fonts.bold, fontSize: 30, lineHeight: textLine(30), letterSpacing: -0.4 } as TextStyle,
-  amount: { fontFamily: fonts.bold, fontSize: 40, lineHeight: textLine(40), letterSpacing: -0.6, ...tab } as TextStyle,
-  ticket: { fontFamily: fonts.bold, fontSize: 32, lineHeight: textLine(32), letterSpacing: -0.4, ...tab } as TextStyle,
-  h2: { fontFamily: fonts.bold, fontSize: 20, lineHeight: textLine(20), letterSpacing: -0.2 } as TextStyle,
+  name: { fontFamily: fonts.cond, fontSize: 74, lineHeight: 70, letterSpacing: -1.2 } as TextStyle,
+  title: { fontFamily: fonts.cond, fontSize: 40, lineHeight: 42, letterSpacing: -0.4 } as TextStyle,
+  h1: { fontFamily: fonts.cond, fontSize: 34, lineHeight: 36 } as TextStyle,
+  sentence: { fontFamily: fonts.display, fontSize: 30, lineHeight: 36, letterSpacing: -0.6 } as TextStyle,
+  amount: { fontFamily: fonts.display, fontSize: 84, lineHeight: 90, letterSpacing: -3, ...tab } as TextStyle,
+  ticket: { fontFamily: fonts.display, fontSize: 40, lineHeight: 44, letterSpacing: -1.2, ...tab } as TextStyle,
+  h2: { fontFamily: fonts.bold, fontSize: 20, lineHeight: 24, letterSpacing: -0.2 } as TextStyle,
   body: { fontFamily: fonts.regular, fontSize: 16, lineHeight: 22 } as TextStyle,
   bodyStrong: { fontFamily: fonts.semibold, fontSize: 16, lineHeight: 22 } as TextStyle,
   sub: { fontFamily: fonts.regular, fontSize: 14, lineHeight: 19 } as TextStyle,
