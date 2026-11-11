@@ -1,18 +1,20 @@
 // Already owe each other money? An optional opening balance that becomes the first line in history.
 // Reached during setup (?first=1) or later from Home's empty state; either way it ends on Home.
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { View } from 'react-native';
 import { Redirect, useLocalSearchParams, useRouter } from 'expo-router';
-import { applyKey, formatMoney, isPlural, parseInput, type Key } from '@/core';
+import { currencyDigits, formatMoney, isPlural, parseInput, type Key } from '@/core';
 import type { ID } from '@/core/types';
 import { setOpeningBalance, yourGroup } from '@/store/store';
 import { showToast } from '@/store/ui';
 import { CTA, haptic, Press, T, TextButton } from '@/ui/primitives';
 import { BigAmount, Keypad } from '@/ui/money-ui';
 import { useTheme } from '@/ui/theme';
-import { fonts, isWeb } from '@/ui/tokens';
+import { fonts } from '@/ui/tokens';
 import { nameOf, useHousehold } from '@/features/hooks';
 import { Screen, ScreenHeader, Segmented } from '@/features/onboarding/chrome';
+import { useAmountKeys } from '@/features/add/keys';
+import { useWebKeys } from '@/features/add/parts';
 
 export default function Opening() {
   const { h, ledger } = useHousehold();
@@ -26,20 +28,13 @@ export default function Opening() {
   const [input, setInput] = useState('');
   const currency = h?.currency ?? 'EUR';
 
+  const typeAmountKey = useAmountKeys(input, currency);
+  const onKey = (k: Key) => {
+    const next = typeAmountKey(k);
+    if (next !== null) setInput(next);
+  };
   // Desk and tablet web: type the amount on the keyboard as well.
-  useEffect(() => {
-    if (!isWeb || !yes) return;
-    const onKey = (e: KeyboardEvent) => {
-      const el = e.target as HTMLElement | null;
-      if (el && (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA' || el.isContentEditable)) return;
-      const k = e.key === 'Backspace' ? 'back' : e.key === ',' ? '.' : e.key;
-      if (!/^[0-9.]$/.test(k) && k !== 'back') return;
-      e.preventDefault();
-      setInput((v) => applyKey(v, k as Key, currency));
-    };
-    window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
-  }, [yes, currency]);
+  useWebKeys(yes, { onKey });
 
   if (!h || !ledger) return <Redirect href="/welcome" />;
   const mine = yourGroup(h);
@@ -148,7 +143,7 @@ export default function Opening() {
             </View>
           </View>
           <View style={{ marginTop: 8 }}>
-            <Keypad color={c.ink} height={52} onKey={(k) => setInput((v) => applyKey(v, k as Key, currency))} />
+            <Keypad color={c.ink} height={52} onKey={(k) => onKey(k as Key)} allowDot={currencyDigits(currency) > 0} />
           </View>
           <View style={{ marginTop: 8, backgroundColor: c.chip, borderRadius: 16, padding: 14 }}>
             <T style={{ fontSize: 14.5, lineHeight: 20 }}>This becomes the first line in history, so everyone starts from the same number.</T>

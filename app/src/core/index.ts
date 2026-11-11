@@ -4,7 +4,7 @@ export * from './money';
 export * from './allocate';
 export * from './names';
 export * from './ledger';
-export { explain, recordLabel } from './explain';
+export { explain } from './explain';
 export * from './plan';
 export * from './undo';
 export * from './fixtures';

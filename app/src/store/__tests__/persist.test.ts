@@ -1,12 +1,12 @@
 // Review blocker 3: a save is reported only once it is on the device, and a failed write is shown.
 import { beforeEach, describe, expect, test, vi } from 'vitest';
 
-const disk = vi.hoisted(() => ({ data: new Map<string, string>(), fail: false, writes: [] as string[] }));
+const disk = vi.hoisted(() => ({ data: new Map<string, string>(), fail: false, writes: [] as string[], delays: [] as number[] }));
 vi.mock('@react-native-async-storage/async-storage', () => ({
   default: {
     getItem: async (k: string) => disk.data.get(k) ?? null,
     setItem: async (k: string, v: string) => {
-      await new Promise((r) => setTimeout(r, 5));
+      await new Promise((r) => setTimeout(r, disk.delays.shift() ?? 5));
       if (disk.fail) throw new Error('disk full');
       disk.writes.push(v);
       disk.data.set(k, v);
@@ -29,6 +29,7 @@ beforeEach(async () => {
   disk.data.clear();
   disk.writes.length = 0;
   disk.fail = false;
+  disk.delays.length = 0;
   await store.hydrate();
   store.loadSample();
 });
@@ -58,6 +59,8 @@ describe('durable saves', () => {
   test('writes land in order, so an older snapshot never overwrites a newer one', async () => {
     const h = store.activeHousehold(store.getState())!;
     const content = sampleContent(h);
+    // The first write is slower, so without the queue the older snapshot would land last.
+    disk.delays.push(40, 5);
     const [a, b] = await Promise.all([store.addExpense(h, content, 'A'), store.addExpense(store.activeHousehold(store.getState())!, content, 'B')]);
     const last = JSON.parse(disk.writes.at(-1)!) as { households: { events: { id: string }[] }[] };
     const ids = last.households.flatMap((x) => x.events.map((e) => e.id));

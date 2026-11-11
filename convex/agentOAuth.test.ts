@@ -729,7 +729,10 @@ describe("OAuth scopes for writes", () => {
     const { challenge } = pkce();
     const started = await authorize(t, client.client_id, await challenge, { scope: "shared:read" });
     const described = await t.query(api.agentOAuth.describeRequest, { request: requestIdOf(started.headers.get("location")!) });
-    expect(described).not.toHaveProperty("canWrite");
+    // Exactly the shape a full-scope request gets: nothing in it varies with the scope asked for.
+    expect(described).toEqual({
+      status: "pending", agent: "Claude Code", verifiedHost: null, returnsTo: "127.0.0.1:33418", returnsToThisComputer: true,
+    });
   });
 
   test("a connection made before writes existed keeps shared:read and stays read-only until switched on", async () => {

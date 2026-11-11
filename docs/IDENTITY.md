@@ -249,6 +249,13 @@ Real Apple exchange additionally requires `SIWA_CLIENT_ID` (the bundle id),
 `NUMA_SHARED_APPLE_REFRESH_ENCRYPTION_KEY_VERSION`. These values belong only in
 the approved deployment environment. They are not needed by local sync tests.
 
+Sign in with Apple on the web (body `"client": "web"`) also needs
+`SIWA_WEB_CLIENT_ID`, the Services ID grouped with the app's App ID, which
+replaces the bundle id as the token audience and client-secret subject, and
+`SIWA_WEB_REDIRECT_URI`, the return URL registered for that Services ID, sent
+with the authorization-code exchange. Without both, web exchange answers
+`503 APPLE_WEB_SIGN_IN_UNAVAILABLE`.
+
 ## Local deterministic seam
 
 `POST /auth/e2e/bootstrap` exists only when all fail-closed local deployment

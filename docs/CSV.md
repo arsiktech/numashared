@@ -11,6 +11,14 @@ Quotes, commas and embedded newlines retain their normal CSV escaping. This
 literal-text policy does not change ledger content and does not guarantee how a
 spreadsheet transforms a file after import or re-saving.
 
+The `note` column holds the record's own note followed by its later changes, in
+order and separated by semicolons. Each change names who made it and, for a
+connected AI agent, the agent: "Edited by …" with the fields that changed,
+"Voided by …: <reason>", "Restored by …", and "Flagged by …: <reason>" for a
+repayment, where the reason is the one chosen when flagging. The `split` column
+of a repayment names the method the way the app shows it, for example
+"to Alex by Bank transfer".
+
 ## Legacy Swift event-log export
 
 Settings exports one UTF-8 CSV file with a byte-order mark and RFC 4180 quoting.

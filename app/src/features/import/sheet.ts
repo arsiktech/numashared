@@ -91,7 +91,7 @@ function columns(header: string[]): Columns {
   return out;
 }
 
-export type TabKind = 'expenses' | 'payments';
+type TabKind = 'expenses' | 'payments';
 
 /** Which of the two tabs this is, from its header row; null for anything else (a summary tab). */
 export function tabKind(rows: string[][]): TabKind | null {
@@ -173,9 +173,9 @@ export function categoryFor(label: string): Category {
 
 // ---------- reading the rows ----------
 
-export type ExpenseRow = { row: number; at: Date; title: string; category: Category; categoryLabel: string; who: string; cents: Cents; note?: string };
-export type PaymentRow = { row: number; at: Date; group: string; cents: Cents; note?: string };
-export type Skipped = { tab: TabKind; row: number; reason: string; text: string };
+type ExpenseRow = { row: number; at: Date; title: string; category: Category; categoryLabel: string; who: string; cents: Cents; note?: string };
+type PaymentRow = { row: number; at: Date; group: string; cents: Cents; note?: string };
+type Skipped = { tab: TabKind; row: number; reason: string; text: string };
 
 const clip = (s: string, max = 500) => (s.length > max ? `${s.slice(0, max - 1)}…` : s);
 const clean = (s: string | undefined) => (s ?? '').replace(/\s+/g, ' ').trim();

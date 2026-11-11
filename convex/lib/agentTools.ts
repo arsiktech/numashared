@@ -5,6 +5,7 @@
 //
 // There is no tool, and no other path, that deletes an account or a household, leaves a household
 // or removes a member (agentMcp.test.ts checks the list).
+import type { AgentSwitch } from "../agentAccess";
 import type { AgentWriteOp } from "../agentWrites";
 
 type Json = Record<string, unknown>;
@@ -17,16 +18,13 @@ export type AgentIo = {
   write: (op: AgentWriteOp, requestId: string) => Promise<unknown>;
 };
 
-/** The switch in Settings, AI agents that a writing tool needs. */
-export type AgentSwitchName = "addRecords" | "editRecords" | "manageHousehold";
-
 export type AgentTool = {
   name: string;
   title: string;
   description: string;
   inputSchema: Schema;
-  /** Set on tools that change something. */
-  writes?: AgentSwitchName;
+  /** Set on tools that change something: the switch in Settings, AI agents that it needs. */
+  writes?: AgentSwitch;
   /** Replaces or removes something people see (an edit, a void, a new name, new groups). */
   destructive?: boolean;
   run: (io: AgentIo, args: Json) => Promise<unknown>;

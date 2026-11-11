@@ -32,6 +32,7 @@ import { sha256Hex } from "./lib/hash";
 import { readInviteTicketSecret } from "./lib/inviteTicket";
 import { ios18TimeZoneIdentifiers } from "./lib/ios18TimeZoneIdentifiers";
 import { isNotificationEligible } from "./lib/notificationMatrix";
+import { base64url, hmacSha256 } from "./lib/oauth";
 import { generateUUIDv7 } from "./lib/uuidV7";
 
 declare const process: { env: Record<string, string | undefined> };
@@ -590,17 +591,6 @@ async function updateGroups(c: Context, op: Op<"update_groups">) {
   };
 }
 
-async function hmac(secret: string, label: string): Promise<Uint8Array> {
-  const key = await crypto.subtle.importKey("raw", new TextEncoder().encode(secret), { name: "HMAC", hash: "SHA-256" }, false, ["sign"]);
-  return new Uint8Array(await crypto.subtle.sign("HMAC", key, new TextEncoder().encode(label)));
-}
-
-function base64url(bytes: Uint8Array): string {
-  let binary = "";
-  for (const byte of bytes) binary += String.fromCharCode(byte);
-  return btoa(binary).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
-}
-
 /**
  * The invite secrets for one agent request. They are derived, not stored: a retried call gets the
  * same code again (the stored answer keeps the invite id), and the server keeps only their hashes,
@@ -609,8 +599,8 @@ function base64url(bytes: Uint8Array): string {
  */
 async function inviteSecrets(connectionId: string, requestId: string, inviteId: string): Promise<{ token: string; code: string }> {
   const secret = readInviteTicketSecret(process.env);
-  const token = base64url(await hmac(secret, `agent-invite-token:${connectionId}:${requestId}:${inviteId}`));
-  const codeBytes = await hmac(secret, `agent-invite-code:${connectionId}:${requestId}:${inviteId}`);
+  const token = base64url(await hmacSha256(secret, `agent-invite-token:${connectionId}:${requestId}:${inviteId}`));
+  const codeBytes = await hmacSha256(secret, `agent-invite-code:${connectionId}:${requestId}:${inviteId}`);
   const code = Array.from(codeBytes.slice(0, 6), (b) => CODE_ALPHABET[b & 31]).join("");
   return { token, code };
 }

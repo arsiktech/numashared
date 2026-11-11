@@ -27,6 +27,12 @@ describe('hide amounts (item 15)', () => {
     expect(standingWords(h, 500, false, true)).toBe('get back €••••');
     expect(standingWords(h, 500, false, false)).toMatch(digits);
   });
+
+  test('a hidden amount carries the household’s own currency', () => {
+    expect(standingWords({ ...h, currency: 'USD' }, -1234, true, true)).toBe('owes $••••');
+    // A code without a symbol is followed by a no-break space, as in formatMoney.
+    expect(standingWords({ ...h, currency: 'CHF' }, 500, false, true)).toBe('get back CHF ••••');
+  });
 });
 
 test('Tab jumps to the note only as the first press (item 16)', () => {

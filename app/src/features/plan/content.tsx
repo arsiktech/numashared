@@ -13,7 +13,7 @@ import { CTA, Dot, Pill, Press, T, TextButton } from '@/ui/primitives';
 import { SheetHead, useSheet } from '@/ui/sheet';
 import { useTheme } from '@/ui/theme';
 import { fonts, isAndroid } from '@/ui/tokens';
-import { money, nameOf, objectName, useHousehold } from '../hooks';
+import { hiddenAmount, money, nameOf, objectName, useHousehold } from '../hooks';
 import { dayMonth, isoDay } from '../history/model';
 
 export function PlanContent() {
@@ -129,7 +129,7 @@ function Diverging({ h, balances, hide }: { h: Household; balances: Record<strin
   return (
     <View style={{ marginTop: 22 }} accessibilityLabel={h.groups.map((g) => {
       const b = balances[g.id] ?? 0;
-      return `${nameOf(h, g)} ${b < 0 ? `owes ${money(h, -b)}` : b > 0 ? `gets back ${money(h, b)}` : 'square'}`;
+      return `${nameOf(h, g)} ${b < 0 ? `owes ${money(h, -b, hide)}` : b > 0 ? `gets back ${money(h, b, hide)}` : 'square'}`;
     }).join('. ')}>
       <View style={{ flexDirection: 'row', marginBottom: 4 }}>
         <View style={{ width: nameW }} />
@@ -143,7 +143,7 @@ function Diverging({ h, balances, hide }: { h: Household; balances: Record<strin
         const bar = (side: 'l' | 'r') => (
           <View style={{ position: 'absolute', top: 0, bottom: 0, [side === 'l' ? 'right' : 'left']: 4, width: w, minWidth: 72, borderRadius: 8,
             backgroundColor: t.band, justifyContent: 'center', paddingHorizontal: 8 }}>
-            <T numberOfLines={1} style={{ fontFamily: fonts.bold, fontSize: 13, color: t.ink, fontVariant: ['tabular-nums'], textAlign: side === 'l' ? 'left' : 'left' }}>{money(h, Math.abs(b), hide)}</T>
+            <T numberOfLines={1} style={{ fontFamily: fonts.bold, fontSize: 13, color: t.ink, fontVariant: ['tabular-nums'], textAlign: 'left' }}>{money(h, Math.abs(b), hide)}</T>
           </View>
         );
         return (
@@ -176,7 +176,7 @@ function Move({ h, t, mine, hide, onRecord }: { h: Household; t: Transfer; mine:
         <T style={{ fontFamily: fonts.display, fontSize: 26, letterSpacing: -0.8, marginTop: 2, fontVariant: ['tabular-nums'] }}>{money(h, t.amount, hide)}</T>
       </View>
       {yours ? (
-        <Pill label="Record it" accessibilityLabel={`Record ${nameOf(h, from)} paying ${nameOf(h, to)} ${money(h, t.amount)}`} onPress={onRecord} />
+        <Pill label="Record it" accessibilityLabel={`Record ${nameOf(h, from)} paying ${nameOf(h, to)} ${money(h, t.amount, hide)}`} onPress={onRecord} />
       ) : (
         <T style={{ fontFamily: fonts.semibold, fontSize: 12.5, lineHeight: 17, color: c.ink2, textAlign: 'right', maxWidth: 130 }}>
           {nameOf(h, from)} or {nameOf(h, to)}{'\n'}record this one
@@ -202,7 +202,7 @@ function Pair({ h, from, to, dot }: { h: Household; from: Group; to: Group; dot:
 
 function WhyTable({ h, lines, hide }: { h: Household; lines: ExplainLine[]; hide: boolean }) {
   const { c } = useTheme();
-  const num = (cents: number, sign: 'always' | 'auto') => (hide ? '••••' : formatMoney(cents, h.currency, { symbol: false, sign }));
+  const num = (cents: number, sign: 'always' | 'auto') => (hide ? hiddenAmount(h.currency, false) : formatMoney(cents, h.currency, { symbol: false, sign }));
   const cols = { date: 62, change: 78, run: 84 };
   const numStyle = { fontFamily: fonts.semibold, fontSize: 15, textAlign: 'right' as const, fontVariant: ['tabular-nums' as const] };
   return (

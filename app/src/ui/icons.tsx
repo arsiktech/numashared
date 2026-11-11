@@ -46,12 +46,10 @@ export const Eye = (p: P) => <S {...p}><Path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7
 export const Pencil = (p: P) => <S {...p}><Path d="M4 20h4L19 9l-4-4L4 16zM13.5 6.5l4 4" /></S>;
 export const VoidX = (p: P) => <S {...p}><Circle cx="12" cy="12" r="9" /><Path d="M5.6 5.6l12.8 12.8" /></S>;
 export const Backspace = (p: P) => <S strokeWidth={1.8} {...p}><Path d="M21 5H9l-6 7 6 7h12a1 1 0 0 0 1-1V6a1 1 0 0 0-1-1zM17 9l-5 6M12 9l5 6" /></S>;
-export const Mail = (p: P) => <S {...p}><Rect x="3" y="5" width="18" height="14" rx="2.5" /><Path d="m4 7 8 6 8-6" /></S>;
 export const Repay = (p: P) => <S {...p}><Path d="M4 8h13l-3-3M20 16H7l3 3" /></S>;
 export const House = (p: P) => <S {...p}><Path d="M4 20h16M6 20V9l6-5 6 5v11M10 20v-6h4v6" /></S>;
-export const Grip = (p: P) => <S {...p}><Path d="M5 8h14M5 12h14M5 16h14" /></S>;
 export const Moon = (p: P) => <S {...p}><Path d="M20 14.5A8 8 0 0 1 9.5 4 8 8 0 1 0 20 14.5z" /></S>;
-export const Dots = (p: P) => (
+const Dots = (p: P) => (
   <S {...p}><Circle cx="6" cy="12" r="1.3" fill={p.color} /><Circle cx="12" cy="12" r="1.3" fill={p.color} /><Circle cx="18" cy="12" r="1.3" fill={p.color} /></S>
 );
 export const Apple = ({ size = 18, color }: P) => (

@@ -1,6 +1,6 @@
 # Push delivery
 
-Numa Shared uses alert pushes only for the exhaustive matrix in `GOAL_BRIEF.md §6`. The server composes the English, pot-named body; clients never supply notification text or amounts.
+Numa Shared uses alert pushes only for the exhaustive matrix in `convex/lib/notificationMatrix.ts` (tested by `convex/notificationMatrix.test.ts`). The server composes the English, pot-named body; clients never supply notification text or amounts.
 
 ## Delivery path
 

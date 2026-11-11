@@ -94,7 +94,7 @@ export default function CardSyncScreen() {
           <T style={{ fontFamily: fonts.semibold, fontSize: 16 }}>Your sync key</T>
           <T selectable style={{ fontFamily: fonts.semibold, fontSize: 14, letterSpacing: 0.2 }}>{key}</T>
           <T style={{ fontSize: 14, lineHeight: 20, color: c.ink2 }}>
-            Give it to the sync script on your computer. It’s shown only now; if you lose it, make a new one. It can only add card spends to {h.name}.
+            Give it to the sync script on your computer. It’s shown only now; if you lose it, make a new one. It can only add card spends to {h.name}, and correct or remove the ones it added.
           </T>
         </View>
       ) : null}

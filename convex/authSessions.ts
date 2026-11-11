@@ -296,17 +296,20 @@ export const establishLocalE2ESession = internalMutation({
     publicAccountId: string;
     sessionId: string;
     refreshExpiresAt: number;
-  }> => establish(ctx, {
-    subjectHash: args.localSubjectHash,
-    relayEmail: undefined,
-    encryptedAppleRefresh: undefined,
-    sessionId: args.sessionId,
-    publicAccountIdCandidate: args.publicAccountIdCandidate,
-    refreshTokenHash: args.refreshTokenHash,
-    now: args.now,
-    expiresAt: args.expiresAt,
-    requireAppleAuthorization: false,
-  }),
+  }> => {
+    requireLocalE2EAuthTarget();
+    return establish(ctx, {
+      subjectHash: args.localSubjectHash,
+      relayEmail: undefined,
+      encryptedAppleRefresh: undefined,
+      sessionId: args.sessionId,
+      publicAccountIdCandidate: args.publicAccountIdCandidate,
+      refreshTokenHash: args.refreshTokenHash,
+      now: args.now,
+      expiresAt: args.expiresAt,
+      requireAppleAuthorization: false,
+    });
+  },
 });
 
 export const rotateSession = internalMutation({
@@ -460,24 +463,6 @@ export const revokeAccountSessions = internalMutation({
       }
     }
     return { revokedCount, hasMore: sessions.length === 100 };
-  },
-});
-
-export const markAppleAuthorizationRevoked = internalMutation({
-  args: {
-    accountId: v.id("accounts"),
-    now: v.number(),
-  },
-  handler: async (ctx, args) => {
-    requireApprovedWriteTarget();
-    const authorization = await ctx.db
-      .query("appleAuthorizations")
-      .withIndex("by_account", (index) => index.eq("accountId", args.accountId))
-      .unique();
-    if (authorization && authorization.revokedAt === undefined) {
-      await ctx.db.patch(authorization._id, { revokedAt: args.now });
-    }
-    return { revoked: authorization !== null };
   },
 });
 

@@ -8,13 +8,21 @@ none may redirect through the old custom host.
 
 ## Routes
 
-- `GET /` — self-contained Numa Shared marketing page with inline CSS and no script, media, font, or custom-domain dependency.
+- `GET /` — Numa Shared marketing page, built from `web-home/` by `npm run build:home`. Its CSS is inline; its script, images and font load from `/assets/` on the same origin, with no custom-domain dependency.
+- `GET /assets/<name>` — the marketing page's script, images and font, embedded in `convex/lib/homePage.generated.ts`. Unknown names return `404`.
 - `GET /.well-known/apple-app-site-association` — direct JSON AASA response for `/join/*` only.
 - `GET /join/<credential>` — generic, non-indexed Open Graph page. It performs no invite lookup, so crawlers receive no pot, member, status, or financial detail.
 - `POST /join/<credential>` — deliberate reveal. Browser requests receive a limited HTML result with the human-typable code; clients requesting JSON receive invite status and, only while active, pot name, invite kind, expiry, and a ten-minute signed claim ticket.
 - `GET /privacy` — configured controller/privacy notice.
 - `GET /support` — configured support address and factual FAQ.
+- `GET /terms` — terms of service, from the configured operator, address and support email.
 - `GET /app-config` — no-store public configuration containing the optional minimum supported iOS build.
+- `POST /auth/apple/exchange`, `/auth/google/exchange`, `/auth/refresh`, `/auth/logout` and `/auth/apple/notifications` — sign-in and sessions; see [IDENTITY.md](IDENTITY.md). `POST /auth/e2e/bootstrap` exists only for the anonymous-local test harness.
+- `POST /auth/account/deletion-preview` and `/auth/account/delete` — see [ACCOUNT-DELETION.md](ACCOUNT-DELETION.md).
+- `POST /card-sync/spends` — card spends from `tools/card-sync`, authorized by a card-sync key in the `Authorization` header.
+- `/mcp`, `/oauth/register`, `/oauth/authorize`, `/oauth/token`, `/oauth/revoke` and the `/.well-known/oauth-*` metadata — agent access; see [AGENT-ACCESS.md](AGENT-ACCESS.md).
+
+The web app calls the sign-in, session and deletion endpoints, `/app-config` and `POST /join/<credential>` from its own origin. Those routes answer `OPTIONS` preflight and add CORS headers only for an origin in `NUMA_SHARED_WEB_ORIGINS`.
 
 The canonical shared URL is `/join/<long-token>?code=<six-character-code>`. The URL-safe 32–512 character token is the high-entropy link/QR credential; the paired query value lets the no-app page display the independent typed fallback without storing its plaintext. A mismatched or missing pair does not resolve. The code-only `/join/<code>` path remains the guaranteed in-app fallback.
 
@@ -64,6 +72,9 @@ These are public configuration, not credentials, but the final values require th
 - `NUMA_SHARED_PRIVACY_EMAIL`
 - `NUMA_SHARED_SUPPORT_EMAIL`
 - `NUMA_SHARED_TRANSFER_MECHANISM` — wording approved after the Convex DPA/transfer review.
+- `NUMA_SHARED_WEB_APP_URL` — optional web app address. When set, the marketing page shows "Open app" and invite pages offer "Open in your browser", which opens `<web app>/join` with the code filled in.
+- `NUMA_SHARED_TESTFLIGHT_URL` — optional `https://testflight.apple.com/join/...` link. When set, invite pages offer the TestFlight beta instead of the App Store listing.
+- `NUMA_SHARED_WEB_ORIGINS` — comma-separated exact `https://` origins of the web app that receive CORS headers. Every other origin receives none.
 
 `NUMA_SHARED_TOKEN_HASH_SECRET` remains a deployment secret and also signs claim tickets and privacy-safe abuse buckets. Missing or malformed configuration returns a sanitized `503`; no placeholder controller, address, email, App Store ID, or transfer mechanism is published.
 

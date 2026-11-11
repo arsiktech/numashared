@@ -105,13 +105,13 @@ function sharesOf(h: Household, split: Split, amount: Cents): Record<ID, Cents> 
   return shares(probe, h.groups, h.people);
 }
 
-export function equalShares(h: Household, d: SplitDraft, amount: Cents): Record<ID, Cents> {
+function equalShares(h: Household, d: SplitDraft, amount: Cents): Record<ID, Cents> {
   if (!activeGroups(h, d).length) return {};
   return sharesOf(h, equalSplit(h, d), amount);
 }
 
 /** Splits `amount` in proportion to `weights` (cents), exactly. Groups weighted 0 get 0. */
-export function scaleShares(weights: Record<ID, Cents>, amount: Cents, order: ID[]): Record<ID, Cents> {
+function scaleShares(weights: Record<ID, Cents>, amount: Cents, order: ID[]): Record<ID, Cents> {
   const ids = order.filter((id) => id in weights);
   const positive = ids.filter((id) => weights[id] > 0);
   const result: Record<ID, Cents> = {};

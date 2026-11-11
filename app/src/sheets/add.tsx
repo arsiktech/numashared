@@ -6,7 +6,7 @@
 // stays in view while typing. A short screen (a phone in landscape) scrolls the whole sheet instead.
 import { useEffect, useMemo, useRef, useState, type Dispatch, type ReactNode, type SetStateAction } from 'react';
 import { TextInput, View, type TextStyle } from 'react-native';
-import { applyKey, categoryLabel, currencyDigits, formatMoney, inputFromCents, parseInput, typeAmount, type Key } from '@/core';
+import { applyKey, categoryLabel, currencyDigits, formatMoney, inputFromCents, parseInput, type Key } from '@/core';
 import type { Category, ExpenseContent, Household, ID, LedgerEvent } from '@/core/types';
 import { addExpense, groupOfPerson, ledgerOf, reviseExpense, SaveError, yourGroup } from '@/store/store';
 import { showToast, useUI, type OpenSheet } from '@/store/ui';
@@ -17,6 +17,7 @@ import { Avatar, Banner, BannerText, CTA, haptic, Press, T, TChip } from '@/ui/p
 import { saveGuard, Sheet, SheetScrollView, useSheet } from '@/ui/sheet';
 import { forwardSheetInputKey } from '@/ui/sheet-focus';
 import { isShortSheet, pinsKeypad, SHORT_KEY_HEIGHT } from '@/features/add/layout';
+import { typeKey, type TypedAmount } from '@/features/add/keys';
 import { useTheme } from '@/ui/theme';
 import { alpha, fonts, isWeb, type GroupTone } from '@/ui/tokens';
 import { cappedSize, TEXT_CAP } from '@/ui/textScale';
@@ -121,7 +122,7 @@ function AddBody({ h, spec, draft, set, t, pop }: {
   // scroll the whole sheet instead of hiding the top row. Checked again when the screen changes.
   const [cramped, setCramped] = useState<number | null>(null);
   const noteRef = useRef<TextInput>(null);
-  const typed = useRef<{ keys: Key[]; input: string }>({ keys: [], input: '' });
+  const typed = useRef<TypedAmount>({ keys: [], input: '' });
   const live = useRef({ input: draft.input, sug: !!draft.sugKey });
   useEffect(() => { live.current = { input: draft.input, sug: !!draft.sugKey }; }, [draft.input, draft.sugKey]);
   const saving = saveGuard(spec.key);
@@ -180,23 +181,18 @@ function AddBody({ h, spec, draft, set, t, pop }: {
       return;
     }
     if (panel === 'payer' || panel === 'date') setPanel(null);
-    // Replay every key typed so far (typeAmount), so "1.600,00" from a European keyboard means 1600.
     // Refs, not the render's draft, so fast typing on a keyboard doesn't lose keys between renders.
     const start = live.current.sug && k !== 'back' ? '' : live.current.input;
-    const base = typed.current.input === start ? typed.current.keys : ([...start] as Key[]);
-    const seq = k === 'back' ? base.slice(0, -1) : [...base, k];
-    const next = typeAmount(seq, cur);
-    if (k !== 'back' && next === start) {
-      // A third digit after a separator may still turn out to be thousands ("1.600,"), so keep it.
-      const maybeThousands = /^[0-9]$/.test(k) && seq.length >= 4 && seq[seq.length - 4] === '.' && seq.slice(-3).every((x: Key) => /^[0-9]$/.test(x));
-      if (maybeThousands) showToast(`${currencyDigits(cur)} decimal places at most. For a thousand or more, type the digits without a separator.`);
-      else {
-        haptic.warn();
-        if (/^[0-9]$/.test(k)) showToast(start.includes('.') ? `Up to ${currencyDigits(cur)} decimal places` : 'That’s the largest amount');
-        return;
-      }
+    const { next: typedNext, accepted, maybeThousands } = typeKey(typed.current, start, k, cur);
+    const next = typedNext.input;
+    // A third digit after a separator may still turn out to be thousands ("1.600,"), so it is kept.
+    if (maybeThousands) showToast(`${currencyDigits(cur)} decimal places at most. For a thousand or more, type the digits without a separator.`);
+    else if (!accepted) {
+      haptic.warn();
+      if (/^[0-9]$/.test(k)) showToast(start.includes('.') ? `Up to ${currencyDigits(cur)} decimal places` : 'That’s the largest amount');
+      return;
     }
-    typed.current = { keys: seq, input: next };
+    typed.current = typedNext;
     live.current = { input: next, sug: false };
     set((d) => ({ ...d, input: next, sugKey: null }));
   };
@@ -319,7 +315,7 @@ function AddBody({ h, spec, draft, set, t, pop }: {
   const split = (
     <>
       <ReceiptHead left={rhead.left} right={rhead.right} onRight={rhead.onRight} />
-      <SplitBar segments={segments} amount={amount} currency={cur} focusId={exact?.id ?? null} height={barH}
+      <SplitBar segments={segments} currency={cur} focusId={exact?.id ?? null} height={barH}
         showKnobs={amount > 0 && !exact} onToggle={toggleGroup} onExact={startExact}
         onShares={(s) => { setExact(null); set((d) => ({ ...d, split: { ...d.split, custom: s, customFor: amount } })); }} />
       <AfterRow left={afterLeft} lead={line.lead} strong={line.strong} />

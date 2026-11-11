@@ -1,6 +1,6 @@
 // Money-specific components: the big amount, the keypad, the split bar and the underlined word.
 import { useRef, useState, type ReactNode } from 'react';
-import { PanResponder, Pressable, View, type LayoutChangeEvent, type StyleProp, type ViewStyle } from 'react-native';
+import { PanResponder, Pressable, View, type LayoutChangeEvent } from 'react-native';
 import { formatMoney, splitDisplay } from '@/core';
 import type { Cents, ID } from '@/core/types';
 import { Backspace, ChevDown, ChevUp } from './icons';
@@ -60,16 +60,16 @@ export function Keypad({ onKey, color, height = 56, allowDot = true }: {
 }
 
 /** A tappable word in the Add sentence: underlined, never boxed. */
-export function Word({ children, onPress, color, open, chevron = true, leading, accessibilityLabel, size = 30, placeholder }: {
+export function Word({ children, onPress, color, open, chevron = true, leading, accessibilityLabel, size = 30 }: {
   children: ReactNode; onPress?: () => void; color: string; open?: boolean; chevron?: boolean; leading?: ReactNode;
-  accessibilityLabel: string; size?: number; placeholder?: boolean;
+  accessibilityLabel: string; size?: number;
 }) {
   return (
     <Press onPress={onPress} accessibilityLabel={accessibilityLabel} accessibilityState={{ expanded: !!open }}
       style={{ flexDirection: 'row', alignItems: 'center', gap: 6, minHeight: 44 }}>
       {leading}
       <View style={{ borderBottomWidth: 3, borderBottomColor: alpha(color, 0.32), paddingBottom: 2 }}>
-        <T maxFontSizeMultiplier={TEXT_CAP.sentence} style={{ fontFamily: fonts.display, fontSize: size, lineHeight: size * 1.18, letterSpacing: -size * 0.02, color: placeholder ? alpha(color, 0.55) : color }}>{children}</T>
+        <T maxFontSizeMultiplier={TEXT_CAP.sentence} style={{ fontFamily: fonts.display, fontSize: size, lineHeight: size * 1.18, letterSpacing: -size * 0.02, color }}>{children}</T>
       </View>
       {chevron ? (open ? <ChevUp size={18} color={alpha(color, 0.55)} /> : <ChevDown size={18} color={alpha(color, 0.55)} />) : null}
     </Press>
@@ -83,10 +83,9 @@ export type SplitSegment = { groupId: ID; name: string; tone: GroupTone; share: 
  * tap a segment to leave that group out (or back in), long-press a segment to type its share exactly.
  * Every drag result is exact cents and sums to the amount.
  */
-export function SplitBar({ segments, amount, currency, onShares, onToggle, onExact, focusId, height = 54, showKnobs = true, style }: {
-  segments: SplitSegment[]; amount: Cents; currency: string; onShares?: (shares: Record<ID, Cents>) => void;
+export function SplitBar({ segments, currency, onShares, onToggle, onExact, focusId, height = 54, showKnobs = true }: {
+  segments: SplitSegment[]; currency: string; onShares?: (shares: Record<ID, Cents>) => void;
   onToggle?: (groupId: ID) => void; onExact?: (groupId: ID) => void; focusId?: ID | null; height?: number; showKnobs?: boolean;
-  style?: StyleProp<ViewStyle>;
 }) {
   const { c } = useTheme();
   const [width, setWidth] = useState(0);
@@ -112,7 +111,7 @@ export function SplitBar({ segments, amount, currency, onShares, onToggle, onExa
   });
 
   return (
-    <View style={[{ height, flexDirection: 'row', gap }, style]} onLayout={(e: LayoutChangeEvent) => setWidth(e.nativeEvent.layout.width)}
+    <View style={{ height, flexDirection: 'row', gap }} onLayout={(e: LayoutChangeEvent) => setWidth(e.nativeEvent.layout.width)}
       accessibilityLabel={`Split: ${active.map((sg) => `${sg.name} ${formatMoney(sg.share, currency)}`).join(', ')}`}>
       {segments.map((sg, i) => (
         <Press key={sg.groupId} noScale onPress={() => onToggle?.(sg.groupId)} onLongPress={() => onExact?.(sg.groupId)}

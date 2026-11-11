@@ -50,7 +50,8 @@ npm run backend:test --silent
 ```
 
 Generated Convex files under `convex/_generated/` are tracked. Refresh them
-only through the asserted anonymous-local lifecycle used by `sync-test.sh`.
+only through the asserted anonymous-local lifecycle: with the local backend
+running, `./scripts/convex-local.sh codegen` asserts it and runs codegen.
 There is deliberately no plain `convex dev` package script: an unverified
 environment must never select a cloud project, especially main Numa.
 

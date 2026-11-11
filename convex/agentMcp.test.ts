@@ -179,7 +179,7 @@ async function tool(t: Tester, secret: string, name: string, args: Record<string
   return body.result as { isError?: boolean; structuredContent: any; content: Array<{ text: string }> };
 }
 
-describe("Agent access (read-only MCP)", () => {
+describe("Agent access (MCP)", () => {
   test("formats minor units", () => {
     expect(formatMinorUnits(1234n, 2)).toBe("12.34");
     expect(formatMinorUnits(-5n, 2)).toBe("-0.05");
@@ -218,9 +218,10 @@ describe("Agent access (read-only MCP)", () => {
     const { secret } = await connect(t, "alice");
 
     const households = await tool(t, secret, "list_households");
-    expect(households.structuredContent.result ?? households.structuredContent).toBeDefined();
     const list = JSON.parse(households.content[0]!.text) as Array<{ householdId: string; name: string; yourRole: string; activeMembers: number }>;
     expect(list).toEqual([{ householdId: POT, name: "Casa Mar", currency: "EUR", yourRole: "owner", yourMemberId: ALICE, activeMembers: 2, archived: false }]);
+    // A list answer is wrapped as { result }, since structured content must be an object.
+    expect(households.structuredContent).toEqual({ result: list });
 
     const members = JSON.parse((await tool(t, secret, "list_members", { household: POT })).content[0]!.text) as Array<{ name: string; isYou: boolean }>;
     expect(members.map((m) => [m.name, m.isYou])).toEqual(expect.arrayContaining([["Alice", true], ["Bob", false]]));
@@ -286,6 +287,52 @@ describe("Agent access (read-only MCP)", () => {
     const balances = (await tool(t, secret, "get_balances", { household: POT })).structuredContent;
     // Alice paid 60 for both (+30), Bob repaid 20: Alice +10, Bob -10.
     expect(balances.units.map((u: { label: string; amount: string }) => [u.label, u.amount])).toEqual([["Alice", "10.00"], ["Bob", "-10.00"]]);
+  });
+
+  test("list_records gives the texts of the version that counts, as the app shows them", async () => {
+    const t = convexTest(schema, modules);
+    const { alice, bob } = await seed(t);
+    const content = {
+      kind: "expense",
+      expenseKind: "shared",
+      amount: money(10_000n),
+      payerUnitId: ALICE_UNIT,
+      allocations: [{ unitId: ALICE_UNIT, amount: money(5_000n) }, { unitId: BOB_UNIT, amount: money(5_000n) }],
+    };
+    // Each revision carries the full text of its version: a field it lacks was removed.
+    const revise = (sequence: bigint, parent: string, texts: Partial<Record<"title" | "category" | "note" | "reason", string>>) =>
+      t.run(async (ctx) => {
+        const eventId = `event-${sequence}-00000000000000`;
+        await ctx.db.insert("events", {
+          potId: POT, eventId, recordId: "record-groceries-0000000001", actorMemberId: ALICE,
+          occurredAtMillis: 1_760_500_000_000n, originatingTimeZone: "Europe/Madrid", schemaVersion: 1n, sequence,
+          payload: { kind: "expenseRevised", recordId: "record-groceries-0000000001", basis: { kind: "parent", parentEventId: parent }, content } as never,
+          textFields: Object.keys(texts) as never, createdAt: 1_760_500_000_000,
+        });
+        for (const [field, value] of Object.entries(texts)) {
+          await ctx.db.insert("eventTexts", { potId: POT, eventId, sequence, field: field as never, value: value!, authorAccountId: alice, createdAt: 1 });
+        }
+      });
+    await t.run(async (ctx) => {
+      const voided = (await ctx.db.query("events").withIndex("by_pot_sequence", (q) => q.eq("potId", POT).eq("sequence", 4n)).unique())!;
+      await ctx.db.patch(voided._id, { textFields: ["reason"] });
+      await ctx.db.insert("eventTexts", { potId: POT, eventId: voided.eventId, sequence: 4n, field: "reason", value: "Booked twice", authorAccountId: bob, createdAt: 1 });
+    });
+    const { secret } = await connect(t, "alice");
+    const read = async (recordId: string) =>
+      (await tool(t, secret, "list_records", { household: POT, record_id: recordId })).structuredContent.records[0];
+
+    await revise(5n, "event-1-00000000000000", { title: "Big shop", category: "groceries", note: "Paid with the shared card", reason: "Wrong title" });
+    expect(await read("record-groceries-0000000001")).toMatchObject({
+      title: "Big shop", category: "groceries", note: "Paid with the shared card", reason: "Wrong title", revision: "event-5-00000000000000",
+    });
+
+    await revise(6n, "event-5-00000000000000", { title: "Big shop", category: "groceries" });
+    expect(await read("record-groceries-0000000001")).toMatchObject({
+      title: "Big shop", category: "groceries", note: null, reason: null, revision: "event-6-00000000000000",
+    });
+
+    expect(await read("record-taxi-000000000000001")).toMatchObject({ status: "voided", reason: "Booked twice" });
   });
 
   test("a member sees only households they belong to", async () => {

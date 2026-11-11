@@ -207,7 +207,8 @@ export const mcp = httpAction(async (ctx, request) => {
 
   const io: AgentIo = {
     read: (reader, args) => {
-      const scoped = { accountId: auth.accountId, scopePotId: auth.potId, ...args } as never;
+      // The authenticated account and household scope come last so tool arguments never override them.
+      const scoped = { ...args, accountId: auth.accountId, scopePotId: auth.potId } as never;
       switch (reader) {
         case "households": return ctx.runQuery(internal.agentData.households, scoped);
         case "members": return ctx.runQuery(internal.agentData.members, scoped);
@@ -227,7 +228,7 @@ export const mcp = httpAction(async (ctx, request) => {
     const meta = m.params?._meta as Record<string, unknown> | undefined;
     const version = typeof meta?.[META_VERSION] === "string" ? (meta[META_VERSION] as string) : undefined;
     if (version === undefined) return null;
-    if (!SUPPORTED_VERSIONS.includes(version) || !MODERN_VERSIONS.includes(version)) {
+    if (!MODERN_VERSIONS.includes(version)) {
       return { status: 400, error: rpcError(m.id, -32022, "Unsupported protocol version", { supported: SUPPORTED_VERSIONS, requested: version }) };
     }
     if (headerVersion !== version || request.headers.get("mcp-method") !== m.method) {

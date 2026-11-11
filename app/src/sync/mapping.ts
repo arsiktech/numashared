@@ -3,9 +3,10 @@
 // Identity model. Every id is a UUIDv7 shared with the server:
 // - a person's id is their server memberId, and `person.unitId` is their personal unit;
 // - a group's id IS its settlement unit: the personal unit of a one-person group, or the group
-//   unit of a two-person group (whose server group id is `group.serverGroupId`).
+//   unit of a shared group (whose server group id is `group.serverGroupId`).
 // So balances, payers, splits and repayments map onto units without lookup tables.
 import { allocateEqual, shares } from '../core/allocate';
+import { CATEGORIES, METHODS } from '../core/ledger';
 import { currencyDigits } from '../core/money';
 import { categoryLabel } from '../core/names';
 import type {
@@ -19,11 +20,6 @@ import {
   authored, isPresent, type ListedEvent, type TextField, type WireAllocation, type WireEvent,
   type WireExpense, type WireMoney, type WireOpeningEntry, type WirePayload,
 } from './wire';
-
-export const CATEGORIES: readonly Category[] = [
-  'groceries', 'household', 'rent', 'bills', 'internet', 'eating-out', 'cleaning', 'other',
-];
-export const METHODS: readonly PaymentMethod[] = ['bizum', 'bank', 'cash', 'other'];
 
 export const SETTLEMENT_TITLE = 'Repayment';
 export const OPENING_TITLE = 'Opening balance';
@@ -232,14 +228,13 @@ export function splitFromAllocations(amount: Cents, allocations: { unitId: ID; c
 
 type Texts = Partial<Record<TextField, string>>;
 
-function texts(listed: ListedEvent): { values: Texts; redacted: Set<TextField> } {
+/** The text fields still present; an erased field is absent. */
+function texts(listed: ListedEvent): Texts {
   const values: Texts = {};
-  const redacted = new Set<TextField>();
   for (const t of listed.textStates) {
     if (t.state === 'present') values[t.field] = t.value;
-    else redacted.add(t.field);
   }
-  return { values, redacted };
+  return values;
 }
 
 function expenseFromWire(h: Household, w: WireExpense, t: Texts, date: string): ExpenseContent {
@@ -262,16 +257,16 @@ function expenseFromWire(h: Household, w: WireExpense, t: Texts, date: string): 
   };
 }
 
-/**
- * The app event for a pulled server event, or null for structural events (people, groups and the
- * name are applied separately) and for anything this app cannot represent.
- */
 /** Event kinds that change who is in the household, not the money. fromWire returns null for these. */
 export const STRUCTURAL_KINDS: ReadonlySet<string> = new Set([
   'memberAdded', 'memberClaimed', 'memberClaimReassigned', 'memberArchived', 'ownershipTransferred',
   'groupChanged', 'presetChanged', 'potRenamed', 'potArchived',
 ]);
 
+/**
+ * The app event for a pulled server event, or null for structural events (people, groups and the
+ * name are applied separately) and for anything this app cannot represent.
+ */
 export function fromWire(h: Household, listed: ListedEvent): LedgerEvent | null {
   const ev = listed.event;
   const occurredAt = Number(ev.occurredAtMillis);
@@ -285,7 +280,7 @@ export function fromWire(h: Household, listed: ListedEvent): LedgerEvent | null 
     tz: ev.originatingTimeZone,
   };
   const date = localISO(occurredAt);
-  const { values: t, redacted } = texts(listed);
+  const t = texts(listed);
   const p = ev.payload;
   switch (p.kind) {
     case 'expenseAdded':
@@ -324,7 +319,7 @@ export function fromWire(h: Household, listed: ListedEvent): LedgerEvent | null 
         content: { entries: openingFromWire(p.content.entries), date, ...(t.note !== undefined ? { note: t.note } : {}) },
       };
     case 'recordVoided':
-      return { ...base, kind: 'recordVoided', recordId: p.recordId, reason: t.reason ?? (redacted.has('reason') ? ERASED_TEXT : ERASED_TEXT) };
+      return { ...base, kind: 'recordVoided', recordId: p.recordId, reason: t.reason ?? ERASED_TEXT };
     case 'recordRestored':
       return { ...base, kind: 'recordRestored', recordId: p.recordId };
     default:

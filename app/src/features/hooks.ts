@@ -1,6 +1,6 @@
 // Screen-level helpers: the active household, its ledger and display wording.
 import { useMemo } from 'react';
-import { categoryLabel, formatMoney, groupName, standing } from '@/core';
+import { categoryLabel, currencySymbol, formatMoney, groupName, standing } from '@/core';
 import type { Group, Household, ID, LedgerRecord } from '@/core/types';
 import { activeHousehold, ledgerOf, useStore, yourGroup } from '@/store/store';
 
@@ -36,7 +36,10 @@ export const addedByLine = (h: Household, r: { createdBy: ID; createdVia?: strin
 
 export const initials = (h: Household, id: ID) => (id === h.youId ? 'Y' : (h.people.find((p) => p.id === id)?.name ?? '?').slice(0, 1).toUpperCase());
 
-export const money = (h: Household, cents: number, hide = false) => (hide ? '€••••' : formatMoney(cents, h.currency));
+/** An amount with "Hide amounts" on: "€••••", "CHF ••••"; "••••" where amounts show without a symbol. */
+export const hiddenAmount = (currency: string, symbol = true) => `${symbol ? currencySymbol(currency) : ''}••••`;
+
+export const money = (h: Household, cents: number, hide = false) => (hide ? hiddenAmount(h.currency) : formatMoney(cents, h.currency));
 
 /** "Groceries" or the custom title. */
 export const recordTitle = (r: LedgerRecord) =>
@@ -88,8 +91,3 @@ export function relativeDay(ts: number, now = Date.now()) {
 }
 
 export const clock = (ts: number) => new Date(ts).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
-
-export const shortDate = (iso: string) => {
-  const [y, m, d] = iso.split('-').map(Number);
-  return new Date(y, m - 1, d).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' });
-};

@@ -23,8 +23,13 @@ const listeners = new Set<() => void>();
 const emit = () => { for (const l of listeners) l(); };
 let seq = 1;
 
+function subscribe(l: () => void) {
+  listeners.add(l);
+  return () => { listeners.delete(l); };
+}
+
 export function useUI<T>(sel: (u: UI) => T): T {
-  return useSyncExternalStore((l) => { listeners.add(l); return () => { listeners.delete(l); }; }, () => sel(ui), () => sel(ui));
+  return useSyncExternalStore(subscribe, () => sel(ui), () => sel(ui));
 }
 
 // On the web, the browser's Back button closes an Add or Repay sheet instead of leaving the screen
@@ -90,8 +95,6 @@ export function closeSheet(key?: number) {
   if (gone !== undefined && gone === held) release();
   emit();
 }
-
-export function closeAllSheets() { ui = { ...ui, sheets: [] }; release(); emit(); }
 
 export function showToast(text: string) { ui = { ...ui, toast: { key: seq++, text } }; emit(); }
 export function clearToast() { ui = { ...ui, toast: null }; emit(); }

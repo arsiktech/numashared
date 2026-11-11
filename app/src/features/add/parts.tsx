@@ -183,14 +183,14 @@ export function Receipt({ children, tone, desk }: { children: ReactNode; tone: G
   );
 }
 
-export function ReceiptHead({ left, right, onRight, rightLabel }: { left: string; right?: string; onRight?: () => void; rightLabel?: string }) {
+export function ReceiptHead({ left, right, onRight }: { left: string; right?: string; onRight?: () => void }) {
   const { c } = useTheme();
   return (
     <View style={{ minHeight: 20, flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between', columnGap: 12, rowGap: 4, paddingHorizontal: 2 }}>
       <T style={{ fontFamily: fonts.semibold, fontSize: 13, color: c.ink2 }}>{left}</T>
       {right ? (
         onRight ? (
-          <Press onPress={onRight} accessibilityLabel={rightLabel ?? right} hitSlop={12} style={{ minHeight: 20, justifyContent: 'center' }}>
+          <Press onPress={onRight} accessibilityLabel={right} hitSlop={12} style={{ minHeight: 20, justifyContent: 'center' }}>
             <T style={{ fontFamily: fonts.semibold, fontSize: 13, color: c.ink }}>{right}</T>
           </Press>
         ) : <T style={{ fontFamily: fonts.semibold, fontSize: 13, color: c.ink2 }}>{right}</T>

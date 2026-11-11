@@ -31,7 +31,7 @@ import { TERMINAL_EVENT_CODES } from "../app/src/sync/terminal";
 import { KNOWN_TIME_ZONES } from "../app/src/sync/timezones";
 import { MAX_GROUP_SIZE } from "../app/src/core/types";
 import { EXTENDED_CONTRACT, LEGACY_CONTRACT, setContract } from "../app/src/sync/contract";
-import { maximumBudgetGroupSize } from "./lib/budgetGroupTopology";
+import { maximumBudgetGroupSize } from "./lib/clientContract";
 import { ios18TimeZoneIdentifiers } from "./lib/ios18TimeZoneIdentifiers";
 import schema from "./schema";
 import { modules } from "./test.setup";
@@ -861,6 +861,15 @@ describe("card sync", () => {
       { id: "tx-3", result: "ignored", reason: "not in EUR" },
       { id: "tx-1", result: "duplicate" },
     ]);
+    // The new expense waits in the pot's push queue; no single-event push is scheduled for it.
+    const pushes = await t.run(async (ctx) => ({
+      spendEventId: (await ctx.db.query("cardSyncSpends").collect())[0]!.eventId,
+      queued: (await ctx.db.query("pendingPushes").collect()).flatMap((row) => row.eventIds),
+      singles: (await ctx.db.system.query("_scheduled_functions").collect())
+        .filter((job) => job.name.includes("deliverEventPush")).length,
+    }));
+    expect(pushes.queued).toContain(pushes.spendEventId);
+    expect(pushes.singles).toBe(0);
     // Sending it again later is a no-op too.
     expect((await (await post(t, KEY, [{ id: "tx-1", card: "4242", occurredAt: "2026-09-30T18:04:51Z", merchant: "x", amount: "5.33", currency: "EUR" }])).json()).outcomes)
       .toEqual([{ id: "tx-1", result: "duplicate" }]);

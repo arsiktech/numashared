@@ -96,7 +96,9 @@ interface DeletionBatchResult {
 
 /**
  * Consume one or more identity rate-limit buckets and reject with the
- * endpoint's own error code when the caller exceeds the limit.
+ * endpoint's own error code when the caller exceeds the limit. Every caller runs
+ * inside guardedEndpoint, whose source rate limit has already purged expired rows
+ * in this request.
  */
 async function consumeRateBuckets(
   ctx: ActionCtx,
@@ -104,11 +106,6 @@ async function consumeRateBuckets(
   errorCode: string,
   buckets: Array<{ bucketKey: string; limit: bigint; windowMillis: number }>,
 ): Promise<void> {
-  if (buckets.length >= 2) {
-    await ctx.runMutation(anyApi.authSessions.deleteExpiredIdentityRateLimits, {
-      now: nowMillis,
-    });
-  }
   const rateLimit = await ctx.runMutation(
     anyApi.authSessions.consumeIdentityRateLimits,
     { buckets, now: nowMillis },

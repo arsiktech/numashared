@@ -56,7 +56,7 @@ export function seenBy(h: Household, r: LedgerRecord): string | null {
 const quote = (s: string) => `“${s}”`;
 
 /** "€90.00 → €96.00", or the fields that changed when the amount did not. */
-export function changeSummary(changes: FieldChange[], hide = false) {
+function changeSummary(changes: FieldChange[], hide = false) {
   const amount = changes.find((c) => c.field === 'amount');
   if (amount && !hide) return `${amount.from} → ${amount.to}`;
   const names: Record<FieldChange['field'], string> = {
@@ -135,6 +135,8 @@ export const weekday = (d: Date, long = false) => (long ? WEEKDAYS[d.getDay()] :
 export const dayMonth = (d: Date) => `${d.getDate()} ${MONTHS[d.getMonth()]}`;
 /** "Sat 11 Oct". */
 export const fullDay = (d: Date) => `${weekday(d)} ${dayMonth(d)}`;
+/** The local calendar month ("2025-10"), to compare with a record's local ISO day. */
+export const localMonth = (now = new Date()) => `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
 /** A Date for an ISO day ("2025-10-11"), at local midnight. */
 export const isoDay = (iso: string) => { const [y, m, d] = iso.split('-').map(Number); return new Date(y, m - 1, d); };
 

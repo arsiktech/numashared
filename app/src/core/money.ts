@@ -15,11 +15,6 @@ export function currencyDigits(currency: string): number {
   return NONSTANDARD_DIGITS[currency.toUpperCase()] ?? 2;
 }
 
-/** 10 ^ currencyDigits(currency). */
-export function minorUnitScale(currency: string): number {
-  return 10 ** currencyDigits(currency);
-}
-
 /**
  * Keypad cap: an entered amount has at most this many digits in minor units, whatever the
  * currency. EUR allows 9,999,999,999.99, JPY and VND allow 999,999,999,999, BHD 999,999,999.999.
@@ -167,9 +162,11 @@ export function applyKey(input: string, key: Key, currency: string): string {
 /**
  * Replays the keys typed into an amount field, so "1.600,00" means 1600.00 the way it is written in
  * much of Europe: a separator followed by exactly three digits and then another separator was a
- * thousands separator, and is left out. Otherwise each key goes through applyKey.
+ * thousands separator, and is left out. Otherwise each key goes through applyKey. `start` is text
+ * the field already held before these keys; it is kept as it stands, so only a separator typed
+ * here can turn out to be a thousands separator.
  */
-export function typeAmount(keys: readonly Key[], currency: string): string {
+export function typeAmount(keys: readonly Key[], currency: string, start = ''): string {
   const seq: Key[] = [];
   for (const k of keys) {
     if (k === 'back') seq.pop();
@@ -177,7 +174,7 @@ export function typeAmount(keys: readonly Key[], currency: string): string {
   }
   const seps = seq.flatMap((k, i) => (k === '.' ? [i] : []));
   const thousands = new Set(seps.filter((i, n) => n < seps.length - 1 && seps[n + 1] - i === 4));
-  let input = '';
+  let input = start;
   seq.forEach((k, i) => { if (!thousands.has(i)) input = applyKey(input, k, currency); });
   return input;
 }

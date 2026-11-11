@@ -12,7 +12,7 @@ const CATEGORY_LABELS: Readonly<Record<Category, string>> = {
   other: 'Other',
 };
 
-/** "Eating out" for 'eating-out'. Also exported from explain.ts. */
+/** "Eating out" for 'eating-out'. */
 export function categoryLabel(category: Category): string {
   return CATEGORY_LABELS[category] ?? 'Other';
 }

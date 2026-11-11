@@ -13,7 +13,9 @@
 // Settings: ~/.config/numa-card-sync/config.json
 //   { "url": "https://<deployment>.convex.site/card-sync/spends", "cards": ["1234"], "currency": "EUR",
 //     "since": "2026-10-01T00:00:00Z" }
-// The key comes from NUMA_SHARED_KEY, or on a Mac from the Keychain item "numa-shared-card-sync".
+// The address comes from NUMA_SHARED_URL when it is set, otherwise from config.json "url". The key
+// comes from NUMA_SHARED_KEY, or on a Mac from the Keychain item "numa-shared-card-sync". The app's
+// "Share the key" gives both lines, NUMA_SHARED_URL=... and NUMA_SHARED_KEY=....
 //
 // Exit codes: 0 synced, 2 log in again (run --login), 1 anything else.
 import { execFileSync } from 'node:child_process';
@@ -29,8 +31,10 @@ const mode = process.argv.includes('--login') ? 'login' : process.argv.includes(
 
 function config() {
   const c = JSON.parse(readFileSync(join(DIR, 'config.json'), 'utf8'));
-  if (!c.url || !Array.isArray(c.cards) || !c.cards.length) throw new Error('config.json needs "url" and "cards".');
-  return { currency: 'EUR', since: '2026-01-01T00:00:00Z', pages: 20, ...c };
+  const url = process.env.NUMA_SHARED_URL?.trim() || c.url;
+  if (!url) throw new Error('No address: set NUMA_SHARED_URL or put "url" in config.json.');
+  if (!Array.isArray(c.cards) || !c.cards.length) throw new Error('config.json needs "cards".');
+  return { currency: 'EUR', since: '2026-01-01T00:00:00Z', pages: 20, ...c, url };
 }
 
 function key() {

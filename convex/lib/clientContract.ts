@@ -12,6 +12,9 @@ export const extendedContractMinimumBuild = 12;
 /** The group size every reader understands. */
 export const legacyMaximumBudgetGroupSize = 2;
 
+/** People who pay as one: a single person, a couple, a family, up to six people. */
+export const maximumBudgetGroupSize = 6;
+
 export type ClientContract = {
   /** Expense notes, edit reasons, repayment method and note. */
   extendedText: boolean;
@@ -28,7 +31,7 @@ export function clientContractFor(minimumSupportedBuild: number | null | undefin
   if (minimumSupportedBuild == null || minimumSupportedBuild < extendedContractMinimumBuild) {
     return legacyClientContract;
   }
-  return { extendedText: true, maximumBudgetGroupSize: 6 };
+  return { extendedText: true, maximumBudgetGroupSize };
 }
 
 export async function loadClientContract(ctx: QueryCtx | MutationCtx): Promise<ClientContract> {

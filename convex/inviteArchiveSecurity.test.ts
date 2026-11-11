@@ -237,3 +237,53 @@ describe.each([1n, 2n])("archived invitation boundaries with schema %s", (schema
     await denied(f.joiner.query(listEvents, { potId, afterSequence: 0n }), "NOT_MEMBER");
   });
 });
+
+describe("an identity an account holds is never offered to another account", () => {
+  // The creating owner binds their identity with memberAdded but never appends
+  // memberClaimed, so these cases prove the check reads who holds the identity now.
+  // A reassigned identity stays invitable: backend.test.ts covers it in "owner
+  // detaches a wrong claim and the identity can be claimed again".
+  test("a per-member invite for the owner's identity is refused", async () => {
+    const f = await fixture(1n);
+    const before = await snapshot(f.t);
+    await denied(f.owner.mutation(issue, {
+      ...f.invite, inviteId: id(21), code: "ARCH02", token: `${token}-owner`, pendingMemberId: ownerMemberId,
+    }), "MEMBER_ALREADY_CLAIMED");
+    expect(await snapshot(f.t)).toEqual(before);
+  });
+
+  test("an existing per-member invite cannot bind a second account to a held identity", async () => {
+    const f = await fixture(1n);
+    // Retarget the stored invite as an invite issued before the issue-time check would be.
+    await f.t.run(async (ctx) => {
+      const invite = (await ctx.db.query("invites").collect())[0];
+      await ctx.db.patch(invite._id, { pendingMemberId: ownerMemberId });
+    });
+    const before = await snapshot(f.t);
+    await denied(f.claim("token"), "MEMBER_ALREADY_CLAIMED");
+    expect(await snapshot(f.t)).toEqual(before);
+    await denied(f.joiner.query(listEvents, { potId, afterSequence: 0n }), "NOT_MEMBER");
+  });
+
+  test("a pot-link claim choosing the owner's identity is refused", async () => {
+    const f = await fixture(1n, "potLink");
+    const before = await snapshot(f.t);
+    await denied(f.joiner.mutation(claimLink, { token, chosenMemberId: ownerMemberId }), "MEMBER_ALREADY_CLAIMED");
+    expect(await snapshot(f.t)).toEqual(before);
+  });
+
+  test("approving a pot-link claim onto a held identity is refused", async () => {
+    const f = await fixture(1n, "potLink");
+    await f.joiner.mutation(claimLink, { token });
+    const claims = await f.owner.query(pendingClaims, { potId });
+    expect(claims).toHaveLength(1);
+    const before = await snapshot(f.t);
+    await denied(f.owner.mutation(approve, {
+      claimId: claims[0].claimId,
+      memberId: ownerMemberId,
+      event: event(40, 1n, { kind: "memberClaimed", memberId: ownerMemberId }, ownerMemberId),
+    }), "MEMBER_ALREADY_CLAIMED");
+    expect(await snapshot(f.t)).toEqual(before);
+    await denied(f.joiner.query(listEvents, { potId, afterSequence: 0n }), "NOT_MEMBER");
+  });
+});

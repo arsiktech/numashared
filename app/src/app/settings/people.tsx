@@ -15,12 +15,10 @@ import { haptic, Pill, Press, T } from '@/ui/primitives';
 import { useTheme } from '@/ui/theme';
 import { alpha, fonts } from '@/ui/tokens';
 import { nameOf, useHousehold } from '@/features/hooks';
+import { dayMonth } from '@/features/history/model';
 import { Field } from '@/features/onboarding/chrome';
 import { movePerson } from '@/features/onboarding/model';
 import { SInfo, SettingsShell, usePillBg } from '@/features/settings/parts';
-
-const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-const dayMonth = (ts: number) => { const d = new Date(ts); return `${d.getDate()} ${MONTHS[d.getMonth()]}`; };
 
 const COLOR_NAMES: Record<GroupColor, string> = { citrus: 'Citrus', lilac: 'Lilac', sky: 'Sky', mint: 'Mint', butter: 'Butter', rose: 'Rose' };
 
@@ -121,7 +119,7 @@ export default function PeopleScreen() {
                 const p = h.people.find((x) => x.id === pid)!;
                 const you = pid === h.youId;
                 const on = sel === pid;
-                const status = you ? 'On this device' : p.joined ? `Joined${p.joinedAt ? ` ${dayMonth(p.joinedAt)}` : ''}` : 'Not joined yet';
+                const status = you ? 'On this device' : p.joined ? `Joined${p.joinedAt ? ` ${dayMonth(new Date(p.joinedAt))}` : ''}` : 'Not joined yet';
                 const row = (
                   <>
                     <View style={{ width: 40, height: 40, borderRadius: 20, backgroundColor: on ? t.ink : alpha(t.ink, 0.09), alignItems: 'center', justifyContent: 'center' }}>

@@ -20,7 +20,7 @@ export function useSession() {
 export const inExpoGo = Constants.executionEnvironment === 'storeClient';
 
 /** Sign in with Apple exists only in the installed iPhone and iPad app for now. */
-export function useAppleAvailable() {
+function useAppleAvailable() {
   const [ok, setOk] = useState(false);
   useEffect(() => { if (!inExpoGo) void appleSignInSupported().then(setOk); }, []);
   return ok;

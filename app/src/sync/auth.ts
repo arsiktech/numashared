@@ -59,7 +59,6 @@ const emit = () => { for (const l of listeners) l(); };
 
 export function subscribeSession(l: () => void) { listeners.add(l); return () => { listeners.delete(l); }; }
 export const currentSession = () => session;
-export const sessionLoaded = () => loaded;
 
 export async function loadSession(): Promise<Session | null> {
   if (!loaded) {

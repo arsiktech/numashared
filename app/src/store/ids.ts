@@ -19,8 +19,6 @@ export const newId = (_prefix?: string) => uuidv7();
 /** Six characters, no look-alikes (no 0/O, 1/I/L). Shown as "K7Q 4MZ". */
 export const inviteCode = () => randomString(6, 'ABCDEFGHJKMNPQRSTUVWXYZ23456789');
 
-export const formatInviteCode = (c: string) => `${c.slice(0, 3)} ${c.slice(3)}`;
-
 export const todayISO = (d = new Date()) => {
   const y = d.getFullYear();
   const m = String(d.getMonth() + 1).padStart(2, '0');

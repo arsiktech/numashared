@@ -17,8 +17,7 @@ import { cappedSize, TEXT_CAP } from '@/ui/textScale';
 import { OrbButton } from '../records';
 import { money, nameOf, standingWords } from '../hooks';
 
-/** `tail` extends the lowest band's color that far below, for a list that slides up over the bands. */
-export function Bands({ h, balances, hide, compact, tail }: { h: Household; balances: Record<ID, number>; hide: boolean; compact?: boolean; tail?: number }) {
+export function Bands({ h, balances, hide, compact }: { h: Household; balances: Record<ID, number>; hide: boolean; compact?: boolean }) {
   const { tone, c, width, fontScale, largeText: large } = useTheme();
   const insets = useSafeAreaInsets();
   const router = useRouter();
@@ -38,7 +37,6 @@ export function Bands({ h, balances, hide, compact, tail }: { h: Household; bala
   const named = me && me !== 'You' ? me : '';
 
   const ticketTop = topH - 39;
-  const lowest = others.length ? tone(others[others.length - 1]).band : c.chip;
   const orbSize = compact || large ? 76 : 92;
   const ticketInk = c.dark ? c.ink : '#1E2420';
   const amountText = money(h, Math.abs(bal), hide);
@@ -77,7 +75,6 @@ export function Bands({ h, balances, hide, compact, tail }: { h: Household; bala
   );
   return (
     <View>
-      {tail ? <View pointerEvents="none" style={{ position: 'absolute', left: 0, right: 0, top: '100%', height: tail, backgroundColor: lowest }} /> : null}
       <View style={{ backgroundColor: t.band, height: large ? undefined : topH, paddingTop: compact ? 20 : insets.top, paddingBottom: large ? 22 : 0, paddingHorizontal: 22 }}>
         {!compact ? (
           <View style={{ minHeight: 44, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>

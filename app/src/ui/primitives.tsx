@@ -250,34 +250,9 @@ export function Toggle({ value, onChange, label, android }: { value: boolean; on
 
 // ---------- lists ----------
 
-export function SectionTitle({ children }: { children: string }) {
-  const { c } = useTheme();
-  return <T accessibilityRole="header" style={{ fontFamily: fonts.semibold, fontSize: 13, color: c.ink2, paddingTop: 22, paddingBottom: 8, paddingHorizontal: 4 }}>{children}</T>;
-}
-
 export function ListCard({ children, style }: { children: ReactNode; style?: StyleProp<ViewStyle> }) {
   const { c } = useTheme();
   return <View style={[{ backgroundColor: c.card, borderRadius: radius.card, overflow: 'hidden' }, style]}>{children}</View>;
-}
-
-export function ListItem({ label, sub, value, onPress, right, danger, last, leading, accessibilityLabel }: {
-  label: string; sub?: string; value?: string; onPress?: () => void; right?: ReactNode; danger?: boolean; last?: boolean;
-  leading?: ReactNode; accessibilityLabel?: string;
-}) {
-  const { c } = useTheme();
-  const body = (
-    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12, minHeight: 52, paddingVertical: 10, paddingHorizontal: 16,
-      borderBottomWidth: last ? 0 : StyleSheet.hairlineWidth * 2, borderBottomColor: c.hair }}>
-      {leading}
-      <View style={{ flex: 1 }}>
-        <T style={{ fontSize: 16, color: danger ? c.bad : c.ink }}>{label}</T>
-        {sub ? <T style={{ fontSize: 13, color: c.ink2, marginTop: 2 }}>{sub}</T> : null}
-      </View>
-      {value ? <T style={{ fontSize: 15, color: c.ink2 }}>{value}</T> : null}
-      {right}
-    </View>
-  );
-  return onPress ? <Press noScale onPress={onPress} accessibilityLabel={accessibilityLabel ?? [label, sub, value].filter(Boolean).join(', ')}>{body}</Press> : body;
 }
 
 export const s = StyleSheet.create({

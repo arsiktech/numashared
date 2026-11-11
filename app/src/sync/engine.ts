@@ -4,7 +4,7 @@
 //
 // Order of work for one household: promote it if it only exists here, pull everything new,
 // then send queued events one at a time (after their undo window) in the order they were made.
-import { LedgerError, reduce } from '../core/ledger';
+import { LedgerError, parentBasis, reduce } from '../core/ledger';
 import { currencyDigits } from '../core/money';
 import { UNDO_WINDOW_MS } from '../core/undo';
 import type { Group, Household, ID, InviteInfo, LedgerEvent, Person, SyncMeta } from '../core/types';
@@ -78,7 +78,7 @@ export class PrepareError extends Error {
 
 /**
  * Gives a local household server-ready identities: UUIDv7 ids everywhere, a personal unit per
- * person, one-person groups keyed by that unit, and server ids for two-person groups. Returns the
+ * person, one-person groups keyed by that unit, and server ids for shared groups. Returns the
  * household unchanged when it already has them. References inside events are rewritten too.
  */
 export function prepareForSync(h: Household, now = Date.now()): Household {
@@ -91,7 +91,7 @@ export function prepareForSync(h: Household, now = Date.now()): Household {
     if (!next) { next = uuidv7(now); map.set(old, next); }
     return next;
   };
-  const people: Person[] = h.people.map((p) => ({ ...p, id: id(p.id), unitId: p.unitId ?? undefined }));
+  const people: Person[] = h.people.map((p) => ({ ...p, id: id(p.id), unitId: p.unitId }));
   const groups: Group[] = h.groups.map((g) => {
     const memberIds = g.memberIds.map(id);
     if (memberIds.length === 1) {
@@ -108,12 +108,29 @@ export function prepareForSync(h: Household, now = Date.now()): Household {
     if (!p.unitId) p.unitId = uuidv7(now);
   }
   const g = (x: string) => map.get(x) ?? id(x);
-  const events = h.events.map((e) => remapEvent(stamp(e), id, g));
+  const events = withBases(h.events).map((e) => remapEvent(stamp(e), id, g));
   const seen: Household['seen'] = {};
   for (const [eid, by] of Object.entries(h.seen)) {
     seen[id(eid)] = Object.fromEntries(Object.entries(by).map(([pid, at]) => [id(pid), at]));
   }
   return { ...h, id: id(h.id), youId: id(h.youId), people, groups, events, seen };
+}
+
+/**
+ * Edits saved by app builds that did not record a basis get the one this app records now: the
+ * record's latest version before them. History made on one device has a single line, so that
+ * is the version the edit replaced. Returns the same array when nothing was missing.
+ */
+function withBases(events: LedgerEvent[]): LedgerEvent[] {
+  let out = events;
+  events.forEach((e, i) => {
+    if ((e.kind !== 'expenseRevised' && e.kind !== 'openingRevised') || e.basis) return;
+    const basis = parentBasis(events.slice(0, i), e.recordId);
+    if (!basis) return;
+    if (out === events) out = [...events];
+    out[i] = { ...e, basis };
+  });
+  return out;
 }
 
 function remapEvent(e: LedgerEvent, id: (s: string) => string, g: (s: string) => string): LedgerEvent {
@@ -199,24 +216,25 @@ export async function startSync(backend: Backend, access: Access, householdId: I
 export async function promote(backend: Backend, access: Access, householdId: ID): Promise<void> {
   const before = access.get(householdId);
   if (!before?.sync?.setup) return;
-  // Everything in a household being shared was recorded on this phone (see flush).
-  if (before.events.some((e) => e.by !== before.youId)) {
-    access.put({ ...before, events: before.events.map((e) => (e.by === before.youId ? e : { ...e, by: before.youId })) });
-  }
+  // Everything in a household being shared was recorded on this phone (see flush). A household
+  // staged before edits got their basis on staging gets it here.
+  const repaired = withBases(before.events.map((e) => (e.by === before.youId ? e : { ...e, by: before.youId })));
+  if (repaired.some((e, i) => e !== before.events[i])) access.put({ ...before, events: repaired });
   const h = access.get(householdId)!;
   const setup = h.sync!.setup!;
   const order = peopleOrder(h);
   const you = order[0];
-  const events: WireEvent[] = [
-    structuralEnvelope(h, setup, setup.renameEventId, 1, { kind: 'potRenamed', name: h.name }),
-    ...order.map((p) => structuralEnvelope(h, setup, setup.memberEventIds[p.id], 1, {
-      kind: 'memberAdded', memberId: p.id, unitId: p.unitId!, role: p.id === h.youId ? 'owner' : 'member',
-    })),
-    structuralEnvelope(h, setup, setup.groupEventId, 2, { kind: 'groupChanged', groups: couples(h) }),
-    ...setup.financialEventIds.map((eid) => toWire(h, h.id, 2, h.events.find((e) => e.id === eid)!)),
-  ];
   let result: { events: { eventId: string; sequence: bigint }[] };
   try {
+    // Inside the try: an event that can't be mapped pauses the household like a server refusal.
+    const events: WireEvent[] = [
+      structuralEnvelope(h, setup, setup.renameEventId, 1, { kind: 'potRenamed', name: h.name }),
+      ...order.map((p) => structuralEnvelope(h, setup, setup.memberEventIds[p.id], 1, {
+        kind: 'memberAdded', memberId: p.id, unitId: p.unitId!, role: p.id === h.youId ? 'owner' : 'member',
+      })),
+      structuralEnvelope(h, setup, setup.groupEventId, 2, { kind: 'groupChanged', groups: couples(h) }),
+      ...setup.financialEventIds.map((eid) => toWire(h, h.id, 2, h.events.find((e) => e.id === eid)!)),
+    ];
     result = await backend.mutation('pots:promoteLocalPot', {
       configuration: {
         potId: h.id,
@@ -320,14 +338,14 @@ export function resume(access: Access, id: ID) {
 const inFlight = new Set<ID>();
 export const isSending = (eventId: ID) => inFlight.has(eventId);
 
+/** Why the last flush of each household had to stop and retry later, until it next sends. */
+export const retryReasons = new Map<ID, string>();
+
 /**
  * Sends queued events one at a time, oldest first, once their undo window has closed. Stops at
  * the first event still inside its window so the server sees events in the order they were made.
  * Returns when the queue is empty, waiting, or blocked.
  */
-/** Why the last flush of each household had to stop and retry later, until it next sends. */
-export const retryReasons = new Map<ID, string>();
-
 export async function flush(backend: Backend, access: Access, householdId: ID, now = () => Date.now()): Promise<'done' | 'waiting' | 'retry' | 'paused'> {
   for (;;) {
     const h = access.get(householdId);
@@ -463,11 +481,13 @@ export async function pull(backend: Backend, access: Access, householdId: ID, op
   next = { ...next, sync: { ...next.sync!, lastTextRev: Number(rev) } };
 
   // Merge with what the device did meanwhile (pull awaited the network): keep anything added,
-  // and drop unsent events that were undone, so an undo is never brought back.
+  // and drop unsent events that were undone, so an undo is never brought back. The device copy
+  // still holds queued events set aside as rejected above; they stay out.
   const latest = access.get(householdId)!;
   const onDevice = new Map(latest.events.map((e) => [e.id, e]));
+  const rejected = new Set((next.sync!.rejected ?? []).map((r) => r.eventId));
   const kept = next.events.flatMap((e) => (e.seq !== undefined ? [e] : onDevice.has(e.id) ? [onDevice.get(e.id)!] : []));
-  const extra = latest.events.filter((e) => e.seq === undefined && !kept.some((x) => x.id === e.id));
+  const extra = latest.events.filter((e) => e.seq === undefined && !rejected.has(e.id) && !kept.some((x) => x.id === e.id));
   // An edit made offline still holds a copy of the erased text. Remove it before it can be sent.
   const events = [...kept, ...extra].map((e) => (e.seq !== undefined ? e : erased.reduce(
     (out, x) => (out.recordId === x.recordId && carriedText(out, x.field) === x.value ? redact(out, x.field) : out), e,
@@ -534,15 +554,6 @@ export async function adoptPots(backend: Backend, access: Access, pots?: PotSumm
     }
   }
   return added;
-}
-
-/** Pull then send for one household; promotes first if needed. */
-export async function syncHousehold(backend: Backend, access: Access, householdId: ID): Promise<void> {
-  const h = access.get(householdId);
-  if (!h?.sync) return;
-  if (h.sync.setup) await promote(backend, access, householdId);
-  await pull(backend, access, householdId);
-  await flush(backend, access, householdId);
 }
 
 // ---------- invites and joining ----------

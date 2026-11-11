@@ -31,7 +31,7 @@ Raw financial contributions always remain keyed to the unit IDs recorded on thei
 
 Voluntary leave is a typed, retry-safe server mutation. A member appends their own `memberArchived`; an owner first appends `ownershipTransferred` to the longest-standing active claimed member in the same atomic mutation. A sole active owner cannot leave until another member is active. The archived membership stores the archive sequence as its final read boundary, so the departing device can persist a frozen exportable snapshot while later pot events remain inaccessible. Voluntary leave retains the member's name; only account deletion performs identity erasure.
 
-Repeating a past expense appends a new independent `expenseAdded` record from the source record's current uncontested, non-voided content. It preserves the exact integer amount, payer, category, and allocations; it does not mutate or link financial history. The new event receives the normal six-second unsent undo window.
+Repeating a past expense appends a new independent `expenseAdded` record from the source record's current uncontested, non-voided content. It preserves the exact integer amount, payer, category, and allocations; it does not mutate or link financial history. The new event receives the normal six-second unsent undo window (eight seconds in the Expo app).
 
 The v1 event vocabulary intentionally omits `refundAdded`, `adjustmentAdded`, `currencyConverted`, and `templateChanged`.
 

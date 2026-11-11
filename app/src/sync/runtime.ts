@@ -41,12 +41,13 @@ function setStatus(patch: Partial<SyncStatus>) {
   status = next;
   for (const l of statusListeners) l();
 }
-export const getSyncStatus = () => status;
+function subscribeStatus(l: () => void) {
+  statusListeners.add(l);
+  return () => { statusListeners.delete(l); };
+}
+
 export function useSyncStatus(): SyncStatus {
-  return useSyncExternalStore(
-    (l) => { statusListeners.add(l); return () => { statusListeners.delete(l); }; },
-    () => status, () => status,
-  );
+  return useSyncExternalStore(subscribeStatus, () => status, () => status);
 }
 
 // ---------- the Convex client ----------

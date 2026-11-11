@@ -63,14 +63,6 @@ export type ListedEvent = {
   textStates: TextState[];
 };
 
-export type PotConfiguration = {
-  potId: string;
-  currency: WireCurrency;
-  orderedUnitIds: string[];
-  ownerMemberId: string;
-  minimumReaderSchemaVersion: bigint;
-};
-
 export const REDACTED = '[redacted]';
 
 /** Builds the manifest and authored text in the canonical field order, dropping blank values. */

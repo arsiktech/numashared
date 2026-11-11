@@ -29,7 +29,6 @@ vi.mock('../auth', () => ({
   currentSession: () => ({ accountId: h.accountId }), loadSession: async () => ({ accountId: h.accountId }),
   subscribeSession: () => () => {}, accessToken: async () => 'synthetic-access', forgetSession: async () => {},
   post: async () => {}, readDeletion: async () => null, writeDeletion: async () => {},
-  withCurrentSession: async () => { throw new Error('Unexpected deletion in invite regression'); },
   signInWithApple: async () => {}, signInWithGoogle: async () => {}, signOutSession: async () => {},
 }));
 vi.mock('../config', () => ({ CONVEX_URL: 'https://sync.invalid', SITE_URL: 'https://site.invalid', PUBLIC_SITE_URL: 'https://public.invalid' }));

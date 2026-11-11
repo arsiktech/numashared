@@ -227,9 +227,13 @@ export function randomSecret(prefix: string, bytes = 32): string {
  * Without the secret, nobody can work out the next token from the presented one.
  */
 export async function rotatedSecret(serverSecret: string, prefix: "nsat" | "nsrt", presented: string): Promise<string> {
-  const key = await crypto.subtle.importKey("raw", new TextEncoder().encode(serverSecret), { name: "HMAC", hash: "SHA-256" }, false, ["sign"]);
-  const mac = await crypto.subtle.sign("HMAC", key, new TextEncoder().encode(`numa-shared/oauth-rotation/v1/${prefix}/${presented}`));
-  return `${prefix}_${base64url(new Uint8Array(mac))}`;
+  return `${prefix}_${base64url(await hmacSha256(serverSecret, `numa-shared/oauth-rotation/v1/${prefix}/${presented}`))}`;
+}
+
+/** HMAC-SHA-256 of `label` under `secret`. */
+export async function hmacSha256(secret: string, label: string): Promise<Uint8Array> {
+  const key = await crypto.subtle.importKey("raw", new TextEncoder().encode(secret), { name: "HMAC", hash: "SHA-256" }, false, ["sign"]);
+  return new Uint8Array(await crypto.subtle.sign("HMAC", key, new TextEncoder().encode(label)));
 }
 
 /** Accepts the request's scope: ours, plus offline_access, which clients may add for refresh tokens. */
