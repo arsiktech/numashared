@@ -45,7 +45,7 @@ export default function CardSyncScreen() {
   if (!h.sync || h.sync.setup) {
     return (
       <SettingsShell title="Card sync" back="Settings" active="household">
-        <T style={{ fontSize: 16, lineHeight: 22, color: c.ink2, marginTop: 12 }}>Share {h.name} first. Card sync adds spends for everyone in a shared household.</T>
+        <T {...fbPrivate} style={{ fontSize: 16, lineHeight: 22, color: c.ink2, marginTop: 12 }}>Share {h.name} first. Card sync adds spends for everyone in a shared household.</T>
       </SettingsShell>
     );
   }

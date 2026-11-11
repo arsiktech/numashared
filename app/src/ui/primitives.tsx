@@ -166,11 +166,11 @@ export function TChip({ label, amount, on, onPress, tone, small, leading, access
 }
 
 /** Neutral chip on paper. */
-export function Chip({ label, on, onPress, leading, square }: { label: string; on?: boolean; onPress?: () => void; leading?: ReactNode; square?: boolean }) {
+export function Chip({ label, on, onPress, leading, square, mask }: { label: string; on?: boolean; onPress?: () => void; leading?: ReactNode; square?: boolean; mask?: boolean }) {
   const { c } = useTheme();
   return (
     <Press onPress={onPress} accessibilityState={{ selected: !!on }} accessibilityLabel={label} style={s.target}>
-      <View style={[s.chip, { borderRadius: square ? 8 : 18, backgroundColor: on ? c.ink : c.chip }]}>
+      <View {...(mask ? fbPrivate : {})} style={[s.chip, { borderRadius: square ? 8 : 18, backgroundColor: on ? c.ink : c.chip }]}>
         {leading}
         <T style={{ fontFamily: fonts.semibold, fontSize: 14.5, color: on ? c.bg : c.ink }}>{label}</T>
       </View>

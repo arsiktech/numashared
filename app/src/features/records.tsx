@@ -54,7 +54,7 @@ export function RecordRow({ h, r, hide, fresh, last, onPress }: {
       <View style={{ width: 40, height: 40, borderRadius: 20, backgroundColor: tile.bg, alignItems: 'center', justifyContent: 'center' }}>{tile.icon}</View>
       <View style={{ flex: 1, minWidth: 0 }}>
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, flexWrap: largeText ? 'wrap' : 'nowrap' }}>
-          <T {...(r.kind === 'settlement' ? fbPrivate : {})} numberOfLines={largeText ? 3 : 1} style={{ fontFamily: fonts.semibold, fontSize: 16, flexShrink: 1, color: r.voided ? c.ink3 : c.ink, textDecorationLine: r.voided ? 'line-through' : 'none' }}>
+          <T {...fbPrivate} numberOfLines={largeText ? 3 : 1} style={{ fontFamily: fonts.semibold, fontSize: 16, flexShrink: 1, color: r.voided ? c.ink3 : c.ink, textDecorationLine: r.voided ? 'line-through' : 'none' }}>
             {r.kind === 'settlement' ? settlementTitle(h, r) : title}
           </T>
           {edited && !r.voided ? <Badge label="Edited" /> : null}

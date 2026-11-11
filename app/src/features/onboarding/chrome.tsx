@@ -98,7 +98,7 @@ export function Field({ style, inputStyle, ...p }: TextInputProps & { style?: St
   return (
     <View style={[{ minHeight: 56, borderRadius: radius.field, backgroundColor: c.card, borderWidth: focus ? 2 : 1,
       borderColor: focus ? c.ink : c.hair, paddingHorizontal: focus ? 15 : 16, justifyContent: 'center' }, style]}>
-      <TextInput placeholderTextColor={c.ink3} selectionColor={c.ink} cursorColor={c.ink}
+      <TextInput {...fbPrivate} placeholderTextColor={c.ink3} selectionColor={c.ink} cursorColor={c.ink}
         {...p}
         onFocus={(e) => { setFocus(true); p.onFocus?.(e); }}
         onBlur={(e) => { setFocus(false); p.onBlur?.(e); }}

@@ -13,6 +13,7 @@ import { Banner, BannerText, CTA, haptic, IconButton, Press, T, TextButton } fro
 import { Sheet, useSheet } from '@/ui/sheet';
 import { useTheme } from '@/ui/theme';
 import { fonts, isAndroid, thisDevice } from '@/ui/tokens';
+import { fbPrivate } from '@/ui/fbPrivate';
 import type { SheetProps } from './host';
 
 export function SignOutSheet({ spec, onClosed }: SheetProps<'signout'>) {
@@ -50,7 +51,7 @@ function Body() {
     router.replace('/welcome');
   };
 
-  const option = (key: 'lock' | 'erase', title: string, sub: string, icon: (on: boolean) => React.ReactNode) => {
+  const option = (key: 'lock' | 'erase', title: string, sub: string, icon: (on: boolean) => React.ReactNode, mask = false) => {
     const on = mode === key;
     return (
       <Press noScale accessibilityRole="radio" accessibilityState={{ checked: on }} accessibilityLabel={`${title}. ${sub}`}
@@ -60,7 +61,7 @@ function Body() {
         <View style={{ width: 36, height: 36, borderRadius: 18, backgroundColor: on ? c.ink : c.chip, alignItems: 'center', justifyContent: 'center' }}>{icon(on)}</View>
         <View style={{ flex: 1 }}>
           <T style={{ fontFamily: fonts.bold, fontSize: 17, lineHeight: 22 }}>{title}</T>
-          <T style={{ fontSize: 14, lineHeight: 19, color: c.ink2, marginTop: 3 }}>{sub}</T>
+          <T {...(mask ? fbPrivate : {})} style={{ fontSize: 14, lineHeight: 19, color: c.ink2, marginTop: 3 }}>{sub}</T>
         </View>
       </Press>
     );
@@ -73,7 +74,7 @@ function Body() {
       ) : null}
       <View style={{ paddingHorizontal: 22, paddingTop: isAndroid ? 0 : 22 }}>
         <T accessibilityRole="header" style={{ fontFamily: fonts.bold, fontSize: 22, lineHeight: 26, letterSpacing: -0.2 }}>Sign out of this device?</T>
-        <T style={{ fontSize: 14, lineHeight: 19, color: c.ink2, marginTop: 6 }}>
+        <T {...fbPrivate} style={{ fontSize: 14, lineHeight: 19, color: c.ink2, marginTop: 6 }}>
           {onlyShared
             ? 'Your shared households stay on your account. Sign in with Apple again to get them back.'
             : session
@@ -84,7 +85,7 @@ function Body() {
           {option('lock', 'Lock this device', 'Keeps everything here, hidden until you tap Unlock on the welcome screen.',
             (on) => <Lock size={18} color={on ? c.bg : c.ink} />)}
           {option('erase', 'Erase from this device', `Deletes ${listNames(names)} from this device. There’s no other copy yet.`,
-            (on) => <VoidX size={18} color={on ? c.bg : c.ink} />)}
+            (on) => <VoidX size={18} color={on ? c.bg : c.ink} />, true)}
         </View>}
         {session && unsentCount() > 0 ? (
           <View style={{ marginTop: 16 }}>

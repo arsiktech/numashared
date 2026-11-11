@@ -10,6 +10,7 @@ import { Warn } from '@/ui/icons';
 import { Banner, BannerText, Chip, CTA, haptic, T } from '@/ui/primitives';
 import { useTheme } from '@/ui/theme';
 import { fonts, isWeb, thisDevice } from '@/ui/tokens';
+import { fbPrivate } from '@/ui/fbPrivate';
 import { Caption, Field, Label, Screen, ScreenHeader } from '@/features/onboarding/chrome';
 import { explainFailure, SignInButtons, useSession, useSignInOptions } from '@/features/account/session';
 import {
@@ -120,7 +121,7 @@ export default function ImportSheet() {
   const footer = created ? (
     session ? null : <CTA variant="second" label={`Not now, keep it in ${thisDevice}`} onPress={() => router.replace('/home')} />
   ) : preview ? (
-    <CTA label={busy === 'creating' ? 'Creating…' : `Create ${(name || 'household').trim()}`} disabled={!!busy} onPress={create} />
+    <CTA mask label={busy === 'creating' ? 'Creating…' : `Create ${(name || 'household').trim()}`} disabled={!!busy} onPress={create} />
   ) : (
     <CTA label={busy === 'reading' ? 'Reading the sheet…' : 'Read the sheet'} disabled={!link.trim() || !!busy} onPress={read} />
   );
@@ -151,7 +152,7 @@ export default function ImportSheet() {
           <Label style={{ marginTop: 22 }}>Which one is you?</Label>
           <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
             {people.map((n) => (
-              <Chip key={n} label={n} on={(you ?? people[0]) === n} onPress={created ? undefined : () => { haptic.tick(); setYou(n); }} />
+              <Chip mask key={n} label={n} on={(you ?? people[0]) === n} onPress={created ? undefined : () => { haptic.tick(); setYou(n); }} />
             ))}
           </View>
 
@@ -159,9 +160,9 @@ export default function ImportSheet() {
           <View style={{ backgroundColor: c.card, borderRadius: 18, padding: 16, gap: 8 }}>
             <T style={{ fontSize: 16 }}>{preview.expenses} expenses and {preview.payments} payments</T>
             <T style={{ fontSize: 15, color: c.ink2 }}>{day(preview.from)} – {day(preview.to)}</T>
-            <T style={{ fontSize: 15, color: c.ink2 }}>Groups: {groups.join('  ·  ')}</T>
+            <T {...fbPrivate} style={{ fontSize: 15, color: c.ink2 }}>Groups: {groups.join('  ·  ')}</T>
             {balance ? (
-              <T style={{ fontFamily: fonts.semibold, fontSize: 17, marginTop: 4 }}>
+              <T {...fbPrivate} style={{ fontFamily: fonts.semibold, fontSize: 17, marginTop: 4 }}>
                 {balance.owing} owe {balance.owed} {formatMoney(balance.cents, preview.currency)}
               </T>
             ) : <T style={{ fontFamily: fonts.semibold, fontSize: 17, marginTop: 4 }}>Everyone is square</T>}
@@ -173,7 +174,7 @@ export default function ImportSheet() {
               <Label style={{ marginTop: 22 }}>{`Left out (${preview.skipped.length})`}</Label>
               <View style={{ backgroundColor: c.card, borderRadius: 18, padding: 16, gap: 6 }}>
                 {preview.skipped.slice(0, 20).map((s) => (
-                  <T key={`${s.tab}${s.row}`} style={{ fontSize: 14, color: c.ink2 }}>
+                  <T {...fbPrivate} key={`${s.tab}${s.row}`} style={{ fontSize: 14, color: c.ink2 }}>
                     Row {s.row}, {s.reason}: {s.text.slice(0, 80)}
                   </T>
                 ))}

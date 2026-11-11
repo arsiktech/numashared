@@ -600,7 +600,7 @@ function NewCategory({ tone: t, value, onChange, onDone, onBack }: {
     <View style={{ gap: 10 }}>
       <T style={{ fontFamily: fonts.semibold, fontSize: 14, color: t.ink }}>Name it</T>
       <View style={{ minHeight: 48, borderRadius: 14, paddingHorizontal: 14, justifyContent: 'center', backgroundColor: alpha(t.ink, 0.09) }}>
-        <TextInput value={value} onChangeText={onChange} autoFocus placeholder="Pizza night" placeholderTextColor={alpha(t.ink, 0.55)} maxLength={40}
+        <TextInput {...fbPrivate} value={value} onChangeText={onChange} autoFocus placeholder="Pizza night" placeholderTextColor={alpha(t.ink, 0.55)} maxLength={40}
           accessibilityLabel={isWeb ? 'Name it: category name' : 'Category name'} returnKeyType="done" onSubmitEditing={onDone}
           onKeyPress={isWeb ? (e) => forwardSheetInputKey(e, escape) : undefined}
           style={[{ minHeight: 48, fontFamily: fonts.semibold, fontSize: 18, color: t.ink, paddingVertical: 0 }, isWeb ? ({ outlineStyle: 'auto' } as object) : null]} />

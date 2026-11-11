@@ -12,6 +12,7 @@ import { SheetHead, useSheet } from '@/ui/sheet';
 import { forwardSheetInputKey } from '@/ui/sheet-focus';
 import { useTheme } from '@/ui/theme';
 import { alpha, fonts, isAndroid, isWeb, type GroupTone } from '@/ui/tokens';
+import { fbPrivate } from '@/ui/fbPrivate';
 import { dateLabel, dateSpoken, daysAgoISO, groupInitials, shiftISO } from './draft';
 import { tabJumpsToNote } from './keys';
 
@@ -122,7 +123,7 @@ export function PersonDot({ fill, ring }: { fill: string; ring: string }) {
 export function GroupAvatar({ h, group, tone, size = 38, ink }: { h: Household; group: Group; tone: GroupTone; size?: number; ink?: boolean }) {
   const text = groupInitials(h, group);
   return (
-    <View style={{ width: size, height: size, borderRadius: size / 2, alignItems: 'center', justifyContent: 'center', backgroundColor: ink ? tone.ink : tone.band }}>
+    <View {...fbPrivate} style={{ width: size, height: size, borderRadius: size / 2, alignItems: 'center', justifyContent: 'center', backgroundColor: ink ? tone.ink : tone.band }}>
       <T maxFontSizeMultiplier={1} style={{ fontFamily: fonts.bold, fontSize: size * (text.length > 1 ? 0.34 : 0.42), color: ink ? tone.band : tone.ink }}>{text}</T>
     </View>
   );
@@ -143,7 +144,7 @@ export function NoteLine({ tone, value, onChange, editing, setEditing, inputRef,
     return (
       <View style={[box, style]}>
         <Pencil size={18} color={alpha(tone.ink, 0.7)} />
-        <TextInput ref={inputRef} value={value} onChangeText={onChange} autoFocus={!isWeb && editing} placeholder={placeholder} maxLength={140}
+        <TextInput {...fbPrivate} ref={inputRef} value={value} onChangeText={onChange} autoFocus={!isWeb && editing} placeholder={placeholder} maxLength={140}
           placeholderTextColor={alpha(tone.ink, 0.62)} accessibilityLabel={isWeb ? `${placeholder}, optional` : 'Note'} returnKeyType="done"
           onFocus={isWeb ? () => setEditing(true) : undefined}
           onBlur={() => setEditing(false)} onSubmitEditing={() => { setEditing(false); onSubmit?.(); }}
@@ -156,7 +157,7 @@ export function NoteLine({ tone, value, onChange, editing, setEditing, inputRef,
   return (
     <Press noScale onPress={() => setEditing(true)} accessibilityLabel={empty ? 'Add a note, optional' : `Note: ${value}. Edit`} style={[box, style]}>
       <Pencil size={18} color={alpha(tone.ink, 0.7)} />
-      <T numberOfLines={largeText ? 2 : 1} style={{ flex: 1, fontFamily: fonts.medium, fontSize: 16, color: empty ? alpha(tone.ink, 0.68) : tone.ink }}>
+      <T {...(empty ? {} : fbPrivate)} numberOfLines={largeText ? 2 : 1} style={{ flex: 1, fontFamily: fonts.medium, fontSize: 16, color: empty ? alpha(tone.ink, 0.68) : tone.ink }}>
         {empty ? placeholder : value}
       </T>
       {/* At the accessibility sizes "optional" stays in the spoken label and gives its room to the note. */}
@@ -191,9 +192,9 @@ export function ReceiptHead({ left, right, onRight, rightLabel }: { left: string
       {right ? (
         onRight ? (
           <Press onPress={onRight} accessibilityLabel={rightLabel ?? right} hitSlop={12} style={{ minHeight: 20, justifyContent: 'center' }}>
-            <T style={{ fontFamily: fonts.semibold, fontSize: 13, color: c.ink }}>{right}</T>
+            <T {...fbPrivate} style={{ fontFamily: fonts.semibold, fontSize: 13, color: c.ink }}>{right}</T>
           </Press>
-        ) : <T style={{ fontFamily: fonts.semibold, fontSize: 13, color: c.ink2 }}>{right}</T>
+        ) : <T {...fbPrivate} style={{ fontFamily: fonts.semibold, fontSize: 13, color: c.ink2 }}>{right}</T>
       ) : null}
     </View>
   );
@@ -206,9 +207,9 @@ export function AfterRow({ left, lead, strong }: { left: string; lead: string; s
     <View accessible accessibilityLabel={`${left}. ${lead} ${strong}`.trim()}
       style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'baseline', gap: 12, paddingHorizontal: 2 }}>
       <T style={{ fontSize: 14, color: c.ink2, flexShrink: 1 }}>{left}</T>
-      <T style={{ fontSize: 14, color: c.ink2, textAlign: 'right', flexShrink: 1 }}>
+      <T {...fbPrivate} style={{ fontSize: 14, color: c.ink2, textAlign: 'right', flexShrink: 1 }}>
         {lead}{lead && strong ? ' ' : ''}
-        {strong ? <T style={{ fontFamily: fonts.bold, fontSize: 16, color: c.ink, fontVariant: ['tabular-nums'] }}>{strong}</T> : null}
+        {strong ? <T {...fbPrivate} style={{ fontFamily: fonts.bold, fontSize: 16, color: c.ink, fontVariant: ['tabular-nums'] }}>{strong}</T> : null}
       </T>
     </View>
   );

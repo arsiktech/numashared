@@ -1,5 +1,5 @@
 // Web-only feedback. Hidden unless the three public env values are set and the service says this
-// app may send notes. Screenshots are taken only for paths on that service's capture list.
+// app may send notes. A screenshot is taken on every screen the service's capture list allows.
 import { useEffect, useRef, useState } from 'react';
 import { Image, TextInput, View } from 'react-native';
 import Svg, { Circle, Path } from 'react-native-svg';
@@ -11,10 +11,10 @@ import { Press, T } from '@/ui/primitives';
 import { useTheme } from '@/ui/theme';
 import { fonts, isWeb } from '@/ui/tokens';
 import {
-  captureFeedbackView, feedbackCaptureAllowed, fetchFeedbackConfig, sendFeedback,
+  captureFeedbackView, fetchFeedbackConfig, sendFeedback,
   type FeedbackCapture, type FeedbackCaptureConfig, type FeedbackMood,
 } from './feedback-client';
-import { feedbackContext, feedbackEndpoint, feedbackLocale } from './config';
+import { feedbackContext, feedbackEndpoint, feedbackLocale, shouldCaptureFeedback } from './config';
 
 const MOODS: readonly { id: FeedbackMood; label: string }[] = [
   { id: 'happy', label: 'Happy' },
@@ -130,7 +130,7 @@ export function FeedbackButton() {
   const toggle = () => {
     if (open) { close(); return; }
     setOpen(true);
-    if (!config.screenshots || !feedbackCaptureAllowed(config.capture, path)) return;
+    if (!shouldCaptureFeedback(config, path)) return;
     const seq = ++captureSeq.current;
     captureFeedbackView().then((next) => {
       if (captureSeq.current === seq) setShot(next);

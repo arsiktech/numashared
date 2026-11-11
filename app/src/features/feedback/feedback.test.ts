@@ -1,6 +1,6 @@
 import { afterEach, expect, test, vi } from 'vitest';
 import { feedbackCaptureAllowed, fetchFeedbackConfig, sendFeedback } from './feedback-client';
-import { feedbackContext, feedbackEndpoint, feedbackEndpointFrom, feedbackLocale } from './config';
+import { feedbackContext, feedbackEndpoint, feedbackEndpointFrom, feedbackLocale, shouldCaptureFeedback } from './config';
 
 const KEYS = ['EXPO_PUBLIC_FEEDBACK_URL', 'EXPO_PUBLIC_FEEDBACK_APP', 'EXPO_PUBLIC_FEEDBACK_KEY'] as const;
 const previous = Object.fromEntries(KEYS.map((key) => [key, process.env[key]]));
@@ -41,10 +41,21 @@ test('a failed lookup keeps the button off', async () => {
     .resolves.toEqual({ enabled: false, screenshots: false, capture: [] });
 });
 
-test('an empty capture list takes no screenshot', () => {
+const WEB_SCREENS = [
+  '/', '/welcome', '/home', '/history', '/settings', '/settings/people', '/settings/export',
+  '/settings/agents', '/settings/card-sync', '/settings/delete-account', '/import', '/join',
+  '/connect', '/setup/account', '/setup/new', '/setup/groups', '/setup/invite', '/setup/opening',
+];
+
+test('an empty capture list takes no screenshot, and /* takes one on every screen', () => {
   expect(feedbackCaptureAllowed([], '/home')).toBe(false);
-  expect(feedbackCaptureAllowed([], '/')).toBe(false);
-  expect(feedbackCaptureAllowed(['/home'], '/home')).toBe(true);
+  expect(shouldCaptureFeedback({ enabled: true, screenshots: true, capture: [] }, '/home')).toBe(false);
+  expect(shouldCaptureFeedback({ enabled: true, screenshots: false, capture: ['/*'] }, '/home')).toBe(false);
+  for (const path of WEB_SCREENS) {
+    expect(feedbackCaptureAllowed(['/*'], path)).toBe(true);
+    expect(shouldCaptureFeedback({ enabled: true, screenshots: true, capture: ['/*'] }, path)).toBe(true);
+  }
+  expect(shouldCaptureFeedback({ enabled: true, screenshots: true, capture: ['/home'] }, '/settings')).toBe(false);
 });
 
 test('a note sends the path, mood and theme, and no identity', async () => {
@@ -83,6 +94,18 @@ test('a note sends the path, mood and theme, and no identity', async () => {
   });
   expect(body).not.toHaveProperty('screenshot');
   expect(JSON.stringify(body)).not.toMatch(/email|userId|name/i);
+
+  calls.length = 0;
+  const withShot = await sendFeedback(
+    { url: 'https://feedback.invalid', app: 'demo', key: 'k' },
+    { note: 'With a picture', path: '/settings', mood: 'happy', shot: { dataUrl: 'data:image/jpeg;base64,aa', viewport: { width: 800, height: 600 } }, context: feedbackContext('light') },
+  );
+  expect(withShot.ok).toBe(true);
+  const pictured = JSON.parse(String(calls[0].init.body));
+  expect(pictured.path).toBe('/settings');
+  expect(pictured.mood).toBe('happy');
+  expect(pictured.screenshot).toBe('data:image/jpeg;base64,aa');
+  expect(pictured.context).toEqual({ theme: 'light' });
 });
 
 test('context is only the theme', () => {

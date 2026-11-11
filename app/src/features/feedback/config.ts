@@ -1,5 +1,8 @@
 // The web feedback control stays off until the address, app and key are all set.
-import type { FeedbackEndpoint } from './feedback-client';
+// A screenshot is taken exactly when the service's capture list allows the current path.
+// This app keeps no path list of its own.
+import type { FeedbackCaptureConfig, FeedbackEndpoint } from './feedback-client';
+import { feedbackCaptureAllowed } from './feedback-client';
 
 export type FeedbackEnv = {
   EXPO_PUBLIC_FEEDBACK_URL?: string;
@@ -27,6 +30,11 @@ export function feedbackEndpoint(): FeedbackEndpoint | null {
 /** Small non-personal facts only. Never an id, email or name. */
 export function feedbackContext(theme: 'light' | 'dark'): Record<string, string> {
   return { theme };
+}
+
+/** True when the service allows a screenshot of this path. No extra path filter is applied here. */
+export function shouldCaptureFeedback(config: FeedbackCaptureConfig, path: string): boolean {
+  return config.screenshots === true && feedbackCaptureAllowed(config.capture, path);
 }
 
 /** A locale tag the service accepts, or nothing. */

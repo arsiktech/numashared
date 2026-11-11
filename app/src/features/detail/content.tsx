@@ -161,7 +161,7 @@ function TitleRow({ h, r, panel, partial, onClose }: { h: Household; r: LedgerRe
   return (
     <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
       <View style={{ width: size, height: size, borderRadius: size / 2, backgroundColor: bg, alignItems: 'center', justifyContent: 'center' }}>{icon}</View>
-      <T accessibilityRole="header" style={{ flex: 1, minWidth: 0, fontFamily: fonts.bold, fontSize: isAndroid && !panel ? 22 : 20, letterSpacing: -0.2,
+      <T {...fbPrivate} accessibilityRole="header" style={{ flex: 1, minWidth: 0, fontFamily: fonts.bold, fontSize: isAndroid && !panel ? 22 : 20, letterSpacing: -0.2,
         textDecorationLine: r.voided ? 'line-through' : 'none', color: r.voided ? c.ink2 : c.ink }}>
         {r.kind === 'settlement' ? 'Repayment' : recordTitle(r)}
       </T>
@@ -194,7 +194,7 @@ function Quote({ text, by }: { text: string; by: string }) {
   const { c } = useTheme();
   return (
     <View style={{ marginTop: 12, borderRadius: 16, backgroundColor: c.card, borderWidth: 1, borderColor: c.hair, paddingHorizontal: 14, paddingVertical: 12 }}>
-      <T style={{ fontSize: 15.5, lineHeight: 22 }}>“{text}”</T>
+      <T {...fbPrivate} style={{ fontSize: 15.5, lineHeight: 22 }}>“{text}”</T>
       <T {...fbPrivate} style={{ fontFamily: fonts.semibold, fontSize: 12.5, color: c.ink2, marginTop: 4 }}>Note from {by}</T>
     </View>
   );

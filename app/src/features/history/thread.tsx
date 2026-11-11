@@ -92,7 +92,7 @@ function SearchField({ query, onDone, autoFocus }: { query: string; onDone?: () 
   return (
     <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, height: 44, borderRadius: 22, backgroundColor: c.card, borderWidth: 1, borderColor: c.hair, paddingLeft: 14, flex: 1 }}>
       <Search size={18} color={c.ink2} />
-      <TextInput value={query} onChangeText={setHistoryQuery} autoFocus={autoFocus} placeholder="Search history" placeholderTextColor={c.ink3}
+      <TextInput {...fbPrivate} value={query} onChangeText={setHistoryQuery} autoFocus={autoFocus} placeholder="Search history" placeholderTextColor={c.ink3}
         accessibilityLabel="Search history" returnKeyType="search" autoCorrect={false}
         style={{ flex: 1, minWidth: 0, height: 42, fontFamily: fonts.medium, fontSize: 16, color: c.ink, outlineStyle: 'none' } as never} />
       {onDone || query ? (
@@ -143,7 +143,7 @@ function PhoneHeader({ h, filter, setFilter, query }: { h: Household; filter: Fi
           <Press accessibilityRole="link" accessibilityLabel={`Back to ${h.name}`} onPress={back}
             style={{ height: 44, flexDirection: 'row', alignItems: 'center', gap: 4, paddingRight: 6 }}>
             <Back size={22} color={c.ink} />
-            <T style={{ fontSize: 17 }}>{h.name}</T>
+            <T {...fbPrivate} style={{ fontSize: 17 }}>{h.name}</T>
           </Press>
         )}
         {searching ? (
@@ -233,10 +233,10 @@ function Bubble({ h, r, hide, desk, selected, onSelect }: { h: Household; r: Led
               borderBottomLeftRadius: mine ? 22 : 6, borderBottomRightRadius: mine ? 6 : 22, opacity: r.voided ? 0.72 : 1 }}>
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
               {desk ? <CategoryIcon category={e.category} size={20} color={t.ink} /> : null}
-              <T numberOfLines={2} style={[{ fontFamily: fonts.bold, fontSize: 15, color: t.ink, flexShrink: 1 }, strike]}>{title}</T>
+              <T {...fbPrivate} numberOfLines={2} style={[{ fontFamily: fonts.bold, fontSize: 15, color: t.ink, flexShrink: 1 }, strike]}>{title}</T>
             </View>
             <T {...fbPrivate} style={[{ fontFamily: fonts.display, fontSize: 26, lineHeight: 30, letterSpacing: -0.5, color: t.ink, fontVariant: ['tabular-nums'] }, strike]}>{money(h, e.amount, hide)}</T>
-            {e.note && !r.voided ? <T style={{ fontFamily: fonts.semibold, fontSize: 13.5, color: t.ink, marginTop: 1 }}>“{e.note}”</T> : null}
+            {e.note && !r.voided ? <T {...fbPrivate} style={{ fontFamily: fonts.semibold, fontSize: 13.5, color: t.ink, marginTop: 1 }}>“{e.note}”</T> : null}
             <T {...fbPrivate} style={{ fontFamily: fonts.semibold, fontSize: 13, color: t.ink, opacity: 0.88 }}>
               {splitLabel(r)}{effect ? ` · ${effect}` : ''}
             </T>
@@ -267,7 +267,7 @@ function RepayCard({ h, r, hide, selected, onSelect }: { h: Household; r: Ledger
         <Press noScale onPress={() => onSelect(r.id)} accessibilityLabel={`Repayment: ${title}. ${meta}. ${foot}. Open details`} accessibilityState={{ selected }}
           style={{ backgroundColor: c.ink, borderRadius: 20, paddingHorizontal: 16, paddingVertical: 10, alignItems: 'center', opacity: r.voided ? 0.6 : 1 }}>
           <T {...fbPrivate} style={[{ fontFamily: fonts.bold, fontSize: 15, color: c.bg, textAlign: 'center' }, strike]}>{title}</T>
-          {meta ? <T style={{ fontFamily: fonts.semibold, fontSize: 13.5, color: c.bg, marginTop: 3, textAlign: 'center' }}>{meta}</T> : null}
+          {meta ? <T {...fbPrivate} style={{ fontFamily: fonts.semibold, fontSize: 13.5, color: c.bg, marginTop: 3, textAlign: 'center' }}>{meta}</T> : null}
           <T {...fbPrivate} style={{ fontFamily: fonts.semibold, fontSize: 12.5, color: alpha(c.bg, 0.75), marginTop: 2, textAlign: 'center' }}>{foot}</T>
         </Press>
       </Ring>

@@ -9,6 +9,7 @@ import { Banner, BannerText, Chip, CTA, haptic, T, TextButton } from '@/ui/primi
 import { useSheet } from '@/ui/sheet';
 import { useTheme } from '@/ui/theme';
 import { fonts, isWeb } from '@/ui/tokens';
+import { fbPrivate } from '@/ui/fbPrivate';
 import { clock, money, personName, recordTitle, relativeDay, settlementTitle } from '../hooks';
 
 /** "€6.50 · You paid · Today 12:10". */
@@ -49,8 +50,8 @@ export function ConfirmBody({ title, sub, reasons, explain, action, onConfirm, n
   return (
     <View>
       <View style={{ paddingHorizontal: 22, paddingTop: 10 }}>
-        <T accessibilityRole="header" style={{ fontFamily: fonts.bold, fontSize: 20, letterSpacing: -0.2 }}>{title}</T>
-        <T style={{ fontSize: 14, color: c.ink2, marginTop: 4 }}>{sub}</T>
+        <T {...fbPrivate} accessibilityRole="header" style={{ fontFamily: fonts.bold, fontSize: 20, letterSpacing: -0.2 }}>{title}</T>
+        <T {...fbPrivate} style={{ fontSize: 14, color: c.ink2, marginTop: 4 }}>{sub}</T>
         <T style={{ fontFamily: fonts.semibold, fontSize: 13, color: c.ink2, paddingTop: 20, paddingBottom: 8 }}>
           Why?{needsReason ? null : <T style={{ fontSize: 13, color: c.ink2, opacity: 0.8 }}>{'  '}optional</T>}
         </T>
@@ -61,7 +62,7 @@ export function ConfirmBody({ title, sub, reasons, explain, action, onConfirm, n
         </View>
         {reason === 'Other' ? (
           <View style={{ marginTop: 12, minHeight: 48, borderRadius: 14, paddingHorizontal: 14, justifyContent: 'center', backgroundColor: c.card, borderWidth: 1, borderColor: c.hair }}>
-            <TextInput value={other} onChangeText={setOther} autoFocus placeholder={otherPlaceholder} placeholderTextColor={c.ink3} maxLength={120}
+            <TextInput {...fbPrivate} value={other} onChangeText={setOther} autoFocus placeholder={otherPlaceholder} placeholderTextColor={c.ink3} maxLength={120}
               accessibilityLabel="Reason" returnKeyType="done" onSubmitEditing={confirm}
               style={[{ minHeight: 46, fontFamily: fonts.regular, fontSize: 16, color: c.ink, paddingVertical: 0 }, isWeb ? ({ outlineStyle: 'none' } as object) : null]} />
           </View>
@@ -69,7 +70,7 @@ export function ConfirmBody({ title, sub, reasons, explain, action, onConfirm, n
         <View style={{ marginTop: 18 }}>
           {error
             ? <Banner kind="bad" icon={<Warn size={20} color={c.bad} />}><BannerText kind="bad" strong="That didn’t work." rest={error} /></Banner>
-            : <Banner kind="info"><T style={{ fontSize: 14.5, lineHeight: 20 }}>{explain}</T></Banner>}
+            : <Banner kind="info"><T {...fbPrivate} style={{ fontSize: 14.5, lineHeight: 20 }}>{explain}</T></Banner>}
         </View>
       </View>
       <View style={{ paddingTop: 18, paddingHorizontal: 22, paddingBottom: Math.max(insets.bottom, 12) + 4, alignItems: 'stretch', gap: 4 }}>

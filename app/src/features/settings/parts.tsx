@@ -20,13 +20,13 @@ export const useDesk = () => {
 };
 
 /** A titled group of rows. */
-export function SGroup({ title, children, first }: { title?: string; children: ReactNode; first?: boolean }) {
+export function SGroup({ title, children, first, mask }: { title?: string; children: ReactNode; first?: boolean; mask?: boolean }) {
   const { c } = useTheme();
   const desk = useDesk();
   if (isAndroid && !desk) {
     return (
       <View style={{ paddingBottom: 8 }}>
-        {title ? <T accessibilityRole="header" style={{ fontFamily: fonts.semibold, fontSize: 14, color: c.ink2, paddingTop: 16, paddingBottom: 8, paddingHorizontal: 16 }}>{title}</T> : null}
+        {title ? <T {...(mask ? fbPrivate : {})} accessibilityRole="header" style={{ fontFamily: fonts.semibold, fontSize: 14, color: c.ink2, paddingTop: 16, paddingBottom: 8, paddingHorizontal: 16 }}>{title}</T> : null}
         {children}
       </View>
     );
@@ -34,7 +34,7 @@ export function SGroup({ title, children, first }: { title?: string; children: R
   return (
     <View>
       {title ? (
-        <T accessibilityRole="header" style={{ fontFamily: fonts.semibold, fontSize: 13, color: c.ink2, paddingTop: first ? 8 : 20, paddingBottom: 6, paddingHorizontal: 4 }}>{title}</T>
+        <T {...(mask ? fbPrivate : {})} accessibilityRole="header" style={{ fontFamily: fonts.semibold, fontSize: 13, color: c.ink2, paddingTop: first ? 8 : 20, paddingBottom: 6, paddingHorizontal: 4 }}>{title}</T>
       ) : null}
       <View style={{ backgroundColor: c.card, borderRadius: 18, overflow: 'hidden' }}>{children}</View>
     </View>
