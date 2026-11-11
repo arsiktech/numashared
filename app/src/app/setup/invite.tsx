@@ -9,6 +9,7 @@ import { CloudOff, Copy, Share as ShareIcon } from '@/ui/icons';
 import { Banner, BannerText, CTA, Dot, ListCard, Pill, T } from '@/ui/primitives';
 import { useTheme } from '@/ui/theme';
 import { fonts, thisDevice } from '@/ui/tokens';
+import { fbPrivate } from '@/ui/fbPrivate';
 import { useHousehold, initials } from '@/features/hooks';
 import { Caption, Screen, ScreenHeader } from '@/features/onboarding/chrome';
 import { showCode } from '@/features/onboarding/model';
@@ -25,7 +26,7 @@ export default function Invite() {
   const { h } = useHousehold();
   if (!h) return <Redirect href="/welcome" />;
   return (
-    <Screen header={<ScreenHeader title="Invite your household" back={h.name} />}>
+    <Screen header={<ScreenHeader title="Invite your household" back={h.name} maskBack />}>
       {!h.sync ? <ShareFirst h={h} /> : h.sync.role === 'owner' ? <Codes h={h} /> : <MemberView h={h} />}
     </Screen>
   );
@@ -47,12 +48,12 @@ function ShareFirst({ h }: { h: Household }) {
   };
   return (
     <View style={{ marginTop: 18, gap: 14 }}>
-      <T style={{ fontSize: 16, lineHeight: 22 }}>
+      <T {...fbPrivate} style={{ fontSize: 16, lineHeight: 22 }}>
         {h.name} lives only in {thisDevice} right now. Share it, and everyone you invite sees the same history and balance on their own phone or computer.
       </T>
       <People h={h} />
       {session ? (
-        <CTA label={busy ? 'Sharing…' : `Share ${h.name}`} disabled={busy} onPress={share} />
+        <CTA mask label={busy ? 'Sharing…' : `Share ${h.name}`} disabled={busy} onPress={share} />
       ) : signInOptions.any ? (
         <SignInButtons verb="to share" onSignedIn={() => { void share(); }} />
       ) : (
@@ -99,7 +100,7 @@ function Codes({ h }: { h: Household }) {
       {checked && !checking && single && inviteUsable(single) ? (
         <View style={{ marginTop: 22, backgroundColor: c.card, borderRadius: 22, paddingTop: 26, paddingHorizontal: 22, paddingBottom: 24, alignItems: 'center' }}>
           <InvitePattern code={single.code} label={`Invite picture for ${pending[0].name}. The code is ${single.code.split('').join(' ')}`} />
-          <T style={{ fontFamily: fonts.semibold, fontSize: 12.5, color: c.ink2, marginTop: 14 }}>{pending[0].name}’s code</T>
+          <T {...fbPrivate} style={{ fontFamily: fonts.semibold, fontSize: 12.5, color: c.ink2, marginTop: 14 }}>{pending[0].name}’s code</T>
         </View>
       ) : null}
       {pending.length ? (
@@ -149,24 +150,24 @@ function CodeCard({ h, p, checked }: { h: Household; p: Person; checked: boolean
     <View style={{ backgroundColor: c.card, borderRadius: 20, padding: 18, gap: 12 }}>
       <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
         <View style={{ width: 36, height: 36, borderRadius: 18, backgroundColor: c.chip, alignItems: 'center', justifyContent: 'center' }}>
-          <T style={{ fontFamily: fonts.bold, fontSize: 14 }}>{initials(h, p.id)}</T>
+          <T {...fbPrivate} style={{ fontFamily: fonts.bold, fontSize: 14 }}>{initials(h, p.id)}</T>
         </View>
-        <T style={{ flex: 1, fontFamily: fonts.semibold, fontSize: 17 }}>{p.name}</T>
+        <T {...fbPrivate} style={{ flex: 1, fontFamily: fonts.semibold, fontSize: 17 }}>{p.name}</T>
         {ready && invite ? (
-          <T selectable accessibilityLabel={`${p.name}’s code ${invite.code.split('').join(' ')}`}
+          <T {...fbPrivate} selectable accessibilityLabel={`${p.name}’s code ${invite.code.split('').join(' ')}`}
             style={{ fontFamily: fonts.semibold, fontSize: 24, letterSpacing: 3, fontVariant: ['tabular-nums'] }}>{code}</T>
         ) : <T style={{ fontSize: 14, color: c.ink2 }}>{!checked ? 'Checking code…' : invite?.state === 'elsewhere' ? 'Code on another device' : invite?.state === 'expired' ? 'Code expired' : 'Code unavailable'}</T>}
       </View>
       {ready && invite ? (
         <View style={{ flexDirection: 'row', gap: 10 }}>
-          <Pill label={`Send to ${p.name}`} style={{ flex: 1, height: 44, borderRadius: 22, alignSelf: 'auto' }} icon={<ShareIcon size={17} color={c.bg} />}
+          <Pill mask label={`Send to ${p.name}`} style={{ flex: 1, height: 44, borderRadius: 22, alignSelf: 'auto' }} icon={<ShareIcon size={17} color={c.bg} />}
             accessibilityLabel={`Send ${p.name} their invite`}
             onPress={() => share(false)} />
           <Pill light label="Copy code" style={{ flex: 1, height: 44, borderRadius: 22, alignSelf: 'auto' }} icon={<Copy size={17} color={c.ink} />}
             accessibilityLabel={`Copy ${p.name}’s code`} onPress={() => share(true)} />
         </View>
       ) : checked && invite?.state && !h.sync!.frozen ? (
-        <CTA variant="second" label={busy ? 'Replacing…' : `Replace ${p.name}’s code`} disabled={busy} onPress={replace} />
+        <CTA mask variant="second" label={busy ? 'Replacing…' : `Replace ${p.name}’s code`} disabled={busy} onPress={replace} />
       ) : null}
     </View>
   );
@@ -175,7 +176,7 @@ function CodeCard({ h, p, checked }: { h: Household; p: Person; checked: boolean
 function MemberView({ h }: { h: Household }) {
   return (
     <View style={{ marginTop: 18, gap: 14 }}>
-      <T style={{ fontSize: 16, lineHeight: 22 }}>
+      <T {...fbPrivate} style={{ fontSize: 16, lineHeight: 22 }}>
         Invite codes come from the person who set up {h.name}. Ask them to send a code to whoever still needs one.
       </T>
       <People h={h} />
@@ -192,9 +193,9 @@ function People({ h }: { h: Household }) {
         <View key={p.id} style={{ flexDirection: 'row', alignItems: 'center', gap: 12, minHeight: 52, paddingVertical: 10, paddingHorizontal: 16,
           borderBottomWidth: i === others.length - 1 ? 0 : 1, borderBottomColor: c.hair }}>
           <View style={{ width: 32, height: 32, borderRadius: 16, backgroundColor: c.chip, alignItems: 'center', justifyContent: 'center' }}>
-            <T style={{ fontFamily: fonts.bold, fontSize: 13 }}>{initials(h, p.id)}</T>
+            <T {...fbPrivate} style={{ fontFamily: fonts.bold, fontSize: 13 }}>{initials(h, p.id)}</T>
           </View>
-          <T style={{ flex: 1, fontSize: 16 }}>{p.name}</T>
+          <T {...fbPrivate} style={{ flex: 1, fontSize: 16 }}>{p.name}</T>
           {p.joined ? (
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
               <Dot color={c.good} />

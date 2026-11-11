@@ -11,6 +11,7 @@ import { Check, ChevDown, Search } from '@/ui/icons';
 import { Press, T } from '@/ui/primitives';
 import { useTheme } from '@/ui/theme';
 import { fonts, isWeb } from '@/ui/tokens';
+import { fbPrivate } from '@/ui/fbPrivate';
 import { money, nameOf, useHousehold } from '@/features/hooks';
 import { Bands } from '@/features/home/bands';
 import { OrbButton, RecordRow } from '@/features/records';
@@ -154,7 +155,7 @@ function PhoneHome({ freshIds }: { freshIds: Set<string> }) {
         ListFooterComponent={(
           // Fills the rest of the screen, so a short history still covers the bands once docked.
           <View style={{ backgroundColor: c.bg, minHeight: H - insets.top - 120, paddingHorizontal: 22, paddingBottom: insets.bottom + 110 }}>
-            {ledger.records.length ? (data.length > 14 ? <T style={{ fontSize: 13, color: c.ink3, textAlign: 'center', paddingTop: 22 }}>That’s everything in {h.name}</T> : null) : <EmptyState />}
+            {ledger.records.length ? (data.length > 14 ? <T {...fbPrivate} style={{ fontSize: 13, color: c.ink3, textAlign: 'center', paddingTop: 22 }}>That’s everything in {h.name}</T> : null) : <EmptyState />}
             {/* Bouncing past the end shows more page, never the bands behind. */}
             {isWeb ? null : <View pointerEvents="none" style={{ position: 'absolute', left: 0, right: 0, top: '100%', height: H, backgroundColor: c.bg }} />}
           </View>
@@ -177,7 +178,7 @@ function EmptyState() {
         <T style={{ fontSize: 30, color: c.ink2 }}>+</T>
       </View>
       <T style={{ fontFamily: fonts.bold, fontSize: 20 }}>Nothing here yet</T>
-      <T style={{ fontSize: 14, color: c.ink2, textAlign: 'center', maxWidth: 300 }}>{isWeb ? 'Press' : 'Tap'} the orb to add the first expense. {h.sync ? `Everyone in ${h.name} sees it straight away.` : 'It stays on this device until you share the household.'}</T>
+      <T {...fbPrivate} style={{ fontSize: 14, color: c.ink2, textAlign: 'center', maxWidth: 300 }}>{isWeb ? 'Press' : 'Tap'} the orb to add the first expense. {h.sync ? `Everyone in ${h.name} sees it straight away.` : 'It stays on this device until you share the household.'}</T>
       <View style={{ alignSelf: 'stretch', marginTop: 10, backgroundColor: c.card, borderRadius: 18 }}>
         <Press noScale onPress={() => router.push('/setup/opening')} accessibilityLabel="Already owe each other money? Add an opening balance"
           style={{ padding: 16, borderBottomWidth: invited.length ? 1 : 0, borderBottomColor: c.hair }}>
@@ -186,7 +187,7 @@ function EmptyState() {
         </Press>
         {invited.length ? (
           <Press noScale onPress={() => router.push('/setup/invite')} accessibilityLabel="Invite people" style={{ padding: 16 }}>
-            <T style={{ fontSize: 16 }}>{invited.map((p) => p.name).join(', ')} {invited.length > 1 ? 'haven’t' : 'hasn’t'} joined yet</T>
+            <T {...fbPrivate} style={{ fontSize: 16 }}>{invited.map((p) => p.name).join(', ')} {invited.length > 1 ? 'haven’t' : 'hasn’t'} joined yet</T>
             <T style={{ fontSize: 13, color: c.ink2, marginTop: 2 }}>{invited.some((p) => h.sync?.invites?.[p.id]?.issued) ? 'Send the invite again' : 'Invite them'}</T>
           </Press>
         ) : null}
@@ -257,8 +258,8 @@ function Stat({ label, value }: { label: string; value: string }) {
   const { c } = useTheme();
   return (
     <View style={{ flexDirection: 'row', justifyContent: 'space-between', paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: c.hair }}>
-      <T style={{ fontSize: 15, color: c.ink2 }}>{label}</T>
-      <T style={{ fontSize: 15, fontFamily: fonts.semibold, fontVariant: ['tabular-nums'] }}>{value}</T>
+      <T {...fbPrivate} style={{ fontSize: 15, color: c.ink2 }}>{label}</T>
+      <T {...fbPrivate} style={{ fontSize: 15, fontFamily: fonts.semibold, fontVariant: ['tabular-nums'] }}>{value}</T>
     </View>
   );
 }

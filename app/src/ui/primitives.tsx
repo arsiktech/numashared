@@ -8,6 +8,7 @@ import {
 import * as Haptics from 'expo-haptics';
 import Svg, { Defs, LinearGradient, RadialGradient, Rect, Stop, Circle as SvgCircle, Ellipse } from 'react-native-svg';
 import { fonts, orb, radius, type, alpha, isWeb } from './tokens';
+import { fbPrivate } from './fbPrivate';
 import { TEXT_CAP } from './textScale';
 import { useTheme } from './theme';
 import { Plus } from './icons';
@@ -23,7 +24,7 @@ export const haptic = {
 
 // ---------- text ----------
 
-export function T({ style, ...p }: TextProps & { style?: StyleProp<TextStyle> }) {
+export function T({ style, ...p }: TextProps & { style?: StyleProp<TextStyle>; dataSet?: Record<string, boolean | string | number> }) {
   const { c } = useTheme();
   return <Text {...p} style={[{ color: c.ink, fontFamily: fonts.regular, fontSize: 16 }, style]} />;
 }
@@ -49,23 +50,24 @@ export const Press = forwardRef<View, PressProps>(function Press({ style, noScal
   );
 });
 
-export function Pill({ label, onPress, light, icon, style, textStyle, accessibilityLabel, small }: {
+export function Pill({ label, onPress, light, icon, style, textStyle, accessibilityLabel, small, mask }: {
   label: string; onPress?: () => void; light?: boolean; icon?: ReactNode; style?: StyleProp<ViewStyle>;
-  textStyle?: StyleProp<TextStyle>; accessibilityLabel?: string; small?: boolean;
+  textStyle?: StyleProp<TextStyle>; accessibilityLabel?: string; small?: boolean; mask?: boolean;
 }) {
   const { c } = useTheme();
   return (
     <Press onPress={onPress} accessibilityLabel={accessibilityLabel ?? label}
       style={[s.pill, { minHeight: small ? 40 : 44, backgroundColor: light ? c.chip : c.ink }, style]}>
       {icon}
-      <T style={[{ fontFamily: fonts.semibold, fontSize: 16, color: light ? c.ink : c.bg }, textStyle]}>{label}</T>
+      <T {...(mask ? fbPrivate : {})} style={[{ fontFamily: fonts.semibold, fontSize: 16, color: light ? c.ink : c.bg }, textStyle]}>{label}</T>
     </Press>
   );
 }
 
-export function CTA({ label, onPress, variant = 'primary', disabled, icon, accessibilityLabel, right, style }: {
+export function CTA({ label, onPress, variant = 'primary', disabled, icon, accessibilityLabel, right, style, mask }: {
   label: string; onPress?: () => void; variant?: 'primary' | 'add' | 'second' | 'danger' | 'apple' | 'google';
   disabled?: boolean; icon?: ReactNode; accessibilityLabel?: string; right?: ReactNode; style?: StyleProp<ViewStyle>;
+  mask?: boolean;
 }) {
   const { c } = useTheme();
   const bg = disabled ? c.chip : {
@@ -92,7 +94,7 @@ export function CTA({ label, onPress, variant = 'primary', disabled, icon, acces
         </View>
       ) : null}
       {icon}
-      <T maxFontSizeMultiplier={TEXT_CAP.label} style={{ fontFamily: variant === 'add' ? fonts.bold : fonts.semibold, fontSize: variant === 'add' ? 19 : 17, color: fg, textAlign: 'center', flexShrink: 1 }}>{label}</T>
+      <T {...(mask ? fbPrivate : {})} maxFontSizeMultiplier={TEXT_CAP.label} style={{ fontFamily: variant === 'add' ? fonts.bold : fonts.semibold, fontSize: variant === 'add' ? 19 : 17, color: fg, textAlign: 'center', flexShrink: 1 }}>{label}</T>
       {right}
     </Press>
   );
@@ -147,14 +149,14 @@ export function OrbView({ size = 92, plus = 32, pressed }: { size?: number; plus
 // ---------- chips, words, avatars ----------
 
 /** Tonal chip used on a color band: the band's ink at 9%. */
-export function TChip({ label, amount, on, onPress, tone, small, leading, accessibilityLabel }: {
+export function TChip({ label, amount, on, onPress, tone, small, leading, accessibilityLabel, mask }: {
   label: string; amount?: string; on?: boolean; onPress?: () => void; tone: GroupTone; small?: boolean;
-  leading?: ReactNode; accessibilityLabel?: string;
+  leading?: ReactNode; accessibilityLabel?: string; mask?: boolean;
 }) {
   return (
     <Press onPress={onPress} accessibilityRole="button" accessibilityState={{ selected: !!on }}
       accessibilityLabel={accessibilityLabel ?? (amount ? `${label}, ${amount}` : label)} style={s.target}>
-      <View style={[s.tchip, { minHeight: small ? 32 : 36, paddingHorizontal: small ? 12 : 14, backgroundColor: on ? tone.ink : alpha(tone.ink, 0.09) }]}>
+      <View {...(mask ? fbPrivate : {})} style={[s.tchip, { minHeight: small ? 32 : 36, paddingHorizontal: small ? 12 : 14, backgroundColor: on ? tone.ink : alpha(tone.ink, 0.09) }]}>
         {leading}
         <T style={{ fontFamily: fonts.semibold, fontSize: small ? 14 : 14.5, color: on ? tone.band : tone.ink }}>{label}</T>
         {amount ? <T style={{ fontFamily: fonts.medium, fontSize: 14.5, color: on ? tone.band : tone.ink, opacity: 0.72 }}>{amount}</T> : null}
@@ -179,7 +181,7 @@ export function Chip({ label, on, onPress, leading, square }: { label: string; o
 export function Avatar({ initials, tone, size = 26, ink }: { initials: string; tone: GroupTone; size?: number; ink?: boolean }) {
   const { c } = useTheme();
   return (
-    <View style={{ width: size, height: size, borderRadius: size / 2, alignItems: 'center', justifyContent: 'center',
+    <View {...fbPrivate} style={{ width: size, height: size, borderRadius: size / 2, alignItems: 'center', justifyContent: 'center',
       backgroundColor: ink ? tone.ink : tone.band, borderWidth: ink ? 0 : 2, borderColor: c.bg }}>
       {/* Initials are drawn to fit their fixed circle, so they don't grow with the text size. */}
       <T maxFontSizeMultiplier={1} style={{ fontFamily: fonts.bold, fontSize: size * 0.44, color: ink ? tone.band : tone.ink }}>{initials}</T>
@@ -214,12 +216,12 @@ export function Banner({ kind = 'info', icon, children }: { kind?: 'info' | 'war
   );
 }
 
-export function BannerText({ strong, rest, kind = 'info' }: { strong?: string; rest?: string; kind?: 'info' | 'warn' | 'bad' }) {
+export function BannerText({ strong, rest, kind = 'info', mask }: { strong?: string; rest?: string; kind?: 'info' | 'warn' | 'bad'; mask?: boolean }) {
   const { c } = useTheme();
   const col = kind === 'warn' ? c.warnInk : kind === 'bad' ? c.badInk : c.ink;
   return (
-    <T style={{ fontSize: 14.5, lineHeight: 20, color: col }}>
-      {strong ? <T style={{ fontFamily: fonts.semibold, fontSize: 14.5, color: col }}>{strong} </T> : null}
+    <T {...(mask ? fbPrivate : {})} style={{ fontSize: 14.5, lineHeight: 20, color: col }}>
+      {strong ? <T {...(mask ? fbPrivate : {})} style={{ fontFamily: fonts.semibold, fontSize: 14.5, color: col }}>{strong} </T> : null}
       {rest}
     </T>
   );

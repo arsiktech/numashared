@@ -9,6 +9,7 @@ import { ChevRight } from '@/ui/icons';
 import { Press, T } from '@/ui/primitives';
 import { useTheme } from '@/ui/theme';
 import { fonts, isAndroid } from '@/ui/tokens';
+import { fbPrivate } from '@/ui/fbPrivate';
 import { ScreenHeader } from '@/features/onboarding/chrome';
 import { WebTopBar } from '@/features/web/topbar';
 import { SETTINGS_NAV, type DeskSection } from './section';
@@ -41,9 +42,9 @@ export function SGroup({ title, children, first }: { title?: string; children: R
 }
 
 /** One settings row. Pass `onPress` to make it a button; `right` replaces the chevron. */
-export function SRow({ label, sub, value, icon, onPress, right, danger, last, first, a11y, chevron = true, children }: {
+export function SRow({ label, sub, value, icon, onPress, right, danger, last, first, a11y, chevron = true, children, mask }: {
   label: string; sub?: string; value?: string; icon?: ReactNode; onPress?: () => void; right?: ReactNode; danger?: boolean;
-  last?: boolean; first?: boolean; a11y?: string; chevron?: boolean; children?: ReactNode;
+  last?: boolean; first?: boolean; a11y?: string; chevron?: boolean; children?: ReactNode; mask?: boolean;
 }) {
   const { c } = useTheme();
   const desk = useDesk();
@@ -54,8 +55,8 @@ export function SRow({ label, sub, value, icon, onPress, right, danger, last, fi
       {!first ? <View style={{ position: 'absolute', left: 56, right: 0, top: 0, height: 1, backgroundColor: c.hair }} /> : null}
       <View style={{ width: 24, alignItems: 'center' }}>{icon}</View>
       <View style={{ flex: 1, minWidth: 0 }}>
-        <T style={{ fontFamily: fonts.medium, fontSize: 16, lineHeight: 20, color: labelColor }}>{label}</T>
-        {sub || value ? <T style={{ fontSize: 14, lineHeight: 18, color: c.ink2, marginTop: 2 }}>{[value, sub].filter(Boolean).join(' · ')}</T> : null}
+        <T {...(mask ? fbPrivate : {})} style={{ fontFamily: fonts.medium, fontSize: 16, lineHeight: 20, color: labelColor }}>{label}</T>
+        {sub || value ? <T {...(mask ? fbPrivate : {})} style={{ fontSize: 14, lineHeight: 18, color: c.ink2, marginTop: 2 }}>{[value, sub].filter(Boolean).join(' · ')}</T> : null}
         {children}
       </View>
       {right}
@@ -65,11 +66,11 @@ export function SRow({ label, sub, value, icon, onPress, right, danger, last, fi
       borderBottomWidth: last ? 0 : 1, borderBottomColor: c.hair }}>
       {desk && icon ? <View style={{ width: 22, alignItems: 'center' }}>{icon}</View> : null}
       <View style={{ flex: 1, minWidth: 0 }}>
-        <T style={{ fontSize: 16, lineHeight: 21, color: labelColor }}>{label}</T>
-        {sub ? <T style={{ fontSize: 13, lineHeight: 17, color: c.ink2, marginTop: 2 }}>{sub}</T> : null}
+        <T {...(mask ? fbPrivate : {})} style={{ fontSize: 16, lineHeight: 21, color: labelColor }}>{label}</T>
+        {sub ? <T {...(mask ? fbPrivate : {})} style={{ fontSize: 13, lineHeight: 17, color: c.ink2, marginTop: 2 }}>{sub}</T> : null}
         {children}
       </View>
-      {value ? <T numberOfLines={1} style={{ fontSize: 15, color: c.ink2, flexShrink: 1, maxWidth: '50%', textAlign: 'right' }}>{value}</T> : null}
+      {value ? <T {...(mask ? fbPrivate : {})} numberOfLines={1} style={{ fontSize: 15, color: c.ink2, flexShrink: 1, maxWidth: '50%', textAlign: 'right' }}>{value}</T> : null}
       {right ?? (onPress && chevron ? <ChevRight size={18} color={c.ink3} /> : null)}
     </View>
   );
@@ -90,9 +91,9 @@ export type { DeskSection };
  * Page frame for the settings screens. Phones get the back header and a scrolling list; tablet and
  * desk get the top bar, the section nav and a 720 pt content column.
  */
-export function SettingsShell({ title, back, active, children, footer, onSection }: {
+export function SettingsShell({ title, back, active, children, footer, onSection, maskBack }: {
   title: string; back: string; active: DeskSection; children: ReactNode; footer?: ReactNode;
-  onSection?: (s: DeskSection) => boolean;
+  onSection?: (s: DeskSection) => boolean; maskBack?: boolean;
 }) {
   const { c, layout } = useTheme();
   const insets = useSafeAreaInsets();
@@ -101,7 +102,7 @@ export function SettingsShell({ title, back, active, children, footer, onSection
     return (
       <View style={{ flex: 1, backgroundColor: c.bg }}>
         <ScrollView style={{ flex: 1 }} contentContainerStyle={{ paddingTop: Math.max(insets.top, 12), paddingHorizontal: isAndroid ? 0 : 16, paddingBottom: footer ? 20 : insets.bottom + 32 }}>
-          <View style={{ paddingHorizontal: isAndroid ? 16 : 4 }}><ScreenHeader title={title} back={back} /></View>
+          <View style={{ paddingHorizontal: isAndroid ? 16 : 4 }}><ScreenHeader title={title} back={back} maskBack={maskBack} /></View>
           {children}
         </ScrollView>
         {footer ? <View style={{ paddingHorizontal: 16, paddingTop: 10, paddingBottom: Math.max(insets.bottom + 4, 16), backgroundColor: c.bg }}>{footer}</View> : null}

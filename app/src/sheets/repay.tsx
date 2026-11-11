@@ -195,7 +195,7 @@ function RepayBody({ h, spec, groups, setGroups, t }: {
       {h.groups.map((g) => {
         const on = g.id === (side === 'from' ? from.id : to.id);
         return (
-          <TChip key={g.id} tone={t} on={on} label={nameOf(h, g)} accessibilityLabel={spokenName(h, g)}
+          <TChip mask key={g.id} tone={t} on={on} label={nameOf(h, g)} accessibilityLabel={spokenName(h, g)}
             leading={<PersonDot fill={tone(g).band} ring={on ? t.band : t.ink} />} onPress={() => pickGroup(side, g.id)} />
         );
       })}
@@ -207,8 +207,8 @@ function RepayBody({ h, spec, groups, setGroups, t }: {
   else if (panel === 'from' || panel === 'to') slot = groupRow(panel);
   else slot = owed > 0 ? (
     <ChipRow label="How much">
-      <TChip tone={t} label="All of it" amount={money(owed)} on={allOn} onPress={() => { haptic.tick(); setOther(false); setInput(inputFromCents(owed, cur)); }} />
-      {half > 0 ? <TChip tone={t} label="Half" amount={money(half)} on={halfOn} onPress={() => { haptic.tick(); setOther(false); setInput(inputFromCents(half, cur)); }} /> : null}
+      <TChip mask tone={t} label="All of it" amount={money(owed)} on={allOn} onPress={() => { haptic.tick(); setOther(false); setInput(inputFromCents(owed, cur)); }} />
+      {half > 0 ? <TChip mask tone={t} label="Half" amount={money(half)} on={halfOn} onPress={() => { haptic.tick(); setOther(false); setInput(inputFromCents(half, cur)); }} /> : null}
       <TChip tone={t} label="Other" on={!allOn && !halfOn} onPress={() => { haptic.tick(); setOther(true); setInput(''); }} />
     </ChipRow>
   ) : null;
@@ -220,7 +220,7 @@ function RepayBody({ h, spec, groups, setGroups, t }: {
         onDate={() => { haptic.tick(); setPanel(panel === 'date' ? null : 'date'); }} />
       <View style={{ paddingHorizontal: 22, paddingTop: 6 }}>
         <View style={lineStyle}>
-          <Word color={t.ink} size={wordSize} open={panel === 'from'} onPress={() => { haptic.tick(); setPanel(panel === 'from' ? null : 'from'); }}
+          <Word mask color={t.ink} size={wordSize} open={panel === 'from'} onPress={() => { haptic.tick(); setPanel(panel === 'from' ? null : 'from'); }}
             accessibilityLabel={`Paid by ${spokenName(h, from)}. ${panel === 'from' ? 'Close the list' : 'Change'}`}
             leading={<GroupAvatar h={h} group={from} tone={t} ink />}>
             {nameOf(h, from)}
@@ -228,7 +228,7 @@ function RepayBody({ h, spec, groups, setGroups, t }: {
           <T style={sentenceText}>paid</T>
         </View>
         <View style={lineStyle}>
-          <Word color={t.ink} size={wordSize} chevron={false} open={panel === 'to'} onPress={() => { haptic.tick(); setPanel(panel === 'to' ? null : 'to'); }}
+          <Word mask color={t.ink} size={wordSize} chevron={false} open={panel === 'to'} onPress={() => { haptic.tick(); setPanel(panel === 'to' ? null : 'to'); }}
             accessibilityLabel={`To ${spokenName(h, to)}. ${panel === 'to' ? 'Close the list' : 'Change'}`}
             leading={<GroupAvatar h={h} group={to} tone={tone(to)} />}>
             {nameOf(h, to)}

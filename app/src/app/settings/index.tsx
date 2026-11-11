@@ -10,6 +10,7 @@ import { Bell, Check, Download, Eye, House, Lock, Moon, Pencil, People, Share as
 import { Press, T, Toggle } from '@/ui/primitives';
 import { useTheme } from '@/ui/theme';
 import { fonts, isAndroid, isWeb, thisDevice } from '@/ui/tokens';
+import { fbPrivate } from '@/ui/fbPrivate';
 import { useHousehold } from '@/features/hooks';
 import { CURRENCIES, currencyLabel } from '@/features/onboarding/model';
 import { SGroup, SNote, SRow, SettingsShell, useDesk, type DeskSection } from '@/features/settings/parts';
@@ -38,7 +39,7 @@ export default function Settings() {
   const active: DeskSection = desk ? (['you', 'account'].includes(section) ? section : 'household') : 'household';
   const title = !desk ? 'Settings' : active === 'you' ? 'You' : active === 'account' ? 'Account' : 'Household';
   return (
-    <SettingsShell title={title} back={h.name} active={active}
+    <SettingsShell title={title} back={h.name} maskBack active={active}
       onSection={(s) => applySettingsSection(section, s, (next) => router.setParams({ section: next }))}>
       {shown('household') ? <HouseholdGroup /> : null}
       {desk && active === 'household' ? <><Shortcuts /><SGroup title="Danger zone"><LeaveRow last /></SGroup></> : null}
@@ -105,7 +106,7 @@ function NameRow() {
       <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12, minHeight: 56, paddingVertical: 8, paddingHorizontal: 16, borderBottomWidth: 1, borderBottomColor: c.hair, flexWrap: 'wrap' }}>
         {desk ? <View style={{ width: 22, alignItems: 'center' }}><House size={20} color={c.ink2} /></View> : null}
         <T style={{ fontSize: desk ? 14 : 16, fontFamily: desk ? fonts.semibold : fonts.regular, color: desk ? c.ink2 : c.ink, width: desk ? 98 : undefined }}>Name</T>
-        <TextInput defaultValue={h.name} autoFocus={editing} onChangeText={setDraft} onFocus={() => setDraft(h.name)} onBlur={commit} onSubmitEditing={commit}
+        <TextInput {...fbPrivate} defaultValue={h.name} autoFocus={editing} onChangeText={setDraft} onFocus={() => setDraft(h.name)} onBlur={commit} onSubmitEditing={commit}
           accessibilityLabel="Household name" returnKeyType="done" maxLength={40} selectionColor={c.ink}
           style={[{ flex: 1, minWidth: 160, maxWidth: 320, height: 44, borderRadius: 12, backgroundColor: c.bg, borderWidth: 1, borderColor: c.hair, paddingHorizontal: 14,
             fontFamily: fonts.regular, fontSize: 16, color: c.ink }, isWeb ? ({ outlineColor: c.ink } as object) : null]} />
@@ -113,7 +114,7 @@ function NameRow() {
     );
   }
   return (
-    <SRow first label="Name" value={isAndroid ? undefined : h.name} sub={isAndroid ? h.name : undefined} icon={<Pencil size={22} color={c.ink2} />}
+    <SRow mask first label="Name" value={isAndroid ? undefined : h.name} sub={isAndroid ? h.name : undefined} icon={<Pencil size={22} color={c.ink2} />}
       onPress={() => { setDraft(h.name); setEditing(true); }} a11y={`Name, ${h.name}. Rename`} />
   );
 }
@@ -209,12 +210,12 @@ function AccountGroup() {
   return (
     <SGroup title={desk ? undefined : 'Account'}>
       {session ? (
-        <SRow first label="Signed in" sub={h.sync ? `${h.name} is shared` : `${h.name} is only on this device`} icon={<Apple size={22} color={c.ink2} />} chevron={false} />
+        <SRow mask first label="Signed in" sub={h.sync ? `${h.name} is shared` : `${h.name} is only on this device`} icon={<Apple size={22} color={c.ink2} />} chevron={false} />
       ) : (
         <SRow first label="Not signed in" sub={signInOptions.any ? 'Sign in to share a household with others on any device' : 'Signing in isn’t available on this device yet'} icon={<CloudOff size={22} color={c.ink2} />} chevron={false} />
       )}
       {session && !h.sync ? (
-        <SRow label={busy ? 'Sharing…' : `Share ${h.name}`} sub="Move it to your account so others can join" icon={<ShareIcon size={22} color={c.ink2} />}
+        <SRow mask label={busy ? 'Sharing…' : `Share ${h.name}`} sub="Move it to your account so others can join" icon={<ShareIcon size={22} color={c.ink2} />}
           onPress={busy ? undefined : share} />
       ) : null}
       {!session && signInOptions.any ? (
@@ -279,11 +280,11 @@ function LeaveRow({ last }: { last?: boolean }) {
   };
   return (
     <View>
-      <SRow label={label} danger chevron={false} icon={<VoidX size={22} color={c.bad} />} last={last && !confirm}
+      <SRow mask label={label} danger chevron={false} icon={<VoidX size={22} color={c.bad} />} last={last && !confirm}
         sub={confirm ? undefined : sub} onPress={() => setConfirm(!confirm)} a11y={label} />
       {confirm ? (
         <View accessibilityLiveRegion="polite" style={{ paddingHorizontal: 16, paddingBottom: 16, gap: 12 }}>
-          <T style={{ fontSize: 14.5, lineHeight: 20, color: c.ink }}>{question}</T>
+          <T {...fbPrivate} style={{ fontSize: 14.5, lineHeight: 20, color: c.ink }}>{question}</T>
           <View style={{ flexDirection: 'row', gap: 10, flexWrap: 'wrap' }}>
             <Press onPress={busy ? undefined : go} accessibilityLabel={`Yes, ${label.toLowerCase()}`}
               style={{ minHeight: 44, paddingHorizontal: 18, borderRadius: 22, backgroundColor: c.bad, justifyContent: 'center', opacity: busy ? 0.6 : 1 }}>

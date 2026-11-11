@@ -14,6 +14,7 @@ import { ArrowDown, ArrowUp, Check, ChevDown, Gear, People } from '@/ui/icons';
 import { Dot, Pill, Press, T } from '@/ui/primitives';
 import { useTheme } from '@/ui/theme';
 import { alpha, fonts, isAndroid, isWeb } from '@/ui/tokens';
+import { fbPrivate } from '@/ui/fbPrivate';
 import { cappedSize, TEXT_CAP } from '@/ui/textScale';
 import { OrbButton } from '../records';
 import { money, nameOf, standingWords } from '../hooks';
@@ -66,7 +67,7 @@ export function Bands({ h, balances, hide, compact, tail }: { h: Household; bala
               {partners.length ? (bal < 0 ? 'Your group owes' : 'Your group gets back') : bal < 0 ? 'You owe' : 'You get back'}
             </T>
             {/* The amount is sized here, the system text size included, so it always fits on one line. */}
-            <T numberOfLines={1} adjustsFontSizeToFit maxFontSizeMultiplier={large ? 1 : undefined}
+            <T {...fbPrivate} numberOfLines={1} adjustsFontSizeToFit maxFontSizeMultiplier={large ? 1 : undefined}
               style={{ fontFamily: fonts.display, fontSize: amountSize, lineHeight: large ? Math.ceil(amountSize * 1.12) : compact ? 36 : 42, letterSpacing: -1, color: ticketInk, fontVariant: ['tabular-nums'] }}>
               {amountText}
             </T>
@@ -84,7 +85,7 @@ export function Bands({ h, balances, hide, compact, tail }: { h: Household; bala
           <View style={{ minHeight: 44, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
             <Press accessibilityLabel={`Household: ${h.name}. Switch`} onPress={() => openSheet({ type: 'households' })}
               style={{ minHeight: 44, flexShrink: 1, flexDirection: 'row', alignItems: 'center', gap: 4 }}>
-              <T style={{ flexShrink: 1, fontFamily: fonts.semibold, fontSize: 17, color: t.ink }}>{h.name}</T>
+              <T {...fbPrivate} style={{ flexShrink: 1, fontFamily: fonts.semibold, fontSize: 17, color: t.ink }}>{h.name}</T>
               <ChevDown size={16} color={t.ink} />
             </Press>
             <Press accessibilityLabel="Household settings" onPress={() => router.push('/settings')}
@@ -94,13 +95,13 @@ export function Bands({ h, balances, hide, compact, tail }: { h: Household; bala
           </View>
         ) : null}
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 14, flexWrap: 'wrap' }}>
-          <T style={{ fontFamily: fonts.semibold, fontSize: 14, color: t.ink, opacity: 0.85 }}>
+          <T {...fbPrivate} style={{ fontFamily: fonts.semibold, fontSize: 14, color: t.ink, opacity: 0.85 }}>
             {partners.length ? (named ? `Your group · ${named} (you) ·` : 'Your group ·') : named ? `${named} (you)` : h.groups.length > 2 ? `${h.people.length} people` : 'Only you'}
           </T>
           {partners.map((p) => (
             <View key={p.id} style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
               <Dot color={p.joined ? c.good : alpha('#000000', 0.3)} />
-              <T style={{ fontFamily: fonts.semibold, fontSize: 14, color: t.ink, opacity: 0.85 }}>{p.name}</T>
+              <T {...fbPrivate} style={{ fontFamily: fonts.semibold, fontSize: 14, color: t.ink, opacity: 0.85 }}>{p.name}</T>
             </View>
           ))}
         </View>
@@ -144,12 +145,12 @@ function TwoGroupBand({ h, g, balances, nameSize, square, large }: { h: Househol
         {members.map((p) => (
           <View key={p.id} style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
             <Dot color={p.joined ? c.good : alpha('#000000', 0.3)} />
-            <T style={{ fontFamily: fonts.semibold, fontSize: 14, color: t.ink, opacity: 0.85 }}>{p.joined || !h.sync ? p.name : `${p.name} · invited`}</T>
+            <T {...fbPrivate} style={{ fontFamily: fonts.semibold, fontSize: 14, color: t.ink, opacity: 0.85 }}>{p.joined || !h.sync ? p.name : `${p.name} · invited`}</T>
           </View>
         ))}
       </View>
       {!square ? (
-        <Pill style={{ marginTop: 18 }} label={bal < 0 ? `${mine.memberIds.length > 1 ? 'We' : 'I'} paid ${nameOf(h, g)}` : `${nameOf(h, g)} paid ${mine.memberIds.length > 1 ? 'us' : 'me'}`}
+        <Pill mask style={{ marginTop: 18 }} label={bal < 0 ? `${mine.memberIds.length > 1 ? 'We' : 'I'} paid ${nameOf(h, g)}` : `${nameOf(h, g)} paid ${mine.memberIds.length > 1 ? 'us' : 'me'}`}
           onPress={() => openSheet({ type: 'repay', fromGroupId: bal < 0 ? mine.id : g.id, toGroupId: bal < 0 ? g.id : mine.id, amount: Math.abs(bal) })} />
       ) : null}
     </View>
@@ -174,14 +175,14 @@ function CompactBand({ h, g, hide, first, last, balances, transfers, mine }: {
           <GroupTitle text={nameOf(h, g)} size={48} color={t.ink} />
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 4 }}>
             <Dot color={g.memberIds.every((id) => h.people.find((p) => p.id === id)?.joined) ? c.good : alpha('#000000', 0.3)} />
-            <T style={{ fontFamily: fonts.semibold, fontSize: 14, color: t.ink, opacity: 0.85 }}>{overall}</T>
+            <T {...fbPrivate} style={{ fontFamily: fonts.semibold, fontSize: 14, color: t.ink, opacity: 0.85 }}>{overall}</T>
           </View>
         </View>
         {iOwe ? (
-          <Pill small label={`You paid ${money(h, iOwe.amount, hide)}`} accessibilityLabel={`Record paying ${nameOf(h, g)} ${money(h, iOwe.amount, hide)}`}
+          <Pill mask small label={`You paid ${money(h, iOwe.amount, hide)}`} accessibilityLabel={`Record paying ${nameOf(h, g)} ${money(h, iOwe.amount, hide)}`}
             onPress={() => openSheet({ type: 'repay', fromGroupId: mine.id, toGroupId: g.id, amount: iOwe.amount })} />
         ) : owesMe ? (
-          <Pill small label={`${nameOf(h, g)} paid you`} accessibilityLabel={`Record ${nameOf(h, g)} paying you ${money(h, owesMe.amount, hide)}`}
+          <Pill mask small label={`${nameOf(h, g)} paid you`} accessibilityLabel={`Record ${nameOf(h, g)} paying you ${money(h, owesMe.amount, hide)}`}
             onPress={() => openSheet({ type: 'repay', fromGroupId: g.id, toGroupId: mine.id, amount: owesMe.amount })} />
         ) : (
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, height: 44 }}>
@@ -217,7 +218,7 @@ function GroupTitle({ text, size, color, header }: { text: string; size: number;
   useEffect(() => { fit(); }, [text, size]);
   return (
     <View ref={ref} style={{ width: '100%', minWidth: 0 }} onLayout={fit}>
-      <T accessibilityRole={header ? 'header' : undefined} numberOfLines={isWeb ? undefined : 1}
+      <T {...fbPrivate} accessibilityRole={header ? 'header' : undefined} numberOfLines={isWeb ? undefined : 1}
         adjustsFontSizeToFit={!isWeb} maxFontSizeMultiplier={TEXT_CAP.display}
         style={{ fontFamily: fonts.cond, fontSize, lineHeight: fontSize * 0.98, color, marginTop: header ? 2 : 0 }}>
         {text}

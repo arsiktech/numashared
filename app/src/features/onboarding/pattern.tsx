@@ -3,6 +3,7 @@ import { useMemo } from 'react';
 import { View } from 'react-native';
 import { useTheme } from '@/ui/theme';
 import { invitePattern } from './model';
+import { fbPrivate } from '@/ui/fbPrivate';
 
 export function InvitePattern({ code, size = 168, label }: { code: string; size?: number; label: string }) {
   const { c } = useTheme();
@@ -16,7 +17,7 @@ export function InvitePattern({ code, size = 168, label }: { code: string; size?
     </View>
   );
   return (
-    <View accessible accessibilityRole="image" accessibilityLabel={label} style={{ width: size, height: size }}>
+    <View {...fbPrivate} accessible accessibilityRole="image" accessibilityLabel={label} style={{ width: size, height: size }}>
       {finder(0, 0)}
       {finder(size - m * 7, 0)}
       {finder(0, size - m * 7)}

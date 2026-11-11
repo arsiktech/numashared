@@ -8,6 +8,7 @@ import { CategoryIcon, Repay, House } from '@/ui/icons';
 import { Badge, OrbView, Press, T } from '@/ui/primitives';
 import { useTheme } from '@/ui/theme';
 import { fonts } from '@/ui/tokens';
+import { fbPrivate } from '@/ui/fbPrivate';
 import { effectText, money, personName, recordTitle, relativeDay, settlementTitle } from './hooks';
 
 export function RecordRow({ h, r, hide, fresh, last, onPress }: {
@@ -40,7 +41,7 @@ export function RecordRow({ h, r, hide, fresh, last, onPress }: {
   const edited = r.revisions.length > 1;
   const note = r.kind === 'expense' && r.expense!.note && !r.voided ? r.expense!.note : null;
   const amountBlock = (
-    <View style={{ alignItems: largeText ? 'flex-start' : 'flex-end', marginTop: largeText ? 4 : 0 }}>
+    <View {...fbPrivate} style={{ alignItems: largeText ? 'flex-start' : 'flex-end', marginTop: largeText ? 4 : 0 }}>
       <T style={{ fontFamily: fonts.semibold, fontSize: 16, fontVariant: ['tabular-nums'], color: r.voided ? c.ink3 : c.ink, textDecorationLine: r.voided ? 'line-through' : 'none' }}>{money(h, amount, hide)}</T>
       <T style={{ fontSize: 13, color: c.ink2, marginTop: 2 }}>{effectText(h, r, hide)}</T>
     </View>
@@ -53,13 +54,13 @@ export function RecordRow({ h, r, hide, fresh, last, onPress }: {
       <View style={{ width: 40, height: 40, borderRadius: 20, backgroundColor: tile.bg, alignItems: 'center', justifyContent: 'center' }}>{tile.icon}</View>
       <View style={{ flex: 1, minWidth: 0 }}>
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, flexWrap: largeText ? 'wrap' : 'nowrap' }}>
-          <T numberOfLines={largeText ? 3 : 1} style={{ fontFamily: fonts.semibold, fontSize: 16, flexShrink: 1, color: r.voided ? c.ink3 : c.ink, textDecorationLine: r.voided ? 'line-through' : 'none' }}>
+          <T {...(r.kind === 'settlement' ? fbPrivate : {})} numberOfLines={largeText ? 3 : 1} style={{ fontFamily: fonts.semibold, fontSize: 16, flexShrink: 1, color: r.voided ? c.ink3 : c.ink, textDecorationLine: r.voided ? 'line-through' : 'none' }}>
             {r.kind === 'settlement' ? settlementTitle(h, r) : title}
           </T>
           {edited && !r.voided ? <Badge label="Edited" /> : null}
           {r.flagged ? <Badge label="Flagged" kind="pending" /> : null}
         </View>
-        <T numberOfLines={largeText ? 3 : 1} style={{ fontSize: 13.5, color: c.ink2, marginTop: 2 }}>{note ? `“${note}” · ${sub}` : sub}</T>
+        <T {...fbPrivate} numberOfLines={largeText ? 3 : 1} style={{ fontSize: 13.5, color: c.ink2, marginTop: 2 }}>{note ? `“${note}” · ${sub}` : sub}</T>
         {/* At the accessibility text sizes the amount moves under the title, so neither is cut short. */}
         {largeText ? amountBlock : null}
       </View>

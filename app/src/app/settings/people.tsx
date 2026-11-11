@@ -14,6 +14,7 @@ import { Close, Lock } from '@/ui/icons';
 import { haptic, Pill, Press, T } from '@/ui/primitives';
 import { useTheme } from '@/ui/theme';
 import { alpha, fonts } from '@/ui/tokens';
+import { fbPrivate } from '@/ui/fbPrivate';
 import { nameOf, useHousehold } from '@/features/hooks';
 import { Field } from '@/features/onboarding/chrome';
 import { movePerson } from '@/features/onboarding/model';
@@ -98,7 +99,7 @@ export default function PeopleScreen() {
                   style={{ position: 'absolute', left: 0, top: 0, right: 0, bottom: 0, borderRadius: 22 }} />
               ) : null}
               <View pointerEvents="box-none" style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 4, minHeight: 44 }}>
-                <T pointerEvents="none" style={{ fontFamily: fonts.bold, fontSize: 20, lineHeight: 24, color: t.ink, flexShrink: 1 }}>{nameOf(h, g)}</T>
+                <T {...fbPrivate} pointerEvents="none" style={{ fontFamily: fonts.bold, fontSize: 20, lineHeight: 24, color: t.ink, flexShrink: 1 }}>{nameOf(h, g)}</T>
                 <View accessibilityRole="radiogroup" accessibilityLabel={`Color for ${nameOf(h, g)}`} style={{ flexDirection: 'row', marginRight: -3 }}>
                   {GROUP_COLORS.map((col) => {
                     const on = g.color === col;
@@ -125,10 +126,10 @@ export default function PeopleScreen() {
                 const row = (
                   <>
                     <View style={{ width: 40, height: 40, borderRadius: 20, backgroundColor: on ? t.ink : alpha(t.ink, 0.09), alignItems: 'center', justifyContent: 'center' }}>
-                      <T style={{ fontFamily: fonts.bold, fontSize: 15, color: on ? t.band : t.ink }}>{you ? 'Y' : p.name.slice(0, 1).toUpperCase()}</T>
+                      <T {...fbPrivate} style={{ fontFamily: fonts.bold, fontSize: 15, color: on ? t.band : t.ink }}>{you ? 'Y' : p.name.slice(0, 1).toUpperCase()}</T>
                     </View>
                     <View style={{ flex: 1 }}>
-                      <T style={{ fontFamily: fonts.semibold, fontSize: 16, color: t.ink }}>{p.name}{you ? ' (you)' : ''}</T>
+                      <T {...fbPrivate} style={{ fontFamily: fonts.semibold, fontSize: 16, color: t.ink }}>{p.name}{you ? ' (you)' : ''}</T>
                       <T style={{ fontFamily: fonts.semibold, fontSize: 12.5, color: t.ink, opacity: 0.72, marginTop: 1 }}>{on ? 'Now tap the group they should join' : status}</T>
                     </View>
                   </>
@@ -143,7 +144,7 @@ export default function PeopleScreen() {
                 if (removing === pid) {
                   return (
                     <View key={pid} style={[style, { flexWrap: 'wrap', paddingVertical: 10 }]} accessibilityLiveRegion="polite">
-                      <T style={{ flex: 1, minWidth: 160, fontFamily: fonts.semibold, fontSize: 15, color: t.ink }}>Remove {p.name}?</T>
+                      <T {...fbPrivate} style={{ flex: 1, minWidth: 160, fontFamily: fonts.semibold, fontSize: 15, color: t.ink }}>Remove {p.name}?</T>
                       <Pill small label={busy ? 'Removing…' : 'Remove'} onPress={busy ? undefined : () => remove(pid)} accessibilityLabel={`Yes, remove ${p.name}`} />
                       <Pill small light label="Keep" onPress={() => setRemoving(null)} style={{ backgroundColor: alpha(t.ink, 0.09) }} accessibilityLabel={`Keep ${p.name}`} />
                     </View>
@@ -168,7 +169,7 @@ export default function PeopleScreen() {
 
       {adding ? (
         <View style={{ marginTop: 20, gap: 10 }}>
-          <Field value={newName} onChangeText={setNewName} placeholder="Their name" autoFocus accessibilityLabel="New person’s name"
+          <Field {...fbPrivate} value={newName} onChangeText={setNewName} placeholder="Their name" autoFocus accessibilityLabel="New person’s name"
             onSubmitEditing={add} returnKeyType="done" maxLength={24} autoCapitalize="words" />
           <View style={{ flexDirection: 'row', gap: 8 }}>
             <Pill label="Add" onPress={add} style={{ flex: 1, alignSelf: 'auto' }} />

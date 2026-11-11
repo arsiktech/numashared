@@ -12,6 +12,7 @@ import { ChevDown, Plus, Repay, Search } from '@/ui/icons';
 import { Press, T } from '@/ui/primitives';
 import { useTheme } from '@/ui/theme';
 import { fonts, isWeb } from '@/ui/tokens';
+import { fbPrivate } from '@/ui/fbPrivate';
 import { MiniOrb } from '@/features/onboarding/chrome';
 import { Kbd } from './kbd';
 
@@ -32,6 +33,7 @@ export function WebTopBar() {
     if (!isWeb || typeof window === 'undefined') return;
     const onKey = (e: KeyboardEvent) => {
       if (e.metaKey || e.ctrlKey || e.altKey || e.defaultPrevented) return;
+      if (document.querySelector('[data-fb-self]')) return;
       const el = e.target as HTMLElement | null;
       if (el && (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA' || el.tagName === 'SELECT' || el.isContentEditable)) return;
       if (busy.current > 0) return;
@@ -56,7 +58,7 @@ export function WebTopBar() {
       </Press>
       <Press onPress={() => openSheet({ type: 'households' })} accessibilityLabel={`Household: ${h.name}. Switch`}
         style={{ height: 40, paddingLeft: 16, paddingRight: 12, borderRadius: 20, backgroundColor: c.chip, flexDirection: 'row', alignItems: 'center', gap: 6, maxWidth: 260 }}>
-        <T numberOfLines={1} style={{ fontFamily: fonts.semibold, fontSize: 16, flexShrink: 1 }}>{h.name}</T>
+        <T {...fbPrivate} numberOfLines={1} style={{ fontFamily: fonts.semibold, fontSize: 16, flexShrink: 1 }}>{h.name}</T>
         <ChevDown size={16} color={c.ink} />
       </Press>
       <View style={{ flex: 1 }} />
@@ -82,7 +84,7 @@ export function WebTopBar() {
       </Press>
       <Press onPress={() => router.push('/settings')} accessibilityLabel="Settings and account"
         style={{ width: 44, height: 44, borderRadius: 22, backgroundColor: mine.band, alignItems: 'center', justifyContent: 'center' }}>
-        <T style={{ fontFamily: fonts.display, fontSize: 16, color: mine.ink }}>Y</T>
+        <T {...fbPrivate} style={{ fontFamily: fonts.display, fontSize: 16, color: mine.ink }}>Y</T>
       </Press>
     </View>
   );

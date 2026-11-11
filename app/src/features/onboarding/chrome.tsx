@@ -12,11 +12,12 @@ import { ArrowBack, Back, ChevDown, ChevUp } from '@/ui/icons';
 import { IconButton, OrbView, Press, T } from '@/ui/primitives';
 import { useTheme } from '@/ui/theme';
 import { fonts, isAndroid, isIOS, isWeb, radius } from '@/ui/tokens';
+import { fbPrivate } from '@/ui/fbPrivate';
 
 /** Back control and screen title. `back` is the label of the place you return to. */
 /** `back={null}` leaves the Back control out, for a step that can't be undone by going back. */
-export function ScreenHeader({ title, back = 'Back', onBack, titleSize = 40 }: {
-  title: string; back?: string | null; onBack?: () => void; titleSize?: number;
+export function ScreenHeader({ title, back = 'Back', onBack, titleSize = 40, maskBack, maskTitle }: {
+  title: string; back?: string | null; onBack?: () => void; titleSize?: number; maskBack?: boolean; maskTitle?: boolean;
 }) {
   const { c } = useTheme();
   const router = useRouter();
@@ -24,7 +25,7 @@ export function ScreenHeader({ title, back = 'Back', onBack, titleSize = 40 }: {
   const a11y = back === 'Back' ? 'Back' : `Back to ${back}`;
   if (back === null) {
     return title ? (
-      <T accessibilityRole="header" maxFontSizeMultiplier={1.4}
+      <T {...(maskTitle ? fbPrivate : {})} accessibilityRole="header" maxFontSizeMultiplier={1.4}
         style={{ fontFamily: fonts.cond, fontSize: titleSize, lineHeight: titleSize * 1.05, marginTop: 8 }}>{title}</T>
     ) : null;
   }
@@ -32,7 +33,7 @@ export function ScreenHeader({ title, back = 'Back', onBack, titleSize = 40 }: {
     return (
       <View style={{ minHeight: 64, flexDirection: 'row', alignItems: 'center', gap: 4, marginLeft: -12 }}>
         <IconButton label={a11y} onPress={go}><ArrowBack size={24} color={c.ink} /></IconButton>
-        <T accessibilityRole="header" style={{ flex: 1, fontFamily: fonts.semibold, fontSize: 22, lineHeight: 28, paddingLeft: 8 }}>{title}</T>
+        <T {...(maskTitle ? fbPrivate : {})} accessibilityRole="header" style={{ flex: 1, fontFamily: fonts.semibold, fontSize: 22, lineHeight: 28, paddingLeft: 8 }}>{title}</T>
       </View>
     );
   }
@@ -41,10 +42,10 @@ export function ScreenHeader({ title, back = 'Back', onBack, titleSize = 40 }: {
       <Press onPress={go} accessibilityLabel={a11y} accessibilityRole="link"
         style={{ minHeight: 44, flexDirection: 'row', alignItems: 'center', gap: 6, alignSelf: 'flex-start', marginLeft: -4, paddingRight: 10 }}>
         <Back size={22} color={c.ink} />
-        <T style={{ fontSize: 17 }}>{back}</T>
+        <T {...(maskBack ? fbPrivate : {})} style={{ fontSize: 17 }}>{back}</T>
       </Press>
       {title ? (
-        <T accessibilityRole="header" maxFontSizeMultiplier={1.4}
+        <T {...(maskTitle ? fbPrivate : {})} accessibilityRole="header" maxFontSizeMultiplier={1.4}
           style={{ fontFamily: fonts.cond, fontSize: titleSize, lineHeight: titleSize * 1.05, marginTop: 8 }}>{title}</T>
       ) : null}
     </View>
@@ -132,8 +133,9 @@ export function Segmented<V extends string>({ options, value, onChange, label, t
 }
 
 /** A select row that opens an inline list of options under it. */
-export function Select<V extends string>({ value, options, onChange, label, disabled, right }: {
+export function Select<V extends string>({ value, options, onChange, label, disabled, right, mask }: {
   value: V; options: { value: V; label: string }[]; onChange: (v: V) => void; label: string; disabled?: boolean; right?: ReactNode;
+  mask?: boolean;
 }) {
   const { c } = useTheme();
   const [open, setOpen] = useState(false);
@@ -143,7 +145,7 @@ export function Select<V extends string>({ value, options, onChange, label, disa
       <Press noScale disabled={disabled} onPress={() => setOpen(!open)} accessibilityLabel={`${label}: ${current}`}
         accessibilityState={{ expanded: open, disabled: !!disabled }}
         style={{ minHeight: 54, flexDirection: 'row', alignItems: 'center', paddingHorizontal: 15, gap: 10 }}>
-        <T style={{ flex: 1, fontSize: 17, paddingVertical: 12 }}>{current}</T>
+        <T {...(mask ? fbPrivate : {})} style={{ flex: 1, fontSize: 17, paddingVertical: 12 }}>{current}</T>
         {right ?? (disabled ? null : open ? <ChevUp size={18} color={c.ink2} /> : <ChevDown size={18} color={c.ink2} />)}
       </Press>
       {open ? (
@@ -158,7 +160,7 @@ export function Select<V extends string>({ value, options, onChange, label, disa
                 <View style={{ width: 20, height: 20, borderRadius: 10, borderWidth: 2, borderColor: on ? c.ink : c.ink3, alignItems: 'center', justifyContent: 'center' }}>
                   {on ? <View style={{ width: 10, height: 10, borderRadius: 5, backgroundColor: c.ink }} /> : null}
                 </View>
-                <T style={{ flex: 1, fontSize: 16, paddingVertical: 10, fontFamily: on ? fonts.semibold : fonts.regular }}>{o.label}</T>
+                <T {...(mask ? fbPrivate : {})} style={{ flex: 1, fontSize: 16, paddingVertical: 10, fontFamily: on ? fonts.semibold : fonts.regular }}>{o.label}</T>
               </Press>
             );
           })}

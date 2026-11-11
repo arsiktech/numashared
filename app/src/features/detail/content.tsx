@@ -13,6 +13,7 @@ import { Badge, Banner, BannerText, Dot, Press, T, TextButton } from '@/ui/primi
 import { SheetScrollView, useSheet } from '@/ui/sheet';
 import { useTheme } from '@/ui/theme';
 import { fonts, isAndroid, isWeb } from '@/ui/tokens';
+import { fbPrivate } from '@/ui/fbPrivate';
 import { editSpoken, speak } from './spoken';
 import { authorName, clock, money, nameOf, personName, recordTitle, useHousehold } from '../hooks';
 import { dayMonth, fullDay, isoDay, joinNames, METHOD_LABEL, splitLabel, weekday } from '../history/model';
@@ -178,15 +179,15 @@ function Amount({ value, panel, badges }: { value: string; panel: boolean; badge
   const size = panel ? 56 : 64;
   return (
     <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12, marginTop: 14, flexWrap: 'wrap' }}>
-      <T numberOfLines={1} adjustsFontSizeToFit style={{ fontFamily: fonts.cond, fontSize: size, lineHeight: size * 1.05, letterSpacing: -1, fontVariant: ['tabular-nums'], flexShrink: 1 }}>{value}</T>
+      <T {...fbPrivate} numberOfLines={1} adjustsFontSizeToFit style={{ fontFamily: fonts.cond, fontSize: size, lineHeight: size * 1.05, letterSpacing: -1, fontVariant: ['tabular-nums'], flexShrink: 1 }}>{value}</T>
       {badges}
     </View>
   );
 }
 
-function Meta({ children }: { children: ReactNode }) {
+function Meta({ children, mask }: { children: ReactNode; mask?: boolean }) {
   const { c } = useTheme();
-  return <T style={{ fontSize: isAndroid ? 15 : 14, lineHeight: 19, color: c.ink2, marginTop: 6 }}>{children}</T>;
+  return <T {...(mask ? fbPrivate : {})} style={{ fontSize: isAndroid ? 15 : 14, lineHeight: 19, color: c.ink2, marginTop: 6 }}>{children}</T>;
 }
 
 function Quote({ text, by }: { text: string; by: string }) {
@@ -194,7 +195,7 @@ function Quote({ text, by }: { text: string; by: string }) {
   return (
     <View style={{ marginTop: 12, borderRadius: 16, backgroundColor: c.card, borderWidth: 1, borderColor: c.hair, paddingHorizontal: 14, paddingVertical: 12 }}>
       <T style={{ fontSize: 15.5, lineHeight: 22 }}>“{text}”</T>
-      <T style={{ fontFamily: fonts.semibold, fontSize: 12.5, color: c.ink2, marginTop: 4 }}>Note from {by}</T>
+      <T {...fbPrivate} style={{ fontFamily: fonts.semibold, fontSize: 12.5, color: c.ink2, marginTop: 4 }}>Note from {by}</T>
     </View>
   );
 }
@@ -215,7 +216,7 @@ function ExpenseBody({ h, r, hide, panel }: { h: Household; r: LedgerRecord; hid
     <View>
       <Amount value={money(h, e.amount, hide)} panel={panel}
         badges={<>{edited ? <Badge label="Edited" /> : null}{r.voided ? <Badge label="Voided" kind="void" /> : null}</>} />
-      <Meta>{[categoryLabel(e.category), `${personName(h, e.payerId)} paid`, splitLabel(r), longDate(e.date)].join(' · ')}</Meta>
+      <Meta mask>{[categoryLabel(e.category), `${personName(h, e.payerId)} paid`, splitLabel(r), longDate(e.date)].join(' · ')}</Meta>
       {e.note ? <Quote text={e.note} by={noteBy} /> : null}
       {split.length ? (
         <View style={{ flexDirection: 'row', gap: 3, height: 44, marginTop: 16, opacity: r.voided ? 0.5 : 1 }}
@@ -226,8 +227,8 @@ function ExpenseBody({ h, r, hide, panel }: { h: Household; r: LedgerRecord; hid
             return (
               <View key={s.id} style={{ flexGrow: s.share, flexBasis: 0, minWidth: 72, borderRadius: 10, backgroundColor: t.band, paddingHorizontal: 12,
                 justifyContent: row ? 'space-between' : 'center', alignItems: row ? 'center' : undefined, flexDirection: row ? 'row' : 'column', overflow: 'hidden' }}>
-                <T numberOfLines={1} style={{ fontFamily: fonts.semibold, fontSize: 13, color: t.ink }}>{nameOf(h, s.id)}</T>
-                <T numberOfLines={1} style={{ fontFamily: fonts.bold, fontSize: 16, color: t.ink, fontVariant: ['tabular-nums'] }}>{money(h, s.share, hide)}</T>
+                <T {...fbPrivate} numberOfLines={1} style={{ fontFamily: fonts.semibold, fontSize: 13, color: t.ink }}>{nameOf(h, s.id)}</T>
+                <T {...fbPrivate} numberOfLines={1} style={{ fontFamily: fonts.bold, fontSize: 16, color: t.ink, fontVariant: ['tabular-nums'] }}>{money(h, s.share, hide)}</T>
               </View>
             );
           })}
@@ -262,18 +263,18 @@ function RepayBody({ h, r, ledger, hide, panel }: { h: Household; r: LedgerRecor
       <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 8, flexWrap: 'wrap' }}
         accessibilityLabel={`${nameOf(h, from)} paid ${nameOf(h, to)}`}>
         <Dot color={tone(from).deep} />
-        <T style={{ fontFamily: fonts.semibold, fontSize: 15 }}>{nameOf(h, from)}</T>
+        <T {...fbPrivate} style={{ fontFamily: fonts.semibold, fontSize: 15 }}>{nameOf(h, from)}</T>
         <ArrowRight size={16} color={c.ink} />
         <Dot color={tone(to).deep} />
-        <T style={{ fontFamily: fonts.semibold, fontSize: 15 }}>{nameOf(h, to)}</T>
+        <T {...fbPrivate} style={{ fontFamily: fonts.semibold, fontSize: 15 }}>{nameOf(h, to)}</T>
       </View>
       <Meta>{[s.method ? METHOD_LABEL[s.method] : null, `${longDate(s.date)}, ${clock(r.createdAt)}`].filter(Boolean).join(' · ')}</Meta>
       {s.note ? <Quote text={s.note} by={personName(h, r.createdBy)} /> : null}
       {p.partial && !hide ? (
         <View style={{ marginTop: 18 }}>
           <View style={{ flexDirection: 'row', justifyContent: 'space-between', gap: 12, marginBottom: 8, flexWrap: 'wrap' }}>
-            <T style={{ fontSize: 14, color: c.ink2 }}>{money(h, s.amount)} of {money(h, p.owed)} repaid</T>
-            <T style={{ fontSize: 14, fontFamily: fonts.bold }}>{money(h, p.left)} still owed</T>
+            <T {...fbPrivate} style={{ fontSize: 14, color: c.ink2 }}>{money(h, s.amount)} of {money(h, p.owed)} repaid</T>
+            <T {...fbPrivate} style={{ fontSize: 14, fontFamily: fonts.bold }}>{money(h, p.left)} still owed</T>
           </View>
           <View style={{ height: 10, borderRadius: 5, backgroundColor: c.chip2, overflow: 'hidden' }}
             accessibilityRole="progressbar" accessibilityValue={{ min: 0, max: 100, now: pct }}>
@@ -284,7 +285,7 @@ function RepayBody({ h, r, ledger, hide, panel }: { h: Household; r: LedgerRecor
       {r.flagged && flag && flag.type === 'flagged' ? (
         <View style={{ marginTop: 16 }}>
           <Banner kind="warn">
-            <BannerText kind="warn" strong={`Flagged by ${personName(h, flag.by)}.`}
+            <BannerText mask kind="warn" strong={`Flagged by ${personName(h, flag.by)}.`}
               rest={`${flag.reason ? `“${flag.reason}” ` : ''}A linked correction fixes it, and both stay in history.`} />
           </Banner>
         </View>
@@ -302,14 +303,14 @@ function OpeningBody({ h, r, hide, panel }: { h: Household; r: LedgerRecord; hid
   return (
     <View>
       <Amount value={money(h, total, hide)} panel={panel} badges={r.voided ? <Badge label="Voided" kind="void" /> : null} />
-      <Meta>{`What people already owed when ${h.name} started · ${longDate(o.date)}`}</Meta>
+      <Meta mask>{`What people already owed when ${h.name} started · ${longDate(o.date)}`}</Meta>
       <View style={{ marginTop: 12, gap: 8 }}>
         {o.entries.map((e, i) => (
           <View key={i} style={{ flexDirection: 'row', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
             <Dot color={tone(h.groups.find((g) => g.id === e.fromGroupId)!).deep} />
-            <T style={{ fontFamily: fonts.semibold, fontSize: 15 }}>{nameOf(h, e.fromGroupId)} owed</T>
+            <T {...fbPrivate} style={{ fontFamily: fonts.semibold, fontSize: 15 }}>{nameOf(h, e.fromGroupId)} owed</T>
             <Dot color={tone(h.groups.find((g) => g.id === e.toGroupId)!).deep} />
-            <T style={{ fontFamily: fonts.semibold, fontSize: 15 }}>{nameOf(h, e.toGroupId)} {money(h, e.amount, hide)}</T>
+            <T {...fbPrivate} style={{ fontFamily: fonts.semibold, fontSize: 15 }}>{nameOf(h, e.toGroupId)} {money(h, e.amount, hide)}</T>
           </View>
         ))}
       </View>
@@ -338,7 +339,7 @@ function Timeline({ h, r, hide, panel }: { h: Household; r: LedgerRecord; hide: 
       <View style={{ paddingLeft: 26 }}>
         <View style={{ position: 'absolute', left: 7, top: 8, bottom: 8, width: 2, backgroundColor: c.hair }} />
         {rows.map((row, i) => (
-          <View key={row.key} style={{ paddingBottom: i === rows.length - 1 ? 4 : 18 }} accessible
+          <View {...fbPrivate} key={row.key} style={{ paddingBottom: i === rows.length - 1 ? 4 : 18 }} accessible
             accessibilityLabel={speak([row.head, ...(row.spoken ?? row.meta.filter((m): m is string => typeof m === 'string'))])}>
             <View style={{ position: 'absolute', left: -24, top: 4, width: 12, height: 12, borderRadius: 6,
               backgroundColor: row.kind === 'seen' ? c.hair : c.bg, borderWidth: row.kind === 'seen' ? 0 : 2.5, borderColor: ring[row.kind] }} />

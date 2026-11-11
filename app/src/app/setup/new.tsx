@@ -9,6 +9,7 @@ import { Close, Plus } from '@/ui/icons';
 import { CTA, IconButton, ListCard, Press, T } from '@/ui/primitives';
 import { useTheme } from '@/ui/theme';
 import { fonts, isWeb } from '@/ui/tokens';
+import { fbPrivate } from '@/ui/fbPrivate';
 import { Caption, Field, Label, Screen, ScreenHeader, Select } from '@/features/onboarding/chrome';
 import { CURRENCIES, currencyLabel, DEFAULT_HOUSEHOLD_NAME, householdTitle } from '@/features/onboarding/model';
 
@@ -60,7 +61,7 @@ export default function NewHousehold() {
     <Screen header={<ScreenHeader title="New household" />}
       footer={<CTA label="Create household" accessibilityLabel={`Create household ${title}`} onPress={create} />}>
       <Label nativeID="nh-name" style={{ marginTop: 22 }}>Name</Label>
-      <Field value={name} onChangeText={setName} accessibilityLabel="Household name"
+      <Field {...fbPrivate} value={name} onChangeText={setName} accessibilityLabel="Household name"
         placeholder={DEFAULT_HOUSEHOLD_NAME} returnKeyType="next" autoCapitalize="words" maxLength={40} />
 
       <Label>Currency</Label>
@@ -96,10 +97,10 @@ function PersonRow({ initial, value, onChange, placeholder, suffix, label, onRem
   return (
     <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12, minHeight: 52, paddingLeft: 16, paddingRight: onRemove ? 4 : 16,
       borderBottomWidth: 1, borderBottomColor: c.hair }}>
-      <View style={{ width: 32, height: 32, borderRadius: 16, backgroundColor: c.chip, alignItems: 'center', justifyContent: 'center' }}>
+      <View {...fbPrivate} style={{ width: 32, height: 32, borderRadius: 16, backgroundColor: c.chip, alignItems: 'center', justifyContent: 'center' }}>
         <T style={{ fontFamily: fonts.bold, fontSize: 13 }}>{initial}</T>
       </View>
-      <TextInput ref={inputRef} value={value} onChangeText={onChange} placeholder={placeholder} placeholderTextColor={c.ink3}
+      <TextInput {...fbPrivate} ref={inputRef} value={value} onChangeText={onChange} placeholder={placeholder} placeholderTextColor={c.ink3}
         accessibilityLabel={label} autoCapitalize="words" maxLength={24} returnKeyType="next" onSubmitEditing={onSubmit}
         selectionColor={c.ink} blurOnSubmit={false}
         style={[{ flex: 1, fontFamily: fonts.regular, fontSize: 16, color: c.ink, paddingVertical: 14, minWidth: 0 },
