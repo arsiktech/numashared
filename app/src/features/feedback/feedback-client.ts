@@ -28,7 +28,19 @@ const MAX_NODES = 40_000;
 const MAX_WIDTH = 1600;
 
 const PRIVATE_SELECTOR = "[data-fb-private], [role='dialog']:not([data-fb-self]), [role='alertdialog'], [aria-modal='true']:not([data-fb-self])";
-const EXCLUDED_SELECTOR = "[data-fb-self], video, audio, iframe, embed, object";
+const EXCLUDED_SELECTOR = "[data-fb-self], video, audio, iframe, embed, object, noscript, script, template, [hidden]";
+
+/** Left out of the screenshot clone: the feedback UI, media we cannot mask, and anything that is not shown. */
+export function feedbackCloneSkipped(node: Node): boolean {
+  if (node.nodeType !== 1) return false;
+  const element = node as Element;
+  if (element.matches(EXCLUDED_SELECTOR)) return true;
+  if (!element.isConnected) return false;
+  const view = element.ownerDocument?.defaultView;
+  if (!view) return false;
+  const style = view.getComputedStyle(element);
+  return style.display === "none" || style.visibility === "hidden" || style.contentVisibility === "hidden";
+}
 const BLANK_PIXEL = "data:image/gif;base64,R0lGODlhAQABAAAAACH5BAEKAAEALAAAAAABAAEAAAICTAEAOw==";
 const MEDIA_SELECTOR = "img, svg, canvas, picture";
 const VALUE_KEPT_INPUT_TYPES = new Set(["checkbox", "radio", "range", "button", "submit", "reset", "color"]);
@@ -176,7 +188,7 @@ export async function captureFeedbackView(options: { privateSelector?: string } 
     timeout: CAPTURE_TIMEOUT_MS,
     backgroundColor: background && background !== "rgba(0, 0, 0, 0)" ? background : "#ffffff",
     style: { margin: "0", marginTop: `-${scrollY}px` },
-    filter: (node: Node) => !(node instanceof Element && node.matches(EXCLUDED_SELECTOR)),
+    filter: (node: Node) => !feedbackCloneSkipped(node),
     onCloneNode: (cloned: Node) => { if (cloned instanceof Element) maskFeedbackClone(cloned, options.privateSelector); },
   });
   try {
