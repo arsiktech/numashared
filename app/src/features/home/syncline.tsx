@@ -5,7 +5,6 @@ import { Checks, Clock, CloudOff, Warn } from '@/ui/icons';
 import { Press, T } from '@/ui/primitives';
 import { useTheme } from '@/ui/theme';
 import { fonts, thisDevice } from '@/ui/tokens';
-import { fbPrivate } from '@/ui/fbPrivate';
 import { online, useSyncStatus } from '@/sync/runtime';
 import { putHousehold } from '@/store/store';
 import { explainFailure } from '../account/session';
@@ -72,7 +71,7 @@ export function SyncLine() {
         <Press noScale accessibilityLabel={`${rejected.length} change${rejected.length > 1 ? 's' : ''} couldn’t be saved. Dismiss`}
           onPress={() => putHousehold({ ...h, sync: { ...h.sync!, rejected: [] } })}
           style={{ marginTop: 6, padding: 12, borderRadius: 14, backgroundColor: c.warnBg, gap: 2 }}>
-          <T {...fbPrivate} style={{ fontFamily: fonts.semibold, fontSize: 14, color: c.warnInk }}>
+          <T style={{ fontFamily: fonts.semibold, fontSize: 14, color: c.warnInk }}>
             {rejected.length === 1 ? `${rejected[0].label} couldn’t be saved` : `${rejected.length} changes couldn’t be saved`}
           </T>
           <T style={{ fontSize: 13, color: c.warnInk }}>Someone changed the same thing at the same time. Check the history and add it again if needed. Tap to dismiss.</T>

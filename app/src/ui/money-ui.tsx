@@ -7,7 +7,6 @@ import { Backspace, ChevDown, ChevUp } from './icons';
 import { haptic, Press, T } from './primitives';
 import { useTheme } from './theme';
 import { alpha, fonts, orb, type GroupTone } from './tokens';
-import { fbPrivate } from './fbPrivate';
 import { TEXT_CAP } from './textScale';
 
 /** "€52.80" with ghosted decimals and an optional caret, as in the Add sheet. */
@@ -21,7 +20,7 @@ export function BigAmount({ cents, currency, size = 84, color, caret, typed, acc
   const shownWhole = typed !== undefined ? typed.split('.')[0] || '0' : parts.whole;
   const typedDec = typed !== undefined && typed.includes('.') ? typed.split('.')[1] : undefined;
   return (
-    <View {...fbPrivate} accessible accessibilityLabel={label} style={{ flexDirection: 'row', alignItems: 'flex-end' }}>
+    <View accessible accessibilityLabel={label} style={{ flexDirection: 'row', alignItems: 'flex-end' }}>
       <T maxFontSizeMultiplier={cap} style={{ fontFamily: fonts.display, fontSize: size * 0.55, lineHeight: size * 0.95, color, marginRight: 4 }}>{parts.symbol}</T>
       <T maxFontSizeMultiplier={cap} style={{ fontFamily: fonts.display, fontSize: size, lineHeight: size * 1.06, letterSpacing: -size * 0.035, color, fontVariant: ['tabular-nums'] }}>
         {groupThousands(shownWhole)}
@@ -61,16 +60,16 @@ export function Keypad({ onKey, color, height = 56, allowDot = true }: {
 }
 
 /** A tappable word in the Add sentence: underlined, never boxed. */
-export function Word({ children, onPress, color, open, chevron = true, leading, accessibilityLabel, size = 30, placeholder, mask }: {
+export function Word({ children, onPress, color, open, chevron = true, leading, accessibilityLabel, size = 30, placeholder }: {
   children: ReactNode; onPress?: () => void; color: string; open?: boolean; chevron?: boolean; leading?: ReactNode;
-  accessibilityLabel: string; size?: number; placeholder?: boolean; mask?: boolean;
+  accessibilityLabel: string; size?: number; placeholder?: boolean;
 }) {
   return (
     <Press onPress={onPress} accessibilityLabel={accessibilityLabel} accessibilityState={{ expanded: !!open }}
       style={{ flexDirection: 'row', alignItems: 'center', gap: 6, minHeight: 44 }}>
       {leading}
       <View style={{ borderBottomWidth: 3, borderBottomColor: alpha(color, 0.32), paddingBottom: 2 }}>
-        <T {...(mask ? fbPrivate : {})} maxFontSizeMultiplier={TEXT_CAP.sentence} style={{ fontFamily: fonts.display, fontSize: size, lineHeight: size * 1.18, letterSpacing: -size * 0.02, color: placeholder ? alpha(color, 0.55) : color }}>{children}</T>
+        <T maxFontSizeMultiplier={TEXT_CAP.sentence} style={{ fontFamily: fonts.display, fontSize: size, lineHeight: size * 1.18, letterSpacing: -size * 0.02, color: placeholder ? alpha(color, 0.55) : color }}>{children}</T>
       </View>
       {chevron ? (open ? <ChevUp size={18} color={alpha(color, 0.55)} /> : <ChevDown size={18} color={alpha(color, 0.55)} />) : null}
     </Press>
@@ -121,8 +120,8 @@ export function SplitBar({ segments, amount, currency, onShares, onToggle, onExa
           style={{ width: widths[i] || undefined, flexGrow: width ? 0 : 1, height, borderRadius: 10, backgroundColor: sg.tone.band, opacity: sg.out ? 0.4 : 1,
             paddingHorizontal: 10, justifyContent: 'center', overflow: 'hidden',
             borderWidth: focusId === sg.groupId ? 3 : 0, borderColor: c.ink }}>
-          <T {...fbPrivate} numberOfLines={1} maxFontSizeMultiplier={TEXT_CAP.label} style={{ fontFamily: fonts.semibold, fontSize: 13, color: sg.tone.ink }}>{sg.name}</T>
-          <T {...fbPrivate} numberOfLines={1} maxFontSizeMultiplier={TEXT_CAP.label} style={{ fontFamily: fonts.bold, fontSize: 16, color: sg.tone.ink, fontVariant: ['tabular-nums'] }}>
+          <T numberOfLines={1} maxFontSizeMultiplier={TEXT_CAP.label} style={{ fontFamily: fonts.semibold, fontSize: 13, color: sg.tone.ink }}>{sg.name}</T>
+          <T numberOfLines={1} maxFontSizeMultiplier={TEXT_CAP.label} style={{ fontFamily: fonts.bold, fontSize: 16, color: sg.tone.ink, fontVariant: ['tabular-nums'] }}>
             {sg.out ? 'out' : formatMoney(sg.share, currency)}
           </T>
         </Press>

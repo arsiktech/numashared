@@ -11,7 +11,6 @@ import { CTA, haptic, Press, T, TextButton } from '@/ui/primitives';
 import { BigAmount, Keypad } from '@/ui/money-ui';
 import { useTheme } from '@/ui/theme';
 import { fonts, isWeb } from '@/ui/tokens';
-import { fbPrivate } from '@/ui/fbPrivate';
 import { nameOf, useHousehold } from '@/features/hooks';
 import { Screen, ScreenHeader, Segmented } from '@/features/onboarding/chrome';
 
@@ -99,7 +98,7 @@ export default function Opening() {
         accessibilityLabel={`${which === 'from' ? 'Group that owes' : 'Group that is owed'}: ${nameOf(h, g)}. Change`}
         style={{ minHeight: 44, paddingHorizontal: 12, borderRadius: 14, backgroundColor: t.band, justifyContent: 'center', alignSelf: 'flex-start',
           borderWidth: open ? 2 : 0, borderColor: t.ink }}>
-        <T {...fbPrivate} style={{ fontFamily: fonts.display, fontSize: 28, lineHeight: 36, letterSpacing: -0.6, color: t.ink }}>{nameOf(h, g)}</T>
+        <T style={{ fontFamily: fonts.display, fontSize: 28, lineHeight: 36, letterSpacing: -0.6, color: t.ink }}>{nameOf(h, g)}</T>
       </Press>
     );
   };
@@ -113,7 +112,7 @@ export default function Opening() {
         return (
           <Press key={g.id} accessibilityRole="radio" accessibilityState={{ checked: on }} accessibilityLabel={nameOf(h, g)} onPress={() => pick(picking, g.id)}
             style={{ minHeight: 44, paddingHorizontal: 14, borderRadius: 22, backgroundColor: t.band, justifyContent: 'center', borderWidth: on ? 2 : 0, borderColor: t.ink }}>
-            <T {...fbPrivate} style={{ fontFamily: fonts.semibold, fontSize: 15, color: t.ink }}>{nameOf(h, g)}</T>
+            <T style={{ fontFamily: fonts.semibold, fontSize: 15, color: t.ink }}>{nameOf(h, g)}</T>
           </Press>
         );
       })}
@@ -122,7 +121,7 @@ export default function Opening() {
 
   const footer = yes ? (
     <View style={{ gap: 4, alignItems: 'stretch' }}>
-      <CTA mask={cents > 0} label={cents > 0 ? `Start at ${formatMoney(cents, currency)}` : 'Type an amount'} disabled={cents <= 0} onPress={save} />
+      <CTA label={cents > 0 ? `Start at ${formatMoney(cents, currency)}` : 'Type an amount'} disabled={cents <= 0} onPress={save} />
       <TextButton label="Skip, start at zero" bold onPress={finish} style={{ alignSelf: 'center' }} />
     </View>
   ) : <CTA label="Start at zero" onPress={finish} />;

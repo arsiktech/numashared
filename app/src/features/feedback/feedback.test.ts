@@ -69,7 +69,7 @@ test('the screenshot clone skips noscript and other elements that are not shown'
   const hidden = make('div');
   hidden.hidden = true;
   expect(feedbackCloneSkips(hidden as never)).toBe(true);
-  expect(feedbackCloneSkips(make('video') as never)).toBe(true);
+  expect(feedbackCloneSkips(make('video') as never)).toBe(false);
   const self = make('div');
   self.self = true;
   expect(feedbackCloneSkips(self as never)).toBe(true);

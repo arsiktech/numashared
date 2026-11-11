@@ -18,7 +18,6 @@ import { saveGuard, Sheet, SheetScrollView, useSheet } from '@/ui/sheet';
 import { forwardSheetInputKey } from '@/ui/sheet-focus';
 import { isShortSheet, pinsKeypad, SHORT_KEY_HEIGHT } from '@/features/add/layout';
 import { useTheme } from '@/ui/theme';
-import { fbPrivate } from '@/ui/fbPrivate';
 import { alpha, fonts, isWeb, type GroupTone } from '@/ui/tokens';
 import { cappedSize, TEXT_CAP } from '@/ui/textScale';
 import { initials, nameOf, personName, useHousehold } from '@/features/hooks';
@@ -361,7 +360,7 @@ function AddBody({ h, spec, draft, set, t, pop }: {
 
   const payerLine = (
     <View style={lineStyle}>
-      <Word mask color={t.ink} size={wordSize} open={payerOpen} onPress={() => { haptic.tick(); setPanel(payerOpen ? null : 'payer'); }}
+      <Word color={t.ink} size={wordSize} open={payerOpen} onPress={() => { haptic.tick(); setPanel(payerOpen ? null : 'payer'); }}
         accessibilityLabel={`Paid by ${payerName}. ${payerOpen ? 'Close the list' : 'Change'}`}
         leading={<Avatar initials={initials(h, draft.payerId)} tone={t} ink size={pop ? 32 : 38} />}>
         {payerName}
@@ -376,8 +375,8 @@ function AddBody({ h, spec, draft, set, t, pop }: {
     </Press>
   );
   const wasLine = edit && original && amount !== original.amount ? (
-    <T {...fbPrivate} style={{ fontFamily: fonts.semibold, fontSize: 15, color: t.ink, opacity: 0.75, marginTop: -2 }}>
-      was <T {...fbPrivate} style={{ fontFamily: fonts.semibold, fontSize: 15, color: t.ink, textDecorationLine: 'line-through' }}>{money(original.amount)}</T>
+    <T style={{ fontFamily: fonts.semibold, fontSize: 15, color: t.ink, opacity: 0.75, marginTop: -2 }}>
+      was <T style={{ fontFamily: fonts.semibold, fontSize: 15, color: t.ink, textDecorationLine: 'line-through' }}>{money(original.amount)}</T>
     </T>
   ) : null;
   const categoryLine = (
@@ -415,7 +414,7 @@ function AddBody({ h, spec, draft, set, t, pop }: {
         const on = p.id === draft.payerId;
         const pt = tone(groupOfPerson(h, p.id));
         return (
-          <TChip mask key={p.id} tone={t} on={on} label={personName(h, p.id)} accessibilityLabel={`${personName(h, p.id)} paid`}
+          <TChip key={p.id} tone={t} on={on} label={personName(h, p.id)} accessibilityLabel={`${personName(h, p.id)} paid`}
             leading={<PersonDot fill={pt.band} ring={on ? t.band : t.ink} />}
             onPress={() => { haptic.tick(); set((d) => ({ ...d, payerId: p.id })); }} />
         );
@@ -435,7 +434,7 @@ function AddBody({ h, spec, draft, set, t, pop }: {
   const suggestionRow = (
     <ChipRow label="Recent expenses">
       {suggestions.map((s) => (
-        <TChip mask key={s.key} tone={t} on={draft.sugKey === s.key} label={s.label} amount={formatMoney(s.amount, cur, { fraction: 'auto' })}
+        <TChip key={s.key} tone={t} on={draft.sugKey === s.key} label={s.label} amount={formatMoney(s.amount, cur, { fraction: 'auto' })}
           accessibilityLabel={`${s.label}, ${money(s.amount)}`} onPress={() => pickSuggestion(s)} />
       ))}
     </ChipRow>
@@ -600,7 +599,7 @@ function NewCategory({ tone: t, value, onChange, onDone, onBack }: {
     <View style={{ gap: 10 }}>
       <T style={{ fontFamily: fonts.semibold, fontSize: 14, color: t.ink }}>Name it</T>
       <View style={{ minHeight: 48, borderRadius: 14, paddingHorizontal: 14, justifyContent: 'center', backgroundColor: alpha(t.ink, 0.09) }}>
-        <TextInput {...fbPrivate} value={value} onChangeText={onChange} autoFocus placeholder="Pizza night" placeholderTextColor={alpha(t.ink, 0.55)} maxLength={40}
+        <TextInput value={value} onChangeText={onChange} autoFocus placeholder="Pizza night" placeholderTextColor={alpha(t.ink, 0.55)} maxLength={40}
           accessibilityLabel={isWeb ? 'Name it: category name' : 'Category name'} returnKeyType="done" onSubmitEditing={onDone}
           onKeyPress={isWeb ? (e) => forwardSheetInputKey(e, escape) : undefined}
           style={[{ minHeight: 48, fontFamily: fonts.semibold, fontSize: 18, color: t.ink, paddingVertical: 0 }, isWeb ? ({ outlineStyle: 'auto' } as object) : null]} />

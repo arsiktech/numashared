@@ -12,7 +12,6 @@ import { IconButton, Press, T, TextButton } from '@/ui/primitives';
 import { Sheet, SheetHead, useSheet } from '@/ui/sheet';
 import { useTheme } from '@/ui/theme';
 import { fonts, isAndroid } from '@/ui/tokens';
-import { fbPrivate } from '@/ui/fbPrivate';
 import { money, nameOf, yourStanding } from '@/features/hooks';
 import type { SheetProps } from './host';
 
@@ -68,7 +67,7 @@ function HouseholdCard({ h, current, hide, onPress }: { h: Household; current: b
       style={{ backgroundColor: c.card, borderRadius: 20, paddingTop: 22, paddingBottom: 20, paddingHorizontal: 20, borderWidth: 2, borderColor: current ? c.ink : 'transparent' }}>
       <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 10, minHeight: 28 }}>
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, flexShrink: 1 }}>
-          <T {...fbPrivate} numberOfLines={2} style={{ fontFamily: fonts.bold, fontSize: 20, lineHeight: 24, letterSpacing: -0.2, flexShrink: 1 }}>{h.name}</T>
+          <T numberOfLines={2} style={{ fontFamily: fonts.bold, fontSize: 20, lineHeight: 24, letterSpacing: -0.2, flexShrink: 1 }}>{h.name}</T>
           <View style={{ flexDirection: 'row', width: 28, height: 14, borderRadius: 7, overflow: 'hidden' }}>
             {(colors.length ? colors : [c.chip]).map((col, i) => <View key={i} style={{ flex: 1, backgroundColor: col }} />)}
           </View>
@@ -79,7 +78,7 @@ function HouseholdCard({ h, current, hide, onPress }: { h: Household; current: b
           </View>
         ) : null}
       </View>
-      <T {...fbPrivate} style={{ fontSize: 14, lineHeight: 19, color: c.ink2, marginTop: 6 }}>{people} · {line}</T>
+      <T style={{ fontSize: 14, lineHeight: 19, color: c.ink2, marginTop: 6 }}>{people} · {line}</T>
     </Press>
   );
 }

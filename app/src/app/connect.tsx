@@ -10,7 +10,6 @@ import { CloudOff, Warn } from '@/ui/icons';
 import { Banner, BannerText, CTA, haptic, T } from '@/ui/primitives';
 import { useTheme } from '@/ui/theme';
 import { fonts, isWeb } from '@/ui/tokens';
-import { fbPrivate } from '@/ui/fbPrivate';
 import { Brand, Screen } from '@/features/onboarding/chrome';
 import { explainFailure, SignInButtons, useSession, useSignInOptions } from '@/features/account/session';
 import { signInColumn } from '@/features/account/signInWidth';
@@ -127,7 +126,7 @@ export default function Connect() {
             {pending.verifiedHost ? (
               <Fact label="Agent" value={`${agent} · ${pending.verifiedHost}`} />
             ) : null}
-            {session ? <Fact mask label="Households" value={reads} /> : null}
+            {session ? <Fact label="Households" value={reads} /> : null}
             <Fact label="Returns to" value={pending.returnsTo} last />
           </View>
           {pending.returnsToThisComputer ? (
@@ -167,12 +166,12 @@ export default function Connect() {
   );
 }
 
-function Fact({ label, value, last, mask }: { label: string; value: string; last?: boolean; mask?: boolean }) {
+function Fact({ label, value, last }: { label: string; value: string; last?: boolean }) {
   const { c } = useTheme();
   return (
     <View style={{ flexDirection: 'row', justifyContent: 'space-between', gap: 12, paddingVertical: 12, borderBottomWidth: last ? 0 : 1, borderBottomColor: c.hair }}>
       <T style={{ fontSize: 15, color: c.ink2 }}>{label}</T>
-      <T {...(mask ? fbPrivate : {})} selectable style={{ fontFamily: fonts.semibold, fontSize: 15, flexShrink: 1, textAlign: 'right' }}>{value}</T>
+      <T selectable style={{ fontFamily: fonts.semibold, fontSize: 15, flexShrink: 1, textAlign: 'right' }}>{value}</T>
     </View>
   );
 }

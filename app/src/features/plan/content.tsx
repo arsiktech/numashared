@@ -13,7 +13,6 @@ import { CTA, Dot, Pill, Press, T, TextButton } from '@/ui/primitives';
 import { SheetHead, useSheet } from '@/ui/sheet';
 import { useTheme } from '@/ui/theme';
 import { fonts, isAndroid } from '@/ui/tokens';
-import { fbPrivate } from '@/ui/fbPrivate';
 import { money, nameOf, objectName, useHousehold } from '../hooks';
 import { dayMonth, isoDay } from '../history/model';
 
@@ -51,7 +50,7 @@ export function PlanContent() {
   const cta = !many && !square && other ? (
     bal < 0
       ? <CTA label="Record a repayment" onPress={() => record({ fromGroupId: mine.id, toGroupId: other.id, amount: -bal })} />
-      : <CTA mask variant="second" label={`${nameOf(h, other)} paid you back`} onPress={() => record({ fromGroupId: other.id, toGroupId: mine.id, amount: bal })} />
+      : <CTA variant="second" label={`${nameOf(h, other)} paid you back`} onPress={() => record({ fromGroupId: other.id, toGroupId: mine.id, amount: bal })} />
   ) : null;
 
   return (
@@ -67,8 +66,8 @@ export function PlanContent() {
         <SheetHead title="Balance" right={<TextButton label="Done" bold onPress={() => close('done')} />} />
       )}
       <ScrollView style={{ flex: 1 }} contentContainerStyle={{ paddingHorizontal: 22, paddingTop: 8, paddingBottom: 20 }}>
-        <T {...fbPrivate} accessibilityRole="header" style={{ fontFamily: fonts.cond, fontSize: many || square ? 40 : 36, lineHeight: many || square ? 42 : 38, letterSpacing: -0.4 }}>{title}</T>
-        <T {...fbPrivate} style={{ fontSize: 14, lineHeight: 19, color: c.ink2, marginTop: 8 }}>{sub}</T>
+        <T accessibilityRole="header" style={{ fontFamily: fonts.cond, fontSize: many || square ? 40 : 36, lineHeight: many || square ? 42 : 38, letterSpacing: -0.4 }}>{title}</T>
+        <T style={{ fontSize: 14, lineHeight: 19, color: c.ink2, marginTop: 8 }}>{sub}</T>
 
         {square ? <AllSquare h={h} /> : null}
         {many && !square ? <Diverging h={h} balances={balances} hide={hide} /> : null}
@@ -116,7 +115,7 @@ function AllSquare({ h }: { h: Household }) {
       <View style={{ width: 40, height: 40, borderRadius: 20, backgroundColor: c.chip, alignItems: 'center', justifyContent: 'center' }}>
         <Check size={22} color={c.ink} />
       </View>
-      <T {...fbPrivate} style={{ flex: 1, fontSize: 15, lineHeight: 21 }}>Nothing to repay. New expenses in {h.name} show up here as soon as anyone adds one.</T>
+      <T style={{ flex: 1, fontSize: 15, lineHeight: 21 }}>Nothing to repay. New expenses in {h.name} show up here as soon as anyone adds one.</T>
     </View>
   );
 }
@@ -144,12 +143,12 @@ function Diverging({ h, balances, hide }: { h: Household; balances: Record<strin
         const bar = (side: 'l' | 'r') => (
           <View style={{ position: 'absolute', top: 0, bottom: 0, [side === 'l' ? 'right' : 'left']: 4, width: w, minWidth: 72, borderRadius: 8,
             backgroundColor: t.band, justifyContent: 'center', paddingHorizontal: 8 }}>
-            <T {...fbPrivate} numberOfLines={1} style={{ fontFamily: fonts.bold, fontSize: 13, color: t.ink, fontVariant: ['tabular-nums'], textAlign: side === 'l' ? 'left' : 'left' }}>{money(h, Math.abs(b), hide)}</T>
+            <T numberOfLines={1} style={{ fontFamily: fonts.bold, fontSize: 13, color: t.ink, fontVariant: ['tabular-nums'], textAlign: side === 'l' ? 'left' : 'left' }}>{money(h, Math.abs(b), hide)}</T>
           </View>
         );
         return (
           <View key={g.id} style={{ flexDirection: 'row', alignItems: 'center', minHeight: 46 }}>
-            <T {...fbPrivate} numberOfLines={2} style={{ width: nameW, paddingRight: 6, fontFamily: fonts.semibold, fontSize: 14.5 }}>{nameOf(h, g)}</T>
+            <T numberOfLines={2} style={{ width: nameW, paddingRight: 6, fontFamily: fonts.semibold, fontSize: 14.5 }}>{nameOf(h, g)}</T>
             <View style={{ flex: 1, height: 30, borderRightWidth: 2, borderRightColor: c.ink }}>{b < 0 ? bar('l') : null}</View>
             <View style={{ flex: 1, height: 30, justifyContent: 'center' }}>
               {b > 0 ? bar('r') : b === 0 ? <T style={{ paddingLeft: 10, fontFamily: fonts.semibold, fontSize: 13, color: c.ink2 }}>square</T> : null}
@@ -174,12 +173,12 @@ function Move({ h, t, mine, hide, onRecord }: { h: Household; t: Transfer; mine:
       accessibilityLabel={`${nameOf(h, from)} ${isPlural(from, h.people, h.youId) ? 'owe' : 'owes'} ${objectName(h, to)} ${money(h, t.amount, hide)}`}>
       <View style={{ flex: 1, minWidth: 0 }}>
         <Pair h={h} from={from} to={to} dot={(g) => tone(g).deep} />
-        <T {...fbPrivate} style={{ fontFamily: fonts.display, fontSize: 26, letterSpacing: -0.8, marginTop: 2, fontVariant: ['tabular-nums'] }}>{money(h, t.amount, hide)}</T>
+        <T style={{ fontFamily: fonts.display, fontSize: 26, letterSpacing: -0.8, marginTop: 2, fontVariant: ['tabular-nums'] }}>{money(h, t.amount, hide)}</T>
       </View>
       {yours ? (
         <Pill label="Record it" accessibilityLabel={`Record ${nameOf(h, from)} paying ${nameOf(h, to)} ${money(h, t.amount)}`} onPress={onRecord} />
       ) : (
-        <T {...fbPrivate} style={{ fontFamily: fonts.semibold, fontSize: 12.5, lineHeight: 17, color: c.ink2, textAlign: 'right', maxWidth: 130 }}>
+        <T style={{ fontFamily: fonts.semibold, fontSize: 12.5, lineHeight: 17, color: c.ink2, textAlign: 'right', maxWidth: 130 }}>
           {nameOf(h, from)} or {nameOf(h, to)}{'\n'}record this one
         </T>
       )}
@@ -189,7 +188,7 @@ function Move({ h, t, mine, hide, onRecord }: { h: Household; t: Transfer; mine:
 
 function Pair({ h, from, to, dot }: { h: Household; from: Group; to: Group; dot: (g: Group) => string }) {
   const { c } = useTheme();
-  const name = (g: Group): ReactNode => <T {...fbPrivate} style={{ fontFamily: fonts.semibold, fontSize: 15 }}>{nameOf(h, g)}</T>;
+  const name = (g: Group): ReactNode => <T style={{ fontFamily: fonts.semibold, fontSize: 15 }}>{nameOf(h, g)}</T>;
   return (
     <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
       <Dot color={dot(from)} />{name(from)}
@@ -222,11 +221,11 @@ function WhyTable({ h, lines, hide }: { h: Household; lines: ExplainLine[]; hide
             style={{ flexDirection: 'row', alignItems: 'center', minHeight: 58, paddingVertical: 8, borderBottomWidth: 1, borderBottomColor: c.hair }}>
             <T style={{ width: cols.date, fontFamily: fonts.medium, fontSize: 13.5, color: c.ink2 }}>{date}</T>
             <View style={{ flex: 1, minWidth: 0, paddingRight: 6 }}>
-              <T {...fbPrivate} style={{ fontFamily: fonts.semibold, fontSize: 14.5, letterSpacing: -0.15, color: l.voided ? c.ink2 : c.ink, textDecorationLine: l.voided ? 'line-through' : 'none' }}>{l.label}</T>
-              {l.detail ? <T {...fbPrivate} style={{ fontFamily: fonts.medium, fontSize: 12.5, color: c.ink2, marginTop: 1 }}>{l.voided ? 'voided' : l.detail}</T> : null}
+              <T style={{ fontFamily: fonts.semibold, fontSize: 14.5, letterSpacing: -0.15, color: l.voided ? c.ink2 : c.ink, textDecorationLine: l.voided ? 'line-through' : 'none' }}>{l.label}</T>
+              {l.detail ? <T style={{ fontFamily: fonts.medium, fontSize: 12.5, color: c.ink2, marginTop: 1 }}>{l.voided ? 'voided' : l.detail}</T> : null}
             </View>
-            <T {...fbPrivate} style={[numStyle, { width: cols.change }, l.voided ? { fontFamily: fonts.medium, fontSize: 13.5, color: c.ink2 } : null]}>{change}</T>
-            <T {...fbPrivate} style={[numStyle, { width: cols.run }]}>{num(l.running, 'auto')}</T>
+            <T style={[numStyle, { width: cols.change }, l.voided ? { fontFamily: fonts.medium, fontSize: 13.5, color: c.ink2 } : null]}>{change}</T>
+            <T style={[numStyle, { width: cols.run }]}>{num(l.running, 'auto')}</T>
           </Press>
         );
       })}

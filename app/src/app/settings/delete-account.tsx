@@ -8,7 +8,6 @@ import { Warn } from '@/ui/icons';
 import { Banner, BannerText, CTA, haptic, T } from '@/ui/primitives';
 import { useTheme } from '@/ui/theme';
 import { fonts } from '@/ui/tokens';
-import { fbPrivate } from '@/ui/fbPrivate';
 import { Caption } from '@/features/onboarding/chrome';
 import { SettingsShell } from '@/features/settings/parts';
 import { explainFailure, useSession } from '@/features/account/session';
@@ -65,7 +64,7 @@ export default function DeleteAccountScreen() {
         {!preview && !error ? <T style={{ padding: 16, color: c.ink2 }}>Checking your households…</T> : null}
         {preview && preview.pots.length === 0 ? <T style={{ padding: 16, color: c.ink2 }}>You aren’t in any shared household.</T> : null}
         {preview?.pots.map((p, i) => (
-          <T {...fbPrivate} key={p.potId} style={{ padding: 16, fontSize: 15, lineHeight: 21, borderTopWidth: i ? 1 : 0, borderTopColor: c.hair }}>{outcomeText(p)}</T>
+          <T key={p.potId} style={{ padding: 16, fontSize: 15, lineHeight: 21, borderTopWidth: i ? 1 : 0, borderTopColor: c.hair }}>{outcomeText(p)}</T>
         ))}
       </View>
       {unsent > 0 ? (

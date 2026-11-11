@@ -67,7 +67,7 @@ Signing in:
 - Google works on iPhone and Android once the build has its OAuth client IDs. Put them in `app/.env` before building:
   `EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID=…` and `EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID=…`. The backend accepts the same two IDs from `NUMA_SHARED_GOOGLE_CLIENT_IDS` (comma-separated). Without them the Google button stays hidden.
 - On the web (shared.numaworth.com/app) Google's own button signs in, with the web client ID in `EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID`. Apple sign-in on the web is not set up. See `tools/web-host`.
-- Web feedback stays off until `EXPO_PUBLIC_FEEDBACK_URL`, `EXPO_PUBLIC_FEEDBACK_APP` and `EXPO_PUBLIC_FEEDBACK_KEY` are all set (see `.env.example`). The button is web-only. A screenshot is taken on every screen the service's capture list allows; this app adds no path list of its own. Names, amounts, balances, splits and typed fields are marked so a picture paints over them.
+- Web feedback stays off until `EXPO_PUBLIC_FEEDBACK_URL`, `EXPO_PUBLIC_FEEDBACK_APP` and `EXPO_PUBLIC_FEEDBACK_KEY` are all set (see `.env.example`). The button is web-only. A screenshot is the page as it is shown, on every screen the service's capture list allows. This app adds no path list of its own.
 
 Limits for now:
 - A group is one to six people who pay as one (a single person, a couple, a family).

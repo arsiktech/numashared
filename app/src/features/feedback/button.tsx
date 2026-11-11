@@ -167,12 +167,15 @@ export function FeedbackButton() {
             }, { outlineStyle: 'none' } as object]}
           />
           {shot ? (
-            <View style={{ flexDirection: 'row', alignItems: 'flex-start' }}>
-              <Image source={{ uri: shot.dataUrl }} accessibilityLabel="Screenshot" style={{ width: 96, height: 64, borderRadius: 8, backgroundColor: c.chip }} />
-              <Press accessibilityLabel="Remove screenshot" onPress={removeShot}
-                style={{ marginLeft: -14, marginTop: -8, width: 28, height: 28, borderRadius: 14, backgroundColor: c.ink, alignItems: 'center', justifyContent: 'center' }}>
-                <T style={{ color: c.bg, fontFamily: fonts.semibold, fontSize: 16, lineHeight: 18 }}>×</T>
-              </Press>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+              <View>
+                <Image source={{ uri: shot.dataUrl }} accessibilityLabel="Screenshot" style={{ width: 96, height: 64, borderRadius: 8, backgroundColor: c.chip }} />
+                <Press accessibilityLabel="Remove screenshot" onPress={removeShot}
+                  style={{ position: 'absolute', right: -8, top: -8, width: 28, height: 28, borderRadius: 14, backgroundColor: c.ink, alignItems: 'center', justifyContent: 'center' }}>
+                  <T style={{ color: c.bg, fontFamily: fonts.semibold, fontSize: 16, lineHeight: 18 }}>×</T>
+                </Press>
+              </View>
+              <T style={{ flex: 1, fontSize: 13, lineHeight: 17, color: c.ink2 }}>Others on the team can see this screenshot.</T>
             </View>
           ) : null}
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>

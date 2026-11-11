@@ -106,7 +106,7 @@ function WelcomeActions({ desk }: { desk?: boolean }) {
         ) : (
           <>
             {existing ? (
-              <CTA mask label={`Open ${existing.name}`} onPress={() => router.replace('/home')}
+              <CTA label={`Open ${existing.name}`} onPress={() => router.replace('/home')}
                 accessibilityLabel={`Open ${existing.name}, the household you already have here`} />
             ) : null}
             <CTA label={existing ? 'Start another household' : 'Start a household'} variant={existing ? 'second' : 'primary'}

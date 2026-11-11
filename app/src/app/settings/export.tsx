@@ -11,7 +11,6 @@ import { Check, Download } from '@/ui/icons';
 import { CTA, haptic, T } from '@/ui/primitives';
 import { useTheme } from '@/ui/theme';
 import { fonts, isWeb } from '@/ui/tokens';
-import { fbPrivate } from '@/ui/fbPrivate';
 import { useHousehold } from '@/features/hooks';
 import { Caption, Label, Segmented, Select } from '@/features/onboarding/chrome';
 import { SettingsShell, usePillBg } from '@/features/settings/parts';
@@ -75,7 +74,7 @@ export default function ExportScreen() {
     <SettingsShell title="Export CSV" back="Settings" active="data" footer={footer}>
       <View style={{ paddingHorizontal: 0 }}>
         <Label style={{ marginTop: 8 }}>Household</Label>
-        <Select mask label="Household" value={h.id} onChange={setPick} disabled={households.length < 2} right={households.length < 2 ? <View /> : undefined}
+        <Select label="Household" value={h.id} onChange={setPick} disabled={households.length < 2} right={households.length < 2 ? <View /> : undefined}
           options={households.map((x) => ({ value: x.id, label: x.name }))} />
         <Label>Range</Label>
         <Segmented label="Range" value={range} onChange={setRange} track={track === c.card ? c.chip2 : undefined}
@@ -97,7 +96,7 @@ export default function ExportScreen() {
         <View accessible accessibilityLabel={`Preview of the file: ${preview.join('. ')}`}
           style={{ marginTop: 16, backgroundColor: c.card, borderRadius: 18, padding: 14 }}>
           {preview.map((line, i) => (
-            <T {...fbPrivate} key={i} numberOfLines={1} ellipsizeMode="clip" style={{ fontFamily: mono, fontSize: 11, lineHeight: 17, color: c.ink2 }}>{line}</T>
+            <T key={i} numberOfLines={1} ellipsizeMode="clip" style={{ fontFamily: mono, fontSize: 11, lineHeight: 17, color: c.ink2 }}>{line}</T>
           ))}
           {count === 0 ? <T style={{ fontSize: 13, color: c.ink2, marginTop: 4 }}>No records in this range.</T> : null}
         </View>

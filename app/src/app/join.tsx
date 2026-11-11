@@ -8,7 +8,6 @@ import { CloudOff, Warn } from '@/ui/icons';
 import { Banner, BannerText, CTA, haptic, Press, T } from '@/ui/primitives';
 import { useTheme } from '@/ui/theme';
 import { fonts, isWeb } from '@/ui/tokens';
-import { fbPrivate } from '@/ui/fbPrivate';
 import { Brand, Field, Screen, ScreenHeader } from '@/features/onboarding/chrome';
 import { cleanCode, showCode } from '@/features/onboarding/model';
 import { explainFailure, SignInButtons, useSession, useSignInOptions } from '@/features/account/session';
@@ -98,7 +97,7 @@ export default function Join() {
           <T maxFontSizeMultiplier={1.2} style={{ fontFamily: fonts.cond, fontSize: 28, color: lilac.ink }}>invited</T>
         </View>
       </View>
-      <T {...(active ? fbPrivate : {})} accessibilityRole="header" maxFontSizeMultiplier={1.4}
+      <T accessibilityRole="header" maxFontSizeMultiplier={1.4}
         style={{ fontFamily: fonts.display, fontSize: phone ? 34 : 40, lineHeight: phone ? 38 : 44, letterSpacing: -0.8, marginTop: 20 }}>
         {active ? `Join ${potName}` : 'Join a household on Numa Shared'}
       </T>

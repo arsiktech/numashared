@@ -15,7 +15,6 @@ import { Copy, Warn } from '@/ui/icons';
 import { Banner, BannerText, CTA, haptic, Press, T, Toggle } from '@/ui/primitives';
 import { useTheme } from '@/ui/theme';
 import { fonts, isAndroid, isWeb } from '@/ui/tokens';
-import { fbPrivate } from '@/ui/fbPrivate';
 import { Caption } from '@/features/onboarding/chrome';
 import { copyText } from '@/features/onboarding/share';
 import { SGroup, SRow, SettingsShell } from '@/features/settings/parts';
@@ -64,7 +63,7 @@ export default function AgentsScreen() {
   if (!h.sync || h.sync.setup) {
     return (
       <SettingsShell title="AI agents" back="Settings" active="agents">
-        <T {...fbPrivate} style={{ fontSize: 16, lineHeight: 22, color: c.ink2, marginTop: 12 }}>Share {h.name} first. Agents connect to your account, so you need to be signed in with a shared household.</T>
+        <T style={{ fontSize: 16, lineHeight: 22, color: c.ink2, marginTop: 12 }}>Share {h.name} first. Agents connect to your account, so you need to be signed in with a shared household.</T>
       </SettingsShell>
     );
   }
@@ -133,7 +132,7 @@ export default function AgentsScreen() {
           <T style={{ fontSize: 14, lineHeight: 20, color: c.ink2 }}>
             It didn’t reach the clipboard. It holds a secret link and is shown only now. If you lose it, disconnect the agent and copy a new one.
           </T>
-          <T {...fbPrivate} selectable style={{ fontSize: 13, lineHeight: 18 }}>{uncopied}</T>
+          <T selectable style={{ fontSize: 13, lineHeight: 18 }}>{uncopied}</T>
           <View style={{ flexDirection: 'row', gap: 16 }}>
             <Press onPress={() => { if (isWeb) void copyText(uncopied, COPIED); else void Share.share({ message: uncopied }); }}
               accessibilityRole="button" style={{ minHeight: 44, justifyContent: 'center' }}>
@@ -154,14 +153,14 @@ export default function AgentsScreen() {
       {list?.map((agent) => {
         const permissions = agent.permissions ?? READ_ONLY;
         return (
-          <SGroup mask key={agent.id} title={agent.name}>
-            <SRow mask label="Read households" value="Always" chevron={false} sub={permissionSummary(permissions)} />
+          <SGroup key={agent.id} title={agent.name}>
+            <SRow label="Read households" value="Always" chevron={false} sub={permissionSummary(permissions)} />
             {AGENT_SWITCHES.map((item) => (
               <SRow key={item.key} label={item.label} sub={item.sub} chevron={false}
                 right={<Toggle label={`${item.label}, ${agent.name}`} value={permissions[item.key]} android={isAndroid}
                   onChange={(allowed) => { void setPermission(agent, item.key, allowed); }} />} />
             ))}
-            <SRow mask label="Disconnect" danger chevron={false} last sub={details(agent)}
+            <SRow label="Disconnect" danger chevron={false} last sub={details(agent)}
               a11y={`Disconnect ${agent.name}, ${details(agent)}`}
               onPress={busy ? undefined : () => { void disconnect(agent.id); }} />
           </SGroup>

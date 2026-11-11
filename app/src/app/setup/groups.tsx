@@ -11,7 +11,6 @@ import { Lock, Plus } from '@/ui/icons';
 import { Banner, BannerText, CTA, haptic, Press, T } from '@/ui/primitives';
 import { useTheme } from '@/ui/theme';
 import { alpha, fonts, thisDevice } from '@/ui/tokens';
-import { fbPrivate } from '@/ui/fbPrivate';
 import { useHousehold } from '@/features/hooks';
 import { Screen, ScreenHeader } from '@/features/onboarding/chrome';
 import { maxGroupSize, movePerson, type Arrangement } from '@/features/onboarding/model';
@@ -113,7 +112,7 @@ export default function Groups() {
                 <Press noScale onPress={() => move(sel!, i)} accessibilityLabel={`Move ${nm(sel!)} to ${title(members)}`}
                   style={{ position: 'absolute', left: 0, top: 0, right: 0, bottom: 0, borderRadius: 22 }} />
               ) : null}
-              <T {...fbPrivate} pointerEvents="none" style={{ fontFamily: fonts.bold, fontSize: 20, lineHeight: 24, color: t.ink, alignSelf: 'flex-start' }}>{title(members)}</T>
+              <T pointerEvents="none" style={{ fontFamily: fonts.bold, fontSize: 20, lineHeight: 24, color: t.ink, alignSelf: 'flex-start' }}>{title(members)}</T>
               <View pointerEvents="box-none" style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 12 }}>
                 {members.map((pid) => {
                   const on = sel === pid;
@@ -123,9 +122,9 @@ export default function Groups() {
                       style={{ minHeight: 44, paddingLeft: 8, paddingRight: 16, borderRadius: 22, flexDirection: 'row', alignItems: 'center', gap: 8,
                         backgroundColor: on ? t.ink : alpha(t.ink, 0.09) }}>
                       <View style={{ width: 28, height: 28, borderRadius: 14, backgroundColor: on ? t.band : t.ink, alignItems: 'center', justifyContent: 'center' }}>
-                        <T {...fbPrivate} style={{ fontFamily: fonts.bold, fontSize: 12, color: on ? t.ink : t.band }}>{nm(pid).slice(0, 1).toUpperCase()}</T>
+                        <T style={{ fontFamily: fonts.bold, fontSize: 12, color: on ? t.ink : t.band }}>{nm(pid).slice(0, 1).toUpperCase()}</T>
                       </View>
-                      <T {...fbPrivate} style={{ fontFamily: fonts.semibold, fontSize: 16, color: on ? t.band : t.ink }}>{nm(pid)}</T>
+                      <T style={{ fontFamily: fonts.semibold, fontSize: 16, color: on ? t.band : t.ink }}>{nm(pid)}</T>
                     </Press>
                   );
                 })}
@@ -133,7 +132,7 @@ export default function Groups() {
               {target ? (
                 <View pointerEvents="none" style={{ marginTop: 12, minHeight: 40, borderRadius: 14, borderWidth: 1.5, borderStyle: 'dashed', borderColor: alpha(t.ink, 0.45),
                   alignItems: 'center', justifyContent: 'center', paddingHorizontal: 12 }}>
-                  <T {...fbPrivate} style={{ fontFamily: fonts.semibold, fontSize: 14, color: t.ink, textAlign: 'center' }}>Tap here to move {nm(sel!)} into this group</T>
+                  <T style={{ fontFamily: fonts.semibold, fontSize: 14, color: t.ink, textAlign: 'center' }}>Tap here to move {nm(sel!)} into this group</T>
                 </View>
               ) : null}
             </>
