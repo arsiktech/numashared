@@ -22,7 +22,6 @@ import { requireApprovedWriteTarget } from "./lib/deployment";
 
 export type AgentPermissions = Doc<"agentConnections">["permissions"] & {};
 export type AgentSwitch = keyof AgentPermissions;
-export const agentSwitches: readonly AgentSwitch[] = ["addRecords", "editRecords", "manageHousehold"];
 /**
  * What a new OAuth connection may do: everything an agent can do (owner decision, Phase 2). A
  * setup-prompt connection gets the switches the app sends (`connect`).
@@ -197,6 +196,7 @@ export async function closeConnection(ctx: MutationCtx, connectionId: Id<"agentC
 export const disconnect = mutation({
   args: { id: v.id("agentConnections") },
   handler: async (ctx, { id }) => {
+    requireApprovedWriteTarget();
     const { account } = await requireSession(ctx);
     const row = await ctx.db.get(id);
     if (!row || row.accountId !== account._id) fail("AGENT_NOT_FOUND");

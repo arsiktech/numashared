@@ -29,7 +29,7 @@ export type Group = {
   id: ID;
   color: GroupColor;
   memberIds: ID[];
-  /** Server identity of a two-person group (its unit is `id`). Absent for one-person groups. */
+  /** Server identity of a shared group (its unit is `id`). Absent for one-person groups. */
   serverGroupId?: ID;
 };
 
@@ -91,7 +91,7 @@ export type LedgerEvent =
   | (Base & { kind: 'expenseAdded'; recordId: ID; content: ExpenseContent })
   | (Base & { kind: 'expenseRevised'; recordId: ID; content: ExpenseContent; reason?: string; basis?: RevisionBasis })
   | (Base & { kind: 'openingBalanceSet'; recordId: ID; content: OpeningContent })
-  /** A changed opening balance (made on another device; this app doesn't offer the edit yet). */
+  /** A changed opening balance (this app records one only to settle two competing edits). */
   | (Base & { kind: 'openingRevised'; recordId: ID; content: OpeningContent; basis?: RevisionBasis })
   | (Base & { kind: 'settlementRecorded'; recordId: ID; content: SettlementContent })
   | (Base & { kind: 'settlementFlagged'; recordId: ID; reason?: string })

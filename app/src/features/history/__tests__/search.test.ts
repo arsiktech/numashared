@@ -6,7 +6,7 @@ describe('history search X', () => {
     setHistoryQuery('zzz');
     requestHistorySearch(true);
     const closeField = viClose();
-    onHistorySearchX('zzz', closeField.fn);
+    onHistorySearchX(closeField.fn);
     expect(getHistoryQuery()).toBe('');
     expect(getHistorySearchOpen()).toBe(false);
     expect(closeField.calls).toBe(1);
@@ -16,7 +16,7 @@ describe('history search X', () => {
     closeHistorySearch();
     requestHistorySearch(true);
     const closeField = viClose();
-    onHistorySearchX('', closeField.fn);
+    onHistorySearchX(closeField.fn);
     expect(getHistorySearchOpen()).toBe(false);
     expect(closeField.calls).toBe(1);
   });

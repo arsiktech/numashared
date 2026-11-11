@@ -8,9 +8,10 @@ push to `main`:
   project with regenerated native configuration; it does not launch the app.
 - **backend** (Ubuntu, Node 22): installs locked dependencies at the root and
   in `app/`, then runs `backend:typecheck`, `backend:test`, `branding:test`,
-  `build:home:check`, `hygiene:test` and `card-sync:test`. `backend:test` includes
-  `convex/clientSync.test.ts`, which exercises the Expo sync engine against
-  backend functions with simulated clients. It is not a rendered UI journey.
+  `build:home:check`, `hygiene:test`, `web-host:test` and `card-sync:test`.
+  `backend:test` includes `convex/clientSync.test.ts`, which exercises the Expo
+  sync engine against backend functions with simulated clients. It is not a
+  rendered UI journey.
 - **swift-packages** (macOS): `swift test` for `NumaSharedCore` and `NumaSharedSync`.
 
 Never add a self-hosted runner: this repository is public, so pull requests from

@@ -3,7 +3,7 @@ import { useRef } from 'react';
 import { View, type StyleProp, type ViewStyle } from 'react-native';
 import type { Household, LedgerRecord } from '@/core/types';
 import { groupOfPerson } from '@/store/store';
-import { openSheet, type Origin, type SheetSpec } from '@/store/ui';
+import { openSheet, type Origin } from '@/store/ui';
 import { CategoryIcon, Repay, House } from '@/ui/icons';
 import { Badge, OrbView, Press, T } from '@/ui/primitives';
 import { useTheme } from '@/ui/theme';
@@ -74,16 +74,14 @@ function lastBy(r: LedgerRecord, type: 'voided') {
 }
 
 /** The orb: measures where it sits so the sheet can grow out of it. */
-export function OrbButton({ size = 92, plus = 32, spec = { type: 'add' } as SheetSpec, style, label = 'Add expense' }: {
-  size?: number; plus?: number; spec?: SheetSpec; style?: StyleProp<ViewStyle>; label?: string;
-}) {
+export function OrbButton({ size = 92, plus = 32, style }: { size?: number; plus?: number; style?: StyleProp<ViewStyle> }) {
   const ref = useRef<View>(null);
   return (
-    <Press ref={ref} accessibilityLabel={label} style={style}
+    <Press ref={ref} accessibilityLabel="Add expense" style={style}
       onPress={() => {
         ref.current?.measureInWindow((x, y, w, hh) => {
           const origin: Origin = { x: x + w / 2, y: y + hh / 2, r: Math.min(w, hh) / 2 };
-          openSheet(spec, Number.isFinite(origin.x) ? origin : undefined);
+          openSheet({ type: 'add' }, Number.isFinite(origin.x) ? origin : undefined);
         });
       }}>
       <OrbView size={size} plus={plus} />

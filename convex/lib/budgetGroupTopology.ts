@@ -3,7 +3,7 @@ import type { Doc } from "../_generated/dataModel";
 import type { MutationCtx, QueryCtx } from "../_generated/server";
 import { budgetGroupTopologyValidator } from "../model";
 import { fail } from "./access";
-import { legacyMaximumBudgetGroupSize } from "./clientContract";
+import { legacyMaximumBudgetGroupSize, maximumBudgetGroupSize } from "./clientContract";
 import { canonicalValue, type EventInput } from "./eventValidation";
 import type { FinancialRecordState } from "./financialRecordState";
 
@@ -74,9 +74,6 @@ export function projectedUnitId(topology: BudgetGroupTopology, unitId: string): 
   const member = topology.members.find((candidate) => candidate.personalUnitId === unitId);
   return member && (topology.minimumSchemaVersion >= 2n || !member.archived) ? member.unitId : unitId;
 }
-
-/** People who pay as one: a single person, a couple, a family, up to six people. */
-export const maximumBudgetGroupSize = 6;
 
 function validateGroups(
   groups: Group[], topology: BudgetGroupTopology, known: readonly string[], schema: bigint, maximumSize: number,

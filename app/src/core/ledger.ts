@@ -6,7 +6,7 @@ import { formatMoney, MAX_AMOUNT } from './money';
 import { categoryLabel, groupName, personName } from './names';
 import type {
   Category, Cents, ExpenseContent, FieldChange, Group, Household, ID, Ledger, LedgerEvent,
-  LedgerRecord, OpeningContent, PaymentMethod, Person, RevisionBasis, SettlementContent, Split, TimelineEntry,
+  LedgerRecord, OpeningContent, PaymentMethod, Person, RevisionBasis, SettlementContent, Split,
 } from './types';
 
 export type LedgerErrorCode =
@@ -51,10 +51,10 @@ export class LedgerError extends Error {
   }
 }
 
-const CATEGORIES: readonly Category[] = [
+export const CATEGORIES: readonly Category[] = [
   'groceries', 'household', 'rent', 'bills', 'internet', 'eating-out', 'cleaning', 'other',
 ];
-const METHODS: readonly PaymentMethod[] = ['bizum', 'bank', 'cash', 'other'];
+export const METHODS: readonly PaymentMethod[] = ['bizum', 'bank', 'cash', 'other'];
 
 type Ctx = {
   household: Household;
@@ -440,6 +440,21 @@ export function reduce(household: Household): Ledger {
  */
 export function validateEvent(household: Household, event: LedgerEvent): void {
   reduce({ ...household, events: [...household.events, event] });
+}
+
+/**
+ * What a new edit of `recordId` builds on when appended after `events`: the record's latest
+ * version. Undefined when the record has no version in `events`.
+ */
+export function parentBasis(events: readonly LedgerEvent[], recordId: ID): RevisionBasis | undefined {
+  for (let i = events.length - 1; i >= 0; i--) {
+    const e = events[i];
+    if (e.recordId !== recordId) continue;
+    if (e.kind === 'expenseAdded' || e.kind === 'expenseRevised' || e.kind === 'openingBalanceSet' || e.kind === 'openingRevised') {
+      return { kind: 'parent', parentEventId: e.id };
+    }
+  }
+  return undefined;
 }
 
 /** Non-throwing variant of validateEvent, for forms that show the reason inline. */

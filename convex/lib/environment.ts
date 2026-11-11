@@ -136,23 +136,3 @@ export async function validateIdentitySigningKeys(
     throw new IdentityError("IDENTITY_CONFIGURATION_INVALID", 503);
   }
 }
-
-
-export interface SessionSigningEnvironment {
-  sessionIssuer: string;
-  sessionAudience: string;
-  sessionKeyId: string;
-  sessionPrivateKeyPkcs8Pem: string;
-  tokenHashSecret: string;
-}
-
-export interface IdentityEnvironment extends SessionSigningEnvironment {
-  appleClientId: string;
-  appleWebClientId?: string;
-  appleWebRedirectURI?: string;
-  appleTeamId: string;
-  appleKeyId: string;
-  applePrivateKeyPkcs8Pem: string;
-  appleRefreshEncryptionKey: string;
-  appleRefreshEncryptionKeyVersion: string;
-}

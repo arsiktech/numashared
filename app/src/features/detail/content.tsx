@@ -109,7 +109,6 @@ type Actions = { edit: () => void; void: () => void; flag: () => void; restore: 
 
 /** Two people changed the same version at once. The newest counts until someone keeps one. */
 function Contest({ h, r, hide }: { h: Household; r: LedgerRecord; hide: boolean }) {
-  const { c } = useTheme();
   const versions = (r.contested ?? []).map((id) => r.revisions.find((v) => v.eventId === id)!).filter(Boolean);
   const amountOf = (content: (typeof versions)[number]['content']) => ('amount' in content ? money(h, content.amount, hide) : null);
   const keep = async (eventId: ID, who: string) => {

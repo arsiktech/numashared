@@ -93,7 +93,10 @@ type Roster = {
 // The membership roster is derived from the append-only event log (memberAdded /
 // memberClaimed) plus the current potMembers rows (which include the creating owner,
 // who has no memberAdded event). Units grow only through memberAdded, which appends to
-// pot.orderedUnitIds, so unit uniqueness is checked against that list directly.
+// pot.orderedUnitIds, so unit uniqueness is checked against that list directly. Only the
+// three roster kinds are read, then merged back into sequence order.
+const rosterEventKinds = ["memberAdded", "memberClaimed", "memberClaimReassigned"] as const;
+
 async function loadRoster(ctx: MutationCtx, potId: string): Promise<Roster> {
   const memberIds = new Set<string>();
   const addedMemberIds = new Set<string>();
@@ -104,10 +107,15 @@ async function loadRoster(ctx: MutationCtx, potId: string): Promise<Roster> {
     .withIndex("by_pot_account", (index) => index.eq("potId", potId))
     .collect();
   for (const member of members) memberIds.add(member.memberId);
-  const events = await ctx.db
+  const events = (await Promise.all(rosterEventKinds.map((kind) => ctx.db
     .query("events")
-    .withIndex("by_pot_sequence", (index) => index.eq("potId", potId))
-    .collect();
+    .withIndex("by_pot_kind", (index) =>
+      index.eq("potId", potId).eq("payload.kind", kind),
+    )
+    .collect())))
+    .flat()
+    .sort((left, right) =>
+      left.sequence < right.sequence ? -1 : left.sequence > right.sequence ? 1 : 0);
   for (const event of events) {
     if (event.payload.kind === "memberAdded") {
       memberIds.add(event.payload.memberId);
@@ -123,6 +131,28 @@ async function loadRoster(ctx: MutationCtx, potId: string): Promise<Roster> {
     }
   }
   return { memberIds, addedMemberIds, addedUnitIds, claimedMemberIds };
+}
+
+// An identity may be offered to a new account only if the owner added it and nobody
+// holds it now. The event log alone cannot say that: the creating owner binds their
+// identity with memberAdded but never appends memberClaimed, so their potMembers row is
+// the only record that it is taken. reassignClaim deletes the detached account's row
+// and appends memberClaimReassigned, so a reassigned identity stays claimable.
+async function requireClaimableIdentity(
+  ctx: MutationCtx,
+  potId: string,
+  memberId: string,
+): Promise<void> {
+  const roster = await loadRoster(ctx, potId);
+  if (!roster.addedMemberIds.has(memberId)) fail("UNKNOWN_PENDING_MEMBER");
+  if (roster.claimedMemberIds.has(memberId)) fail("MEMBER_ALREADY_CLAIMED");
+  const holder = await ctx.db
+    .query("potMembers")
+    .withIndex("by_pot_member", (index) =>
+      index.eq("potId", potId).eq("memberId", memberId),
+    )
+    .first();
+  if (holder) fail("MEMBER_ALREADY_CLAIMED");
 }
 
 // Append a single validated membership event with server-assigned sequence. Membership
@@ -385,9 +415,7 @@ async function claimPerMember(
     return { sequence, memberId, potId: invite.potId };
   }
   if (!credential.canCreate) fail(credential.createFailureCode ?? "INVITE_INVALID");
-  const roster = await loadRoster(ctx, invite.potId);
-  if (!roster.addedMemberIds.has(memberId)) fail("UNKNOWN_PENDING_MEMBER");
-  if (roster.claimedMemberIds.has(memberId)) fail("MEMBER_ALREADY_CLAIMED");
+  await requireClaimableIdentity(ctx, invite.potId, memberId);
   const existingMembership = await ctx.db
     .query("potMembers")
     .withIndex("by_pot_account", (index) =>
@@ -472,9 +500,7 @@ async function claimPotLink(
   }
   if (!credential.canCreate) fail(credential.createFailureCode ?? "INVITE_INVALID");
   if (chosenMemberId) {
-    const roster = await loadRoster(ctx, invite.potId);
-    if (!roster.addedMemberIds.has(chosenMemberId)) fail("UNKNOWN_PENDING_MEMBER");
-    if (roster.claimedMemberIds.has(chosenMemberId)) fail("MEMBER_ALREADY_CLAIMED");
+    await requireClaimableIdentity(ctx, invite.potId, chosenMemberId);
     const profile = await getMemberProfile(ctx, invite.potId, chosenMemberId);
     if (profile.state === "archived") fail("MEMBER_ALREADY_ARCHIVED");
   }
@@ -745,13 +771,7 @@ export async function issueInviteForMember(
     }
     if (args.kind === "perMember") {
       if (!args.pendingMemberId) fail("MISSING_PENDING_MEMBER");
-      const roster = await loadRoster(ctx, args.potId);
-      if (!roster.addedMemberIds.has(args.pendingMemberId)) {
-        fail("UNKNOWN_PENDING_MEMBER");
-      }
-      if (roster.claimedMemberIds.has(args.pendingMemberId)) {
-        fail("MEMBER_ALREADY_CLAIMED");
-      }
+      await requireClaimableIdentity(ctx, args.potId, args.pendingMemberId);
       const profile = await getMemberProfile(ctx, args.potId, args.pendingMemberId);
       if (profile.state === "archived") fail("MEMBER_ALREADY_ARCHIVED");
       const siblingInvites = await ctx.db
@@ -897,16 +917,6 @@ export const claimPerMemberInviteWithTicket = mutation({
   },
 });
 
-async function perMemberClaimEventFromToken(
-  ctx: MutationCtx,
-  accountId: Id<"accounts">,
-  token: string,
-  event: MemberClaimEventMetadata,
-) {
-  const credential = await inviteByToken(ctx, token, "perMember");
-  return perMemberClaimEvent(credential.invite, event);
-}
-
 // A signed-in account claims a multi-use pot-link invite. This records a PENDING claim
 // only — it grants no membership and therefore no read access, so a leaked pot link
 // cannot expose history until the owner approves. "I'm Leo" sets chosenMemberId; "I'm
@@ -972,9 +982,7 @@ export const approvePotLinkClaim = mutation({
       return { sequence: replaySequence, memberId: args.memberId };
     }
     if (claim.status !== "pending") fail("CLAIM_INVALID");
-    const roster = await loadRoster(ctx, claim.potId);
-    if (!roster.addedMemberIds.has(args.memberId)) fail("UNKNOWN_PENDING_MEMBER");
-    if (roster.claimedMemberIds.has(args.memberId)) fail("MEMBER_ALREADY_CLAIMED");
+    await requireClaimableIdentity(ctx, claim.potId, args.memberId);
     const existingMembership = await ctx.db
       .query("potMembers")
       .withIndex("by_pot_account", (index) =>

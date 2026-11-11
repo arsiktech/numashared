@@ -13,7 +13,7 @@ import {
 } from "./lib/financialRecordState";
 
 /** Most financial events one household can have for an agent to read it whole. */
-export const maximumFinancialEvents = 6_000;
+const maximumFinancialEvents = 6_000;
 const defaultRecordLimit = 25;
 const maximumRecordLimit = 50;
 
@@ -26,8 +26,6 @@ const financialKinds = [
   "settlementFlagged",
   "openingBalanceSet",
 ] as const;
-
-const textFields = ["title", "category", "note", "reason"] as const;
 
 const scopeArgs = { accountId: v.id("accounts"), scopePotId: v.union(v.string(), v.null()) };
 
@@ -266,28 +264,50 @@ export const records = internalQuery({
       .sort((a, b) => (a.root.sequence < b.root.sequence ? 1 : a.root.sequence > b.root.sequence ? -1 : 0));
     const page = roots.slice(0, limit);
 
+    // Every revision carries the full text of its version, so a field missing from the counting
+    // revision was removed, not left unchanged. The texts are read the way the app reads them:
+    // title, category and note from the revision that counts (for a repayment, its own event,
+    // since a repayment is never revised); the reason from the void in effect, the repayment's
+    // flag, or else the counting revision's edit reason.
+    const eventTexts = async (event: FinancialEvent | undefined): Promise<Map<string, string>> => {
+      const values = new Map<string, string>();
+      if (!event) return values;
+      const rows = await ctx.db.query("eventTexts")
+        .withIndex("by_pot_event", (q) => q.eq("potId", pot.potId).eq("eventId", event.eventId))
+        .collect();
+      for (const row of rows) if (event.textFields.includes(row.field)) values.set(row.field, row.value);
+      return values;
+    };
+
     const out = [];
     for (const entry of page) {
       const state = states.get(entry.recordId)!;
-      const texts: Record<string, string | null> = {};
-      for (const event of [...entry.list].reverse()) {
-        for (const field of textFields) {
-          if (field in texts || !event.textFields.includes(field)) continue;
-          const row = await ctx.db.query("eventTexts")
-            .withIndex("by_event_field", (q) => q.eq("potId", pot.potId).eq("eventId", event.eventId).eq("field", field))
-            .unique();
-          texts[field] = row?.value ?? null;
-        }
+      let head: ReturnType<FinancialRecordState["revisions"]["get"]>;
+      let headEventId: string | null = null;
+      for (const eventId of state.heads) {
+        const revision = state.revisions.get(eventId);
+        if (revision && (!head || revision.order > head.order)) { head = revision; headEventId = eventId; }
       }
+      const latest = (kind: FinancialEvent["payload"]["kind"]) =>
+        [...entry.list].reverse().find((event) => event.payload.kind === kind);
+      const contentEvent = state.rootKind === "settlement"
+        ? entry.root
+        : entry.list.find((event) => event.eventId === headEventId);
+      const reasonEvent = state.isVoided ? latest("recordVoided")
+        : state.isFlagged ? latest("settlementFlagged")
+        : contentEvent?.payload.kind === "expenseRevised" ? contentEvent
+        : undefined;
+      const contentTexts = await eventTexts(contentEvent);
+      const reasonTexts = reasonEvent === contentEvent ? contentTexts : await eventTexts(reasonEvent);
       const base = {
         recordId: entry.recordId,
         occurredAt: new Date(Number(entry.root.occurredAtMillis)).toISOString(),
         recordedAt: new Date(entry.root.createdAt).toISOString(),
         sequence: entry.root.sequence.toString(),
-        title: texts.title ?? null,
-        category: texts.category ?? null,
-        note: texts.note ?? null,
-        reason: texts.reason ?? null,
+        title: contentTexts.get("title") ?? null,
+        category: contentTexts.get("category") ?? null,
+        note: contentTexts.get("note") ?? null,
+        reason: reasonTexts.get("reason") ?? null,
         // The agent connection that added the record, when one did.
         addedVia: entry.root.via ?? null,
       };
@@ -303,12 +323,6 @@ export const records = internalQuery({
           correctsRecordId: content.reversalOfRecordId ?? null,
         });
         continue;
-      }
-      let head: ReturnType<FinancialRecordState["revisions"]["get"]>;
-      let headEventId: string | null = null;
-      for (const eventId of state.heads) {
-        const revision = state.revisions.get(eventId);
-        if (revision && (!head || revision.order > head.order)) { head = revision; headEventId = eventId; }
       }
       const content = head?.payload.content;
       const status = state.isVoided ? "voided" : state.heads.size > 1 ? "contested" : "live";

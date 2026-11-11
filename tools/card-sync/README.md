@@ -5,8 +5,9 @@ gave someone in the household one of your cards: every spend on it is added as "
 
 ether.fi has no public API, so this script runs on your own computer. It opens ether.fi's transaction
 history in a browser profile where you are logged in, keeps only final spends on the cards you chose and
-sends those to Numa Shared. Your ether.fi login never leaves the computer. The key it uses can only add
-card spends to that one household.
+sends those to Numa Shared. Your ether.fi login never leaves the computer. The key it uses works only in
+that one household: it adds card spends, and it can lower or void only the spends card sync itself
+added, when ether.fi reports a refund or a cancellation.
 
 ```
 ether.fi (logged-in browser on your computer)
@@ -25,6 +26,7 @@ household: "<you> paid  €12.30  Corner Shop  for <their group>"
 
 1. In the app: Settings → Card sync. Add each card's last four digits, whose it is and which group its
    spends are for, then tap **Link these cards**. Share the key to your computer. It is shown only once.
+   **Share the key** gives two lines, `NUMA_SHARED_URL=…` and `NUMA_SHARED_KEY=…`: the address and the key.
 2. On the computer (Node 22 or later):
 
    ```sh
@@ -35,7 +37,8 @@ household: "<you> paid  €12.30  Corner Shop  for <their group>"
    mkdir -p ~/.config/numa-card-sync
    ```
 
-   Then write `~/.config/numa-card-sync/config.json`:
+   Then write `~/.config/numa-card-sync/config.json`. `url` is the `NUMA_SHARED_URL` line's address; you
+   can leave it out and set `NUMA_SHARED_URL` in the environment instead, which wins when both are set:
 
    ```json
    {
@@ -66,7 +69,7 @@ Only spends on the linked cards, once they are final (pending and declined ones 
 
 Refunds and cancellations are sent too, once they are final:
 
-- A **refund** takes the money off the spend it belongs to: the latest earlier spend on the same card at the same merchant, as people last edited it. A full refund removes that spend from the balances; a partial one lowers its amount and says so in its note.
+- A **refund** takes the money off the spend it belongs to, chosen among earlier spends on the same card at the same merchant, as people last edited them: an earlier spend of exactly the refunded amount if there is one, otherwise the latest earlier spend at least as large as the refund. A full refund removes that spend from the balances; a partial one lowers its amount and says so in its note.
 - A **cancelled** spend (ether.fi reversed it) is removed if it was already added, and never added if it wasn't.
 - A refund with no such spend (bigger than it, at another merchant, or before the sync started) changes nothing. The script prints `NOTICE:` once so a person can handle it.
 

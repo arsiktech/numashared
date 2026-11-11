@@ -6,7 +6,7 @@ import { Redirect, useLocalSearchParams, useRouter } from 'expo-router';
 import Constants from 'expo-constants';
 import { currencyLocked, getState, hasFinancialHistory, leaveHousehold, renameHousehold, setCurrency, setPrefs, useStore, type Appearance } from '@/store/store';
 import { openSheet } from '@/store/ui';
-import { Bell, Check, Download, Eye, House, Lock, Moon, Pencil, People, Share as ShareIcon, VoidX } from '@/ui/icons';
+import { Apple, Bell, Check, CloudOff, Download, Eye, House, Lock, Moon, Pencil, People, Share as ShareIcon, VoidX } from '@/ui/icons';
 import { Press, T, Toggle } from '@/ui/primitives';
 import { useTheme } from '@/ui/theme';
 import { fonts, isAndroid, isWeb, thisDevice } from '@/ui/tokens';
@@ -17,10 +17,9 @@ import { applySettingsSection, settingsSectionFromParam } from '@/features/setti
 import { explainFailure, SignInButtons, useSession, useSignInOptions } from '@/features/account/session';
 import { showToast } from '@/store/ui';
 import { failureOf } from '@/sync/engine';
-import { online, registerPush, signOutEverywhere, turnOnSync } from '@/sync/runtime';
+import { online, registerPush, turnOnSync } from '@/sync/runtime';
 import { groupLimitWords } from '@/sync/contract';
 import { PUBLIC_SITE_URL } from '@/sync/config';
-import { Apple, CloudOff } from '@/ui/icons';
 import { Kbd } from '@/features/web/kbd';
 
 const version = Constants.expoConfig?.version ?? '1.0.0';

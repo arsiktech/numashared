@@ -67,7 +67,10 @@ npm run native:check --prefix app
 npm run backend:typecheck
 npm run backend:test
 npm run branding:test
+npm run build:home:check
 npm run hygiene:test
+npm run web-host:test
+npm run card-sync:test
 swift test --package-path NumaSharedCore
 swift test --package-path NumaSharedSync
 ```

@@ -3,7 +3,7 @@ import { useEffect, useState } from 'react';
 import { View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Svg, { Circle } from 'react-native-svg';
-import { getState, undo, useStore } from '@/store/store';
+import { undo, useStore } from '@/store/store';
 import { quietOpens, showToast } from '@/store/ui';
 import { haptic, Press, T } from './primitives';
 import { useTheme } from './theme';
@@ -19,7 +19,13 @@ export function UndoLane() {
   const [now, setNow] = useState(Date.now());
   useEffect(() => {
     if (!last) return;
-    const t = setInterval(() => setNow(Date.now()), 100);
+    setNow(Date.now());
+    // Tick only while the window is open; the next entry starts it again.
+    const t = setInterval(() => {
+      const at = Date.now();
+      setNow(at);
+      if (at - last.at >= WINDOW) clearInterval(t);
+    }, 100);
     return () => clearInterval(t);
   }, [last]);
   if (!last) return null;
@@ -37,7 +43,6 @@ export function UndoLane() {
           const ok = undo(last.eventId);
           haptic.medium();
           showToast(ok ? 'Undone. Nothing was shared.' : 'Already shared. Void it from history.');
-          void getState;
         }} style={{ minHeight: 44, paddingLeft: 10, paddingRight: 16, borderRadius: 22, backgroundColor: alpha(c.laneInk, 0.14), flexDirection: 'row', alignItems: 'center', gap: 8 }}>
           <Svg width={22} height={22} viewBox="0 0 24 24">
             <Circle cx="12" cy="12" r="9" fill="none" stroke={c.laneInk} strokeOpacity={0.25} strokeWidth={2.6} />

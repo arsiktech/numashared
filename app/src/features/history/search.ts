@@ -40,7 +40,7 @@ export function closeHistorySearch() {
  * The X on the history search field. Typed text used to clear in place and leave the
  * field open; the X closes it whether or not anything is typed.
  */
-export function onHistorySearchX(_query: string, closeField: () => void) {
+export function onHistorySearchX(closeField: () => void) {
   closeHistorySearch();
   closeField();
 }

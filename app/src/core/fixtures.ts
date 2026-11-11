@@ -64,6 +64,7 @@ export function sampleHousehold(now: number): Household {
     },
     {
       id: 'e-dinner-edit', at: at(-1, 20, 5), by: alex, kind: 'expenseRevised', recordId: r.dinner, reason: 'Forgot the tip',
+      basis: { kind: 'parent', parentEventId: 'e-dinner' },
       content: {
         payerId: alex, amount: 9600, date: iso(at(-2, 22, 40)), category: 'eating-out', title: 'Dinner together',
         note: 'Jo’s birthday, tip included', split: byGroup(),

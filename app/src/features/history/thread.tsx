@@ -23,7 +23,6 @@ import { closeHistorySearch, onHistorySearchX, setHistoryQuery, useHistoryQuery,
 
 export function HistoryThread({ selectedId, onSelect, desk }: { selectedId?: ID | null; onSelect: (id: ID) => void; desk?: boolean }) {
   const { h, ledger, hide } = useHousehold();
-  const { c } = useTheme();
   const insets = useSafeAreaInsets();
   const [filter, setFilter] = useState<Filter>('all');
   const query = useHistoryQuery();
@@ -95,7 +94,7 @@ function SearchField({ query, onDone, autoFocus }: { query: string; onDone?: () 
         accessibilityLabel="Search history" returnKeyType="search" autoCorrect={false}
         style={{ flex: 1, minWidth: 0, height: 42, fontFamily: fonts.medium, fontSize: 16, color: c.ink, outlineStyle: 'none' } as never} />
       {onDone || query ? (
-        <Press accessibilityLabel="Close search" onPress={() => onHistorySearchX(query, () => onDone?.())}
+        <Press accessibilityLabel="Close search" onPress={() => onHistorySearchX(() => onDone?.())}
           style={{ width: 44, height: 44, alignItems: 'center', justifyContent: 'center' }}>
           <Close size={18} color={c.ink2} />
         </Press>
@@ -207,7 +206,7 @@ function Ring({ on, radius, gap = 0, children }: { on: boolean; radius: number; 
 }
 
 function Bubble({ h, r, hide, desk, selected, onSelect }: { h: Household; r: LedgerRecord; hide: boolean; desk: boolean; selected: boolean; onSelect: (id: ID) => void }) {
-  const { c, tone } = useTheme();
+  const { tone } = useTheme();
   const e = r.expense!;
   const mine = isMine(h, r);
   const t = tone(groupOfPerson(h, e.payerId));

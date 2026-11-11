@@ -5,7 +5,7 @@ Review the requested change against the user's intent, relevant product contract
 ## Routine work
 
 - Inspect the affected diff and paths. Check correctness, behavior, maintainability, and scope; substantiate findings with a concrete failure or contract conflict.
-- Choose the smallest useful checks from `docs/DEVELOPMENT.md` and `scripts/README.md`. Documentation needs reference and whitespace checks; a small code fix needs affected tests; UI behavior needs the relevant rendered journey.
+- Choose the smallest useful checks from `docs/CI.md`; `docs/DEVELOPMENT.md` and `scripts/README.md` list the legacy SwiftUI compatibility checks. Documentation needs reference and whitespace checks; a small code fix needs affected tests; UI behavior needs the relevant rendered journey.
 - Fix material findings within the task. Style preferences, speculative risks, and missing model labels do not create approval gates.
 - Delegate independent investigation or review when useful. A task does not require named Builder/Reviewer/Chief handoffs or two reports by default.
 - Use the selected runtime and reasoning settings. Report precise model/effort labels only when supplied by the runtime; historical filenames do not dictate new settings.

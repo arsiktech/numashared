@@ -2,7 +2,7 @@ import type { Doc } from "../_generated/dataModel";
 
 type EventPayload = Doc<"events">["payload"];
 
-// GOAL_BRIEF §6 is exhaustive: nothing outside this set notifies. Opening balances and
+// This set is exhaustive: nothing outside it notifies. Opening balances and
 // settlement flags deliberately stay silent. Text is English, calm, sentence case,
 // pot-named, and carries NO amount — the server never puts money in a payload.
 export function notificationBody(

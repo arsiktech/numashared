@@ -1,15 +1,16 @@
 // CSV export of a household's ledger: one row per record, voided and edited ones included, with
-// the edit history and void reason in the note. Amounts are exact decimal strings from cents.
+// the edit history, void and flag reasons in the note. Amounts are exact decimal strings from cents.
 import { categoryLabel, currencyDigits, groupName } from '@/core';
 import type { Household, ID, LedgerRecord } from '@/core/types';
 import { ledgerOf } from '@/store/store';
+import { localMonth, METHOD_LABEL } from '../history/model';
 
 export type Range = 'month' | 'all';
 
 const HEADER = ['date', 'what', 'category', 'amount', 'paid_by', 'split', 'status', 'note', 'recorded_by'];
 
 /** 5280 -> "52.80" (EUR), 1200 -> "1200" (JPY). No grouping separators, so spreadsheets read it. */
-export function plainAmount(cents: number, currency: string) {
+function plainAmount(cents: number, currency: string) {
   const d = currencyDigits(currency);
   const neg = cents < 0;
   const abs = Math.abs(cents);
@@ -28,7 +29,7 @@ function recordDate(r: LedgerRecord) {
 }
 
 export function recordsInRange(h: Household, range: Range, now = new Date()) {
-  const month = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+  const month = localMonth(now);
   return ledgerOf(h).records
     .filter((r) => range === 'all' || recordDate(r).startsWith(month))
     .sort((a, b) => (recordDate(b).localeCompare(recordDate(a))) || b.createdAt - a.createdAt);
@@ -61,9 +62,8 @@ export function buildCsv(h: Household, records: LedgerRecord[]) {
       category = 'Repayment';
       amount = s.amount;
       paidBy = group(s.fromGroupId);
-      split = `to ${group(s.toGroupId)}${s.method ? ` by ${s.method}` : ''}`;
+      split = `to ${group(s.toGroupId)}${s.method ? ` by ${METHOD_LABEL[s.method]}` : ''}`;
       if (s.note) notes.push(s.note);
-      if (r.flagged) notes.push('Flagged as not received');
     } else {
       const o = r.opening!;
       what = 'Opening balance';
@@ -80,6 +80,7 @@ export function buildCsv(h: Household, records: LedgerRecord[]) {
       }
       if (t.type === 'voided') notes.push(`Voided by ${person(t.by)}${t.via ? ` via ${t.via}` : ''}: ${t.reason}`);
       if (t.type === 'restored') notes.push(`Restored by ${person(t.by)}${t.via ? ` via ${t.via}` : ''}`);
+      if (t.type === 'flagged') notes.push(`Flagged by ${person(t.by)}${t.via ? ` via ${t.via}` : ''}${t.reason ? `: ${t.reason}` : ''}`);
     }
     const status = r.voided ? 'voided' : r.revisions.length > 1 ? 'edited' : 'shared';
     return [recordDate(r), what, category, amt(amount), paidBy, split, status, notes.join('; '), person(r.createdBy)];

@@ -1,7 +1,7 @@
 // Home. Phone: bands, ticket and orb, then the latest records. Desk: three panes, balance on the
 // left, the history thread in the middle and the selected record on the right.
 import { createElement, useEffect, useMemo, useRef, useState } from 'react';
-import { FlatList, ScrollView, StyleSheet, View } from 'react-native';
+import { FlatList, ScrollView, View } from 'react-native';
 import Animated, { Extrapolation, interpolate, runOnJS, useAnimatedReaction, useAnimatedScrollHandler, useAnimatedStyle, useSharedValue } from 'react-native-reanimated';
 import { Redirect, useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -15,7 +15,7 @@ import { money, nameOf, useHousehold } from '@/features/hooks';
 import { Bands } from '@/features/home/bands';
 import { OrbButton, RecordRow } from '@/features/records';
 import type { LedgerRecord } from '@/core/types';
-import { dayLabel, sameDay } from '@/features/history/model';
+import { dayLabel, localMonth, sameDay } from '@/features/history/model';
 import { requestHistorySearch } from '@/features/history/search';
 import { SyncLine } from '@/features/home/syncline';
 import { HistoryThread } from '@/features/history/thread';
@@ -23,7 +23,7 @@ import { RecordDetail } from '@/features/detail/content';
 import { WebTopBar } from '@/features/web/topbar';
 
 export default function Home() {
-  const { h, ledger, hide } = useHousehold();
+  const { h, ledger } = useHousehold();
   const { layout } = useTheme();
   const recent = useStore((s) => s.recent);
   useEffect(() => {
@@ -240,7 +240,7 @@ function MonthStats() {
   const { h, ledger, hide } = useHousehold();
   const { c } = useTheme();
   if (!h || !ledger) return null;
-  const month = new Date().toISOString().slice(0, 7);
+  const month = localMonth();
   const ex = ledger.records.filter((r) => r.kind === 'expense' && !r.voided && r.expense!.date.startsWith(month));
   const total = ex.reduce((a, r) => a + r.expense!.amount, 0);
   const byGroup = h.groups.map((g) => ({ g, sum: ex.filter((r) => h.people.find((p) => p.id === r.expense!.payerId)?.groupId === g.id).reduce((a, r) => a + r.expense!.amount, 0) }));

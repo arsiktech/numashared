@@ -34,11 +34,13 @@ export function setContract(next: ClientContract) {
   for (const l of listeners) l();
 }
 
+function subscribe(l: () => void) {
+  listeners.add(l);
+  return () => { listeners.delete(l); };
+}
+
 export function useContract(): ClientContract {
-  return useSyncExternalStore(
-    (l) => { listeners.add(l); return () => { listeners.delete(l); }; },
-    () => current, () => current,
-  );
+  return useSyncExternalStore(subscribe, () => current, () => current);
 }
 
 /** "two" or "six", for copy such as "A group is up to six people". */

@@ -20,9 +20,11 @@ import { requireApprovedWriteTarget } from "./lib/deployment";
 import type { EventInput } from "./lib/eventValidation";
 import { sha256Hex } from "./lib/hash";
 import { ios18TimeZoneIdentifiers } from "./lib/ios18TimeZoneIdentifiers";
+import { isNotificationEligible } from "./lib/notificationMatrix";
 import { generateUUIDv7 } from "./lib/uuidV7";
+import { queueEventPushes } from "./pushQueue";
 
-export const maximumSpendsPerRequest = 50;
+const maximumSpendsPerRequest = 50;
 const maximumCards = 10;
 
 const cardValidator = v.object({
@@ -140,7 +142,7 @@ type Outcome = {
 };
 
 /** Card-network categories ("Grocery Stores and Supermarkets") to the app's categories. */
-export function categoryForMerchant(category: string | undefined): string {
+function categoryForMerchant(category: string | undefined): string {
   const c = (category ?? "").toLowerCase();
   if (/grocer|supermarket|food store|bakeries|candy|dairy/.test(c)) return "groceries";
   if (/restaurant|eating|fast food|caterer|bar|tavern|night ?club|coffee/.test(c)) return "eating-out";
@@ -404,10 +406,11 @@ export const receive = internalMutation({
       outcomes.push({ id: spend.id, result: "added" });
     }
     if (events.length) {
-      await appendEventsToPot(ctx, { pot, accountId: link.accountId as Id<"accounts">, actorMemberId: link.actorMemberId, events });
-      for (const event of events) {
-        await ctx.scheduler.runAfter(0, internal.apns.deliverEventPush, { potId: link.potId, eventId: event.eventId });
-      }
+      // Pushes go through the pot's push queue, as for events the app appends.
+      const appended = await appendEventsToPot(ctx, { pot, accountId: link.accountId as Id<"accounts">, actorMemberId: link.actorMemberId, events });
+      const inserted = new Set(appended.insertedEventIds);
+      await queueEventPushes(ctx, link.potId,
+        events.filter((event) => inserted.has(event.eventId) && isNotificationEligible(event.payload)).map((event) => event.eventId));
     }
     for (const row of rows) await ctx.db.insert("cardSyncSpends", row);
     for (const id of cancelled) await ctx.db.patch(id, { cancelledAt: now });
@@ -457,4 +460,3 @@ export const spendsHttp = httpAction(async (ctx, request) => {
   return json({ outcomes: result.outcomes });
 });
 
-export type CardSyncLink = Doc<"cardSyncLinks">;

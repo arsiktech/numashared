@@ -13,7 +13,7 @@
 //   JSON value into a mapping, and `mcp_servers` accepts any child key.
 
 /** The server name every harness stores the link under. */
-export const SERVER_NAME = 'numa-shared';
+const SERVER_NAME = 'numa-shared';
 
 /** The setup line for each harness, in the order the prompt lists them. */
 export function setupCommands(url: string): Array<{ harness: string; line: string }> {

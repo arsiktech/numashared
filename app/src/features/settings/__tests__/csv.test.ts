@@ -49,3 +49,26 @@ describe('spreadsheet literal text', () => {
     expect(rows[1][7]).toBe('ordinary note');
   });
 });
+
+describe('repayments', () => {
+  const h: Household = {
+    ...household,
+    people: [...household.people, { id: 'other', name: 'Other', groupId: 'group2', joined: true }],
+    groups: [...household.groups, { id: 'group2', color: 'lilac', memberIds: ['other'] }],
+  };
+  const repayment = (flag?: { by: string; reason?: string; via?: string }): LedgerRecord => ({
+    id: 'repayment', kind: 'settlement', createdAt: 1, createdBy: 'author', updatedAt: 1,
+    settlement: { fromGroupId: 'group', toGroupId: 'group2', amount: 1500, date: '2026-01-02', method: 'bank' },
+    revisions: [], voided: false, flagged: !!flag, effect: {},
+    timeline: flag ? [{ type: 'flagged', at: 2, eventId: 'flag', ...flag }] : [],
+  });
+
+  test('the method is written the way the app shows it', () => {
+    expect(parse(buildCsv(h, [repayment()]))[1][5]).toBe('to Other by Bank transfer');
+  });
+
+  test('a flag is written with who flagged it and the reason chosen', () => {
+    expect(parse(buildCsv(h, [repayment({ by: 'other', reason: 'Wrong amount' })]))[1][7]).toBe('Flagged by Other: Wrong amount');
+    expect(parse(buildCsv(h, [repayment({ by: 'author', via: 'Claude' })]))[1][7]).toBe('Flagged by Author via Claude');
+  });
+});

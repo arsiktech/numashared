@@ -13,11 +13,6 @@ export class IdentityError extends Error {
     this.name = "IdentityError";
   }
 }
-export interface SessionTokenClaims {
-  publicAccountId: string;
-  sessionId: string;
-}
-
 export type JsonObject = Record<string, unknown>;
 
 export interface AppleJwk extends JsonWebKey {
@@ -292,14 +287,6 @@ export function numericDate(claims: JsonObject, name: string): number {
     throw new IdentityError("TOKEN_CLAIMS_REJECTED", 401);
   }
   return value as number;
-}
-
-export async function sha256Hex(value: string, cryptoProvider: Crypto): Promise<string> {
-  const digest = new Uint8Array(await cryptoProvider.subtle.digest(
-    "SHA-256",
-    new TextEncoder().encode(value),
-  ));
-  return Array.from(digest, (byte) => byte.toString(16).padStart(2, "0")).join("");
 }
 
 export function constantTimeEqual(left: string, right: string): boolean {

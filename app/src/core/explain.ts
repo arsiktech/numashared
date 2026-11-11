@@ -3,10 +3,8 @@ import { contentEffect } from './ledger';
 import { categoryLabel, groupName, personName } from './names';
 import type { ExplainLine, Group, Household, ID, Ledger, LedgerRecord } from './types';
 
-export { categoryLabel } from './names';
-
 /** "Dinner together" (custom title), else the category label; "Repayment"; "Opening balance". */
-export function recordLabel(record: LedgerRecord): string {
+function recordLabel(record: LedgerRecord): string {
   if (record.expense) return record.expense.title?.trim() || categoryLabel(record.expense.category);
   if (record.settlement) return 'Repayment';
   return 'Opening balance';

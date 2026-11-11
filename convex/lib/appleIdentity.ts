@@ -7,7 +7,6 @@ import {
   isObject,
   numericDate,
   parseJwt,
-  sha256Hex,
   signJwt,
   constantTimeEqual,
   verifyAppleRs256Jwt,
@@ -15,6 +14,7 @@ import {
   type AppleJwk,
   type JsonObject,
 } from "./jwt";
+import { sha256Hex } from "./hash";
 import type { IdentityEnvironment } from "./environment";
 export const appleIssuer = "https://appleid.apple.com";
 export const accessTokenLifetimeSeconds = 5 * 60;

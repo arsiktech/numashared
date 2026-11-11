@@ -1,9 +1,9 @@
 // Local-first household store. Every change is an appended ledger event, validated by the core
-// before it is accepted. State persists on the device; sync plugs in behind `syncState` later.
+// before it is accepted. State persists on the device; the sync runtime reads and replaces households.
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useSyncExternalStore } from 'react';
 import {
-  canUndoInHousehold, reduce, validateEvent, sampleHousehold,
+  canUndoInHousehold, parentBasis, reduce, validateEvent, sampleHousehold,
 } from '@/core';
 import type {
   Category, ExpenseContent, Household, ID, LedgerEvent, OpeningContent, OpeningEntry, PaymentMethod, Person, Group,
@@ -103,8 +103,6 @@ export async function hydrate(): Promise<void> {
   applyAccount();
   emit();
 }
-
-export const isHydrated = () => hydrated;
 
 // On the web, two tabs share one saved state. When the other tab saves, take its version, so this
 // tab's next save can't write over what was added there. Changes this tab hasn't saved yet (a save
@@ -223,8 +221,8 @@ export function ledgerOf(h: Household) {
 
 export const you = (h: Household): Person => h.people.find((p) => p.id === h.youId)!;
 export const yourGroup = (h: Household): Group => h.groups.find((g) => g.id === you(h).groupId)!;
-export const personById = (h: Household, id: ID) => h.people.find((p) => p.id === id);
-export const groupById = (h: Household, id: ID) => h.groups.find((g) => g.id === id);
+const personById = (h: Household, id: ID) => h.people.find((p) => p.id === id);
+const groupById = (h: Household, id: ID) => h.groups.find((g) => g.id === id);
 export const groupOfPerson = (h: Household, personId: ID) => groupById(h, personById(h, personId)!.groupId)!;
 
 // ---------- household lifecycle ----------
@@ -310,7 +308,7 @@ export function setGroups(id: ID, groups: { memberIds: ID[] }[]) {
  * The household with people arranged into `groups` (one to `maxGroupSize()` people each). A one-person group is
  * keyed by that person's settlement unit; a shared group keeps its ids while it holds the same people.
  */
-export function regroup(h: Household, groups: { memberIds: ID[] }[]): Household {
+function regroup(h: Household, groups: { memberIds: ID[] }[]): Household {
   if (hasFinancialHistory(h)) throw new Error('Groups are fixed once money is recorded.');
   const kept = groups.filter((g) => g.memberIds.length).slice(0, MAX_GROUPS);
   if (kept.some((g) => g.memberIds.length > maxGroupSize())) throw new Error(`A group is up to ${maxGroupSize()} people.`);
@@ -428,8 +426,7 @@ export function addExpense(h: Household, content: ExpenseContent, label: string)
 
 export function reviseExpense(h: Household, recordId: ID, content: ExpenseContent, reason: string | undefined, label: string) {
   // The edit replaces the revision currently applied: the latest one for this record.
-  const head = [...h.events].reverse().find((e) => e.recordId === recordId && (e.kind === 'expenseAdded' || e.kind === 'expenseRevised'));
-  const basis = head ? { kind: 'parent' as const, parentEventId: head.id } : undefined;
+  const basis = parentBasis(h.events, recordId);
   return append(h.id, { ...base(h), kind: 'expenseRevised', recordId, content, reason, basis }, label);
 }
 

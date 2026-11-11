@@ -2,7 +2,7 @@
 // amounts, how it was paid, a note, and a receipt that says what is left. Numa Shared never moves money.
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { TextInput, View, type TextStyle } from 'react-native';
-import { applyKey, currencyDigits, isPlural, formatMoney, inputFromCents, parseInput, planSettlement, type Key } from '@/core';
+import { currencyDigits, isPlural, formatMoney, inputFromCents, parseInput, planSettlement, type Key } from '@/core';
 import type { Household, ID, PaymentMethod, SettlementContent } from '@/core/types';
 import { getState, ledgerOf, recordSettlement, SaveError, activeHousehold, yourGroup } from '@/store/store';
 import { celebrate, showToast, useUI, type OpenSheet } from '@/store/ui';
@@ -15,6 +15,7 @@ import { useTheme } from '@/ui/theme';
 import { fonts, isWeb, type GroupTone } from '@/ui/tokens';
 import { nameOf, useHousehold } from '@/features/hooks';
 import { simulate, spokenName, standingLine, type Line } from '@/features/add/draft';
+import { useAmountKeys } from '@/features/add/keys';
 import {
   AfterRow, amountSize, ChipRow, DateRow, GroupAvatar, keyHeight, NoteLine, PersonDot, Receipt, ReceiptHead, SheetTop, useWebKeys,
 } from '@/features/add/parts';
@@ -112,10 +113,12 @@ function RepayBody({ h, spec, groups, setGroups, t }: {
   ), [h, key]);
   const canSave = amount > 0 && !!sim?.ledger;
 
+  const typeAmountKey = useAmountKeys(input, cur);
   const onKey = (k: Key) => {
     if (panel) setPanel(null);
     setOther(true);
-    setInput((v) => applyKey(v, k, cur));
+    const next = typeAmountKey(k);
+    if (next !== null) setInput(next);
   };
 
   const pickGroup = (side: 'from' | 'to', id: ID) => {

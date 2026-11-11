@@ -7,7 +7,6 @@ import {
   encodeBase64Url,
   IdentityError,
   ownedBuffer,
-  sha256Hex,
   signJwt,
   verifyEs256Jwt,
 } from "./jwt";

@@ -26,6 +26,12 @@ test('native display name and localized product copy use Numa Shared', () => {
   for (const key of Object.keys(catalog.strings)) check(key, 'Localizable.xcstrings');
 });
 
+test('Expo app display name is Numa Shared', () => {
+  assert.equal(JSON.parse(read('app/app.json')).expo.name, 'Numa Shared', 'app/app.json: expo.name');
+  const plist = read('app/ios/NumaShared/Info.plist');
+  assert.match(plist, /<key>CFBundleDisplayName<\/key>\s*<string>Numa Shared<\/string>/);
+});
+
 test('marketing, support, privacy, invite and store copy keep the exact brand', () => {
   for (const path of ['web-marketing/index.html', 'web-marketing/privacy.html', 'web-marketing/support.html', 'convex/lib/webContent.ts']) {
     check(read(path), path);
