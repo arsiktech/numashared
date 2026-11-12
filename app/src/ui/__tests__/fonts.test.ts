@@ -38,11 +38,11 @@ test('Cyrillic is added by unicode-range on those same family names', () => {
   expect(faces).toContain('font-display:swap');
 });
 
-test('group names fit the band instead of ellipsizing on the web', () => {
-  const bands = text('src/features/home/bands.tsx');
-  expect(bands).toContain('function GroupTitle');
-  expect(bands).toContain('numberOfLines={isWeb ? undefined : 1}');
-  expect(bands).toContain('fontFamily: fonts.cond');
+test('group names on Home wrap instead of ellipsizing ("Юра + Лю…")', () => {
+  const names = text('src/features/home/balance.tsx').split('\n').filter((l) => l.includes('text.name'));
+  expect(names.length).toBeGreaterThanOrEqual(2);
+  for (const line of names) expect(line).not.toContain('numberOfLines');
+  expect(text('src/ui/scale.ts')).toContain('name: { fontFamily: fonts.cond');
 });
 
 test('companion files are Cyrillic subsets, not a second copy of the UI', () => {

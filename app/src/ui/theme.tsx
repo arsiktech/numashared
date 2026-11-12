@@ -5,9 +5,12 @@ import { useStore } from '@/store/store';
 import type { Group, GroupColor } from '@/core/types';
 import { dark, groupTone, light, type GroupTone, type Palette } from './tokens';
 import { isLargeText } from './textScale';
+import { roles, type Roles } from './scale';
 
 type Theme = {
   c: Palette;
+  /** The five colour roles Home is built from (see scale.ts). */
+  ui: Roles;
   isDark: boolean;
   tone: (g: Group | GroupColor) => GroupTone;
   reduceMotion: boolean;
@@ -36,6 +39,7 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
   const isDark = appearance === 'system' ? scheme === 'dark' : appearance === 'dark';
   const value = useMemo<Theme>(() => ({
     c: isDark ? dark : light,
+    ui: roles(isDark),
     isDark,
     tone: (g) => groupTone(typeof g === 'string' ? g : g.color, isDark),
     reduceMotion,

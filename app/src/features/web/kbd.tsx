@@ -1,16 +1,17 @@
-// A keyboard key hint ("N", "/", "Esc") for web shortcuts.
+// A keyboard key hint ("N", "/", "Esc") for web shortcuts. `onFill` draws it on the accent button.
 import { View } from 'react-native';
 import { T } from '@/ui/primitives';
 import { useTheme } from '@/ui/theme';
-import { fonts } from '@/ui/tokens';
+import { space, text } from '@/ui/scale';
 
-export function Kbd({ k, onInk }: { k: string; onInk?: boolean }) {
-  const { c } = useTheme();
+export function Kbd({ k, onFill }: { k: string; onFill?: boolean }) {
+  const { ui } = useTheme();
+  const ink = onFill ? ui.onFill : ui.muted;
   return (
     <View accessibilityElementsHidden importantForAccessibility="no-hide-descendants"
-      style={{ minWidth: 22, height: 22, paddingHorizontal: 6, borderRadius: 6, alignItems: 'center', justifyContent: 'center',
-        backgroundColor: onInk ? c.bg : c.card, borderWidth: onInk ? 0 : 1, borderColor: c.hair }}>
-      <T style={{ fontFamily: fonts.semibold, fontSize: 12, lineHeight: 16, color: onInk ? c.ink : c.ink2 }}>{k}</T>
+      style={{ minWidth: space[5], height: space[5], paddingHorizontal: space[1], borderRadius: space[1], alignItems: 'center', justifyContent: 'center',
+        borderWidth: 1, borderColor: onFill ? ui.onFill : ui.line }}>
+      <T style={[text.meta, { lineHeight: space[4], color: ink }]}>{k}</T>
     </View>
   );
 }

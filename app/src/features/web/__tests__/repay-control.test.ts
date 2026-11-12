@@ -8,7 +8,7 @@ const read = (file: string) => fs.readFileSync(expect.getState().testPath!.repla
 test('Repay is a visible 44 pt control and the R shortcut still opens it', () => {
   const src = read('features/web/topbar.tsx');
   expect(src).toContain("else if (k === 'r') { e.preventDefault(); openSheet({ type: 'repay' }); }");
-  const button = src.slice(src.indexOf("onPress={() => openSheet({ type: 'repay' })}"), src.indexOf('accessibilityLabel="New expense"'));
+  const button = src.slice(src.indexOf("onPress={() => openSheet({ type: 'repay' })}"), src.indexOf('accessibilityLabel="Settings and account"'));
   expect(button.startsWith("onPress={() => openSheet({ type: 'repay' })}")).toBe(true);
   expect(button).toContain('accessibilityHint="Shortcut: R"');
   expect(button).toContain('height: 44');
