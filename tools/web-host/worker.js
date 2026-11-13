@@ -17,7 +17,7 @@ const BACKEND = 'https://adept-camel-457.convex.site';
 // Read by apps and scripts, never by a person in a browser: these go to the backend like a POST.
 const API = [/^\/auth\//, /^\/app-config$/, /^\/card-sync\//];
 const NOT_FOUND = `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Page not found · Numa Shared</title><style>body{margin:0;font:17px/1.5 system-ui,-apple-system,"Segoe UI",sans-serif;background:#fbfaf6;color:#1e2420}
+<title>Page not found · Numa Shared</title><style>:root{color-scheme:light dark}body{margin:0;font:17px/1.5 system-ui,-apple-system,"Segoe UI",sans-serif;background:#fbfaf6;color:#1e2420}
 main{max-width:34rem;margin:0 auto;padding:18vh 22px 48px}h1{font-size:2rem;line-height:1.15;margin:0 0 .6rem}p{color:#595d56;margin:0 0 1.4rem}
 a{display:inline-block;padding:12px 0;margin-right:1.4rem;color:#1e2420;font-weight:650}
 @media (prefers-color-scheme:dark){body{background:#121512;color:#eef0e6}p{color:#adb1a6}a{color:#eef0e6}}</style></head>
