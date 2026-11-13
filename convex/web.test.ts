@@ -492,7 +492,17 @@ describe("free-host web entry", () => {
     expect(privacyBody).toContain("United States (US East, Virginia)");
     expect(privacyBody).toContain("Apple Push Notification service");
     expect(privacyBody).toContain('href="/terms"');
-    expect(privacyBody).toContain("Last updated 10 November 2026");
+    const updates = privacyBody.slice(privacyBody.indexOf("<h2>App updates and diagnostics</h2>"), privacyBody.indexOf("<h2>AI agents you connect</h2>"));
+    for (const phrase of [
+      "Expo’s EAS Update service",
+      "installation identifier",
+      "without signing in",
+      "fatal error",
+      "no separate diagnostic-consent switch",
+      'href="https://expo.dev/privacy"',
+    ]) expect(updates).toContain(phrase);
+    expect(privacyBody).toContain("Last updated 13 November 2026");
+    expect(privacyBody).not.toContain("Crash diagnostics only under the build and consent settings disclosed in the app");
     // Agent access: who decides, what a connected agent reads and changes, who receives it, what
     // is kept, and how to stop it. Keep in step with docs/PRIVACY.md and docs/AGENT-ACCESS.md.
     const agents = privacyBody.slice(privacyBody.indexOf("<h2>AI agents you connect</h2>"), privacyBody.indexOf("<h2>Your choices and rights</h2>"));
