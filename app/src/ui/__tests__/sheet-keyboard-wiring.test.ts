@@ -39,12 +39,9 @@ test('zoomed repayment content and desktop popovers provide a scroll container',
   expect(sheet).toContain("overflowY: 'auto'");
 });
 
-test('Home reveals keyboard focus in the scrolling band copy and retains native tap opacity', () => {
+test('Home draws each control once, so keyboard focus always lands on what is visible', () => {
   const home = read('app/home.tsx');
-  expect(home).toContain("isWeb ? createElement('style'");
-  expect(home).toContain('[data-home-bands-copy]:has(:focus-visible) { opacity: 1 !important; transform: none !important; }');
-  expect(home).toContain('[data-home-parallax]:has([data-home-bands-copy] :focus-visible) [data-home-bands-display] { visibility: hidden; }');
-  expect(home).toContain("dataSet: { 'home-bands-copy': 'true' }");
-  expect(home).toContain("dataSet: { 'home-bands-display': 'true' }");
-  expect(home).toContain('opacity: 0.02 }, touchCopy]');
+  // One set of bands per layout (phone, desk) and no hidden or inert copy for taps to reach.
+  expect(home.match(/<Bands /g)).toHaveLength(2);
+  for (const hidden of ['inert', 'aria-hidden', 'opacity: 0.02', 'importantForAccessibility="no-hide-descendants"']) expect(home).not.toContain(hidden);
 });

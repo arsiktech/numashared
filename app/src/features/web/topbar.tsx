@@ -1,5 +1,5 @@
-// The web top bar for tablet and desk layouts: brand, household switcher, history search, Repay,
-// New expense and the account avatar. It also owns the global keyboard shortcuts: N adds an expense,
+// The web top bar for tablet and desk layouts: brand, household switcher, history search, Repay
+// and the account avatar. Adding an expense is the orb on the balance bands (or N). It also owns the global keyboard shortcuts: N adds an expense,
 // / searches history, R records a repayment. Shortcuts are ignored while typing or while a sheet is open.
 import { requestHistorySearch } from '@/features/history/search';
 import { useEffect, useRef } from 'react';
@@ -8,15 +8,16 @@ import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { activeHousehold, useStore, yourGroup } from '@/store/store';
 import { openSheet, useUI } from '@/store/ui';
-import { ChevDown, Plus, Repay, Search } from '@/ui/icons';
+import { ChevDown, Repay, Search } from '@/ui/icons';
 import { Press, T } from '@/ui/primitives';
 import { useTheme } from '@/ui/theme';
-import { fonts, isWeb } from '@/ui/tokens';
+import { isWeb } from '@/ui/tokens';
+import { space, text } from '@/ui/scale';
 import { MiniOrb } from '@/features/onboarding/chrome';
 import { Kbd } from './kbd';
 
 export function WebTopBar() {
-  const { c, tone, layout } = useTheme();
+  const { ui, layout } = useTheme();
   const router = useRouter();
   const h = useStore(activeHousehold);
   const sheetsOpen = useUI((u) => u.sheets.length);
@@ -46,44 +47,36 @@ export function WebTopBar() {
   }, []);
 
   if (!h) return null;
-  const mine = tone(yourGroup(h));
+  const pill = { height: 44, borderRadius: 22, flexDirection: 'row', alignItems: 'center', gap: space[2] } as const;
   return (
-    <View accessibilityRole="header" style={{ height: 60 + top, paddingTop: top, flexDirection: 'row', alignItems: 'center', gap: 12, paddingHorizontal: 20,
-      borderBottomWidth: 1, borderBottomColor: c.hair, backgroundColor: c.bg }}>
+    <View accessibilityRole="header" style={{ height: 64 + top, paddingTop: top, flexDirection: 'row', alignItems: 'center', gap: space[3], paddingHorizontal: space[5],
+      borderBottomWidth: 1, borderBottomColor: ui.line, backgroundColor: ui.canvas }}>
       <Press noScale onPress={() => router.navigate('/home')} accessibilityRole="link" accessibilityLabel="Numa Shared, Home"
-        style={{ flexDirection: 'row', alignItems: 'center', gap: 10, minHeight: 44 }}>
-        <MiniOrb size={30} />
-        {desk ? <T style={{ fontFamily: fonts.display, fontSize: 19, letterSpacing: -0.4 }}>Numa Shared</T> : null}
+        style={{ flexDirection: 'row', alignItems: 'center', gap: space[2], minHeight: 44 }}>
+        <MiniOrb size={space[5]} />
+        {desk ? <T style={text.title}>Numa Shared</T> : null}
       </Press>
       <Press onPress={() => openSheet({ type: 'households' })} accessibilityLabel={`Household: ${h.name}. Switch`}
-        style={{ height: 40, paddingLeft: 16, paddingRight: 12, borderRadius: 20, backgroundColor: c.chip, flexDirection: 'row', alignItems: 'center', gap: 6, maxWidth: 260 }}>
-        <T numberOfLines={1} style={{ fontFamily: fonts.semibold, fontSize: 16, flexShrink: 1 }}>{h.name}</T>
-        <ChevDown size={16} color={c.ink} />
+        style={[pill, { paddingLeft: space[4], paddingRight: space[3], backgroundColor: ui.wash, maxWidth: 260, gap: space[1] }]}>
+        <T numberOfLines={1} style={[text.strong, { flexShrink: 1 }]}>{h.name}</T>
+        <ChevDown size={16} color={ui.ink} />
       </Press>
       <View style={{ flex: 1 }} />
       <Press noScale onPress={() => { requestHistorySearch(); router.navigate('/home'); }} accessibilityLabel="Search history" accessibilityHint="Shortcut: slash"
-        style={{ flexShrink: 1, width: 280, height: 40, borderRadius: 20, backgroundColor: c.card, borderWidth: 1, borderColor: c.hair,
-          flexDirection: 'row', alignItems: 'center', gap: 10, paddingLeft: 14, paddingRight: 9 }}>
-        <Search size={18} color={c.ink2} />
-        <T numberOfLines={1} style={{ flex: 1, fontSize: 14.5, color: c.ink2 }}>Search history</T>
+        style={[pill, { flexShrink: 1, width: 280, borderWidth: 1, borderColor: ui.line, paddingLeft: space[4], paddingRight: space[3] }]}>
+        <Search size={18} color={ui.muted} />
+        <T numberOfLines={1} style={[text.body, { flex: 1, color: ui.muted }]}>Search history</T>
         <Kbd k="/" />
       </Press>
       <Press onPress={() => openSheet({ type: 'repay' })} accessibilityLabel="Repay" accessibilityHint="Shortcut: R"
-        style={{ height: 44, minWidth: 44, paddingLeft: 14, paddingRight: 10, borderRadius: 22, backgroundColor: c.card, borderWidth: 1, borderColor: c.hair,
-          flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-        <Repay size={18} color={c.ink} />
-        <T style={{ fontFamily: fonts.semibold, fontSize: 16 }}>Repay</T>
+        style={{ height: 44, minWidth: 44, paddingLeft: space[4], paddingRight: space[3], borderRadius: 22, borderWidth: 1, borderColor: ui.line, flexDirection: 'row', alignItems: 'center', gap: space[2] }}>
+        <Repay size={18} color={ui.ink} />
+        <T style={text.strong}>Repay</T>
         <Kbd k="R" />
       </Press>
-      <Press onPress={() => openSheet({ type: 'add' })} accessibilityLabel="New expense" accessibilityHint="Shortcut: N"
-        style={{ height: 40, paddingLeft: 14, paddingRight: 10, borderRadius: 20, backgroundColor: c.ink, flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-        <Plus size={18} color={c.bg} />
-        <T style={{ fontFamily: fonts.semibold, fontSize: 16, color: c.bg }}>New expense</T>
-        <Kbd k="N" onInk />
-      </Press>
       <Press onPress={() => router.push('/settings')} accessibilityLabel="Settings and account"
-        style={{ width: 44, height: 44, borderRadius: 22, backgroundColor: mine.band, alignItems: 'center', justifyContent: 'center' }}>
-        <T style={{ fontFamily: fonts.display, fontSize: 16, color: mine.ink }}>Y</T>
+        style={{ width: 44, height: 44, borderRadius: 22, backgroundColor: ui.group(yourGroup(h)), alignItems: 'center', justifyContent: 'center' }}>
+        <T style={[text.strong, { color: ui.onFill }]}>Y</T>
       </Press>
     </View>
   );
