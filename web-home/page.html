@@ -21,12 +21,12 @@
 <main id="main">
 <div class="world" id="top" data-world>
 
-<div class="stage" aria-hidden="true" data-stage data-sc-verify-state="">
-<div class="phone" data-phone>
+<div class="stage" data-stage data-sc-verify-state="">
+<div class="phone" aria-hidden="true" data-phone>
 <img class="phone__img phone__img--home" src="/assets/app-home.webp?v={{IMG_VERSION}}" width="500" height="1085" alt="" decoding="async">
 <img class="phone__img phone__img--expense" src="/assets/app-expense.webp?v={{IMG_VERSION}}" width="500" height="1085" alt="" decoding="async">
 </div>
-<div class="plate">
+<div class="plate" aria-hidden="true">
 <div class="tags" data-tags>
 <span class="tag tag--us" data-tag-us><span class="pair"><i>Y</i><i>S</i></span>You + Sam</span>
 <span class="rule" data-rule></span>
@@ -41,16 +41,16 @@
 <p class="sq__p">No one owes anyone.</p>
 </div>
 </div>
-<ul class="slips">
+<ul class="slips" aria-hidden="true">
 <li class="slip slip--dinner" data-slip="dinner"><span class="disc disc--lilac"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7 3v8M4 3v5a3 3 0 0 0 6 0V3M7 11v10M17 21V3c-2.5 1.5-3.5 4.5-3.5 8H17"/></svg></span><span class="slip__t"><b>Dinner together</b><small>Alex paid · yesterday</small><em class="share" data-share>Your group’s share €48.00</em></span><span class="slip__a">€96.00</span></li>
 <li class="slip slip--internet" data-slip="internet"><span class="disc disc--lilac"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2.5 9a15 15 0 0 1 19 0M5.5 12.5a10 10 0 0 1 13 0M8.5 16a5 5 0 0 1 7 0M12 19.5h.01"/></svg></span><span class="slip__t"><b>Internet</b><small>Jo paid · 10 September</small><em class="share" data-share>Your group’s share €36.00</em></span><span class="slip__a">€72.00</span></li>
 <li class="slip slip--repay" data-slip="repay"><span class="disc disc--citrus"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 8h14M14 4l4 4-4 4M20 16H6M10 12l-4 4 4 4"/></svg></span><span class="slip__t"><b>Repayment recorded</b><small>You + Sam to Alex + Jo</small><em class="share" data-share>Recorded only, no money sent</em></span><span class="slip__a">€84.00</span></li>
 </ul>
-<!--web--><a class="orb orb--link" data-orb href="{{WEB_APP_URL}}/" aria-label="Add an expense: open the web app"><!--/web--><!--noweb--><div class="orb" data-orb><!--/noweb-->
+<!--web--><a class="orb orb--link" data-orb href="{{WEB_APP_URL}}/" aria-label="Add an expense: open the web app"><!--/web--><!--noweb--><div class="orb" aria-hidden="true" data-orb><!--/noweb-->
 <span class="orb__ball" data-ball><span class="orb__glyph orb__glyph--plus"><svg viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="#252B27" stroke-width="2" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg></span><span class="orb__glyph orb__glyph--check"><svg viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="#252B27" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg></span></span>
 <span class="orb__label"><b>Add an expense</b><small>Who paid? Who was it for?</small></span>
 <!--web--></a><!--/web--><!--noweb--></div><!--/noweb-->
-<p class="stage__note">Sample household. Names and amounts are made up.</p>
+<p class="stage__note" aria-hidden="true">Sample household. Names and amounts are made up.</p>
 </div>
 
 <section class="act act--hello" id="hello" data-act data-sc-act="flow">

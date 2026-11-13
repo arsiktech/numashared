@@ -218,6 +218,10 @@ describe("free-host web entry", () => {
     const body = await (await t.fetch("/")).text();
     expect(body).toContain('class="button" href="https://shared.example.com/app/">Open the web app');
     expect(body).toContain('class="orb orb--link" data-orb href="https://shared.example.com/app/"');
+    // The orb is a real link, so nothing around it may hide it from screen readers: the stage's
+    // decorative parts carry aria-hidden themselves.
+    expect(body).not.toMatch(/class="stage"[^>]*aria-hidden/);
+    expect(body).not.toMatch(/<a\b[^>]*aria-hidden/);
     expect(body).toContain("Free during the beta.");
     expect(body).toContain("Ask to test the iPhone app");
     expect(body).not.toContain("<!--web-->");
