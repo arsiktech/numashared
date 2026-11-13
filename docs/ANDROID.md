@@ -121,8 +121,9 @@ No store-console operation is part of the local build command.
    app-signing key. Record the Play app-signing fingerprints privately and complete
    the matching Android OAuth client above before authentication testing.
 3. Start with internal testing. Upload the approved production-configured AAB,
-   versionName `2.0.0`, versionCode `21`, or a higher unused code if 21 was already
-   uploaded. Add release notes that do not imply payments are sent.
+   versionName `2.0.0`, versionCode `25`. Play already holds versionCode `21`, and
+   every upload needs a higher unused code. Add release notes that do not imply
+   payments are sent.
 4. Complete the store listing, icon, feature graphic, phone/tablet screenshots,
    support contact and privacy policy. Use the actual current legal URLs and
    verify they are publicly reachable. Do not use isolated QA URLs or private notes.
