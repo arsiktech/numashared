@@ -3,7 +3,7 @@
 import { categoryLabel, formatMoney } from '@/core';
 import type { FieldChange, Household, ID, LedgerRecord, PaymentMethod } from '@/core/types';
 import { groupOfPerson, yourGroup } from '@/store/store';
-import { nameOf, personName, recordTitle } from '../hooks';
+import { authorName, nameOf, personName, recordTitle } from '../hooks';
 
 export type Filter = 'all' | 'expenses' | 'repayments' | 'changes';
 export const FILTERS: { id: Filter; label: string }[] = [
@@ -69,10 +69,10 @@ function changeLine(h: Household, r: LedgerRecord, t: LedgerRecord['timeline'][n
   const title = r.kind === 'settlement' ? (hide ? 'a repayment' : `the repayment of ${formatMoney(r.settlement!.amount, h.currency)}`)
     : r.kind === 'opening' ? 'the opening balance' : quote(recordTitle(r));
   switch (t.type) {
-    case 'edited': return `${personName(h, t.by)} edited ${title}: ${changeSummary(t.changes, hide)}`;
-    case 'voided': return `${personName(h, t.by)} voided ${title}: ${t.reason}`;
-    case 'restored': return `${personName(h, t.by)} restored ${title}`;
-    case 'flagged': return `${personName(h, t.by)} flagged ${title}${t.reason ? `: ${t.reason}` : ''}`;
+    case 'edited': return `${authorName(h, t.by, t.via)} edited ${title}: ${changeSummary(t.changes, hide)}`;
+    case 'voided': return `${authorName(h, t.by, t.via)} voided ${title}: ${t.reason}`;
+    case 'restored': return `${authorName(h, t.by, t.via)} restored ${title}`;
+    case 'flagged': return `${authorName(h, t.by, t.via)} flagged ${title}${t.reason ? `: ${t.reason}` : ''}`;
     default: return null;
   }
 }
@@ -90,6 +90,7 @@ export function matches(h: Household, r: LedgerRecord, q: string) {
   const hay: string[] = [recordTitle(r)];
   const person = (id: ID) => [personName(h, id), h.people.find((p) => p.id === id)?.name ?? ''];
   hay.push(...person(r.createdBy));
+  if (r.createdVia) hay.push(r.createdVia);
   if (r.expense) {
     hay.push(categoryLabel(r.expense.category), r.expense.note ?? '', ...person(r.expense.payerId), nameOf(h, groupOfPerson(h, r.expense.payerId)));
   }

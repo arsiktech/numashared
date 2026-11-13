@@ -13,6 +13,7 @@ import { fonts, isAndroid, isWeb, thisDevice } from '@/ui/tokens';
 import { useHousehold } from '@/features/hooks';
 import { CURRENCIES, currencyLabel } from '@/features/onboarding/model';
 import { SGroup, SNote, SRow, SettingsShell, useDesk, type DeskSection } from '@/features/settings/parts';
+import { applySettingsSection, settingsSectionFromParam } from '@/features/settings/section';
 import { explainFailure, SignInButtons, useSession, useSignInOptions } from '@/features/account/session';
 import { showToast } from '@/store/ui';
 import { failureOf } from '@/sync/engine';
@@ -28,15 +29,17 @@ export default function Settings() {
   const { h } = useHousehold();
   const { c } = useTheme();
   const desk = useDesk();
-  const params = useLocalSearchParams<{ section?: string }>();
-  const [section, setSection] = useState<DeskSection>((params.section as DeskSection) || 'household');
+  const router = useRouter();
+  const params = useLocalSearchParams<{ section?: string | string[] }>();
+  // The address bar is the source of truth, so reload and a pasted link open the same section.
+  const section = settingsSectionFromParam(params.section);
   if (!h) return <Redirect href="/welcome" />;
   const shown = (s: DeskSection) => !desk || section === s || (s === 'household' && !['you', 'account'].includes(section));
   const active: DeskSection = desk ? (['you', 'account'].includes(section) ? section : 'household') : 'household';
   const title = !desk ? 'Settings' : active === 'you' ? 'You' : active === 'account' ? 'Account' : 'Household';
   return (
     <SettingsShell title={title} back={h.name} active={active}
-      onSection={(s) => { if (s === 'household' || s === 'you' || s === 'account') { setSection(s); return true; } return false; }}>
+      onSection={(s) => applySettingsSection(section, s, (next) => router.setParams({ section: next }))}>
       {shown('household') ? <HouseholdGroup /> : null}
       {desk && active === 'household' ? <><Shortcuts /><SGroup title="Danger zone"><LeaveRow last /></SGroup></> : null}
       {shown('you') ? <YouGroup /> : null}
@@ -179,6 +182,9 @@ function DataGroup() {
       <SRow label="Import a Google Sheet" sub="Creates a new household from it" icon={<View />} onPress={() => router.push('/import')} />
       {h?.sync && !h.sync.setup ? (
         <SRow label="Card sync" sub="Add spends on chosen cards by themselves" icon={<View />} onPress={() => router.push('/settings/card-sync')} />
+      ) : null}
+      {h?.sync && !h.sync.setup ? (
+        <SRow label="AI agents" sub="Let an assistant read and add to your households, as you" icon={<View />} onPress={() => router.push('/settings/agents')} />
       ) : null}
       <SNote>History is permanent. Edits and voids stay visible to everyone.</SNote>
     </SGroup>

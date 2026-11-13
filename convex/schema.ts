@@ -2,6 +2,7 @@ import { defineSchema, defineTable } from "convex/server";
 import { v } from "convex/values";
 
 import {
+  agentPermissionsValidator,
   budgetGroupTopologyValidator,
   eventPayloadValidator,
   memberRoleValidator,
@@ -221,6 +222,10 @@ export default defineSchema({
     textFields: v.array(textFieldValidator),
     legacyAuthoredText: v.optional(v.boolean()),
     groupExpectedRevision: v.optional(v.int64()),
+    // Set when a connected AI agent appended the event for the actor (convex/agentWrites.ts): the
+    // connection's name at that moment, so the history can read "Arseny via Claude". Server
+    // metadata only: it is not part of the event envelope, its text manifest or replay checks.
+    via: v.optional(v.string()),
     createdAt: v.number(),
   })
     .index("by_pot_sequence", ["potId", "sequence"])
@@ -281,6 +286,140 @@ export default defineSchema({
     .index("by_invite_id", ["inviteId"])
     .index("by_token_hash", ["tokenHash"])
     .index("by_code_hash", ["codeHash"]),
+
+  // Access for an AI agent acting as one account (convex/agentAccess.ts). Two kinds:
+  // - a secret link (no clientId): the secret is made on the device and shown once; only its
+  //   SHA-256 is kept in keyHash;
+  // - an OAuth grant (clientId set, convex/agentOAuth.ts): the person approved an agent on the
+  //   "Connect to Numa Shared" page; its tokens live in oauthTokens. Each approval is its own
+  //   connection, even for the same agent.
+  // A connection can be limited to one household. Disconnecting stops it on the next call.
+  // Reading is always allowed. `permissions` holds the person's switches for writing; a
+  // connection made before writes existed has none and stays read-only until switched on.
+  agentConnections: defineTable({
+    accountId: v.id("accounts"),
+    name: v.string(),
+    keyHash: v.optional(v.string()),
+    keyHint: v.optional(v.string()),
+    clientId: v.optional(v.string()),
+    potId: v.optional(v.string()),
+    permissions: v.optional(agentPermissionsValidator),
+    createdAt: v.number(),
+    lastUsedAt: v.optional(v.number()),
+    revokedAt: v.optional(v.number()),
+    windowStartedAt: v.number(),
+    windowCount: v.number(),
+    // Writes have their own, lower per-minute limit.
+    writeWindowStartedAt: v.optional(v.number()),
+    writeWindowCount: v.optional(v.number()),
+  })
+    .index("by_account", ["accountId"])
+    .index("by_key_hash", ["keyHash"])
+    .index("by_client", ["clientId"]),
+
+  // What each agent call did, newest last, for the account's own activity list: the tool name and
+  // whether it was answered or refused. No amounts or names. (`error` is no longer written.)
+  agentActivity: defineTable({
+    accountId: v.id("accounts"),
+    connectionId: v.id("agentConnections"),
+    tool: v.string(),
+    ok: v.boolean(),
+    error: v.optional(v.string()),
+    at: v.number(),
+  })
+    .index("by_account", ["accountId", "at"]),
+
+  // An agent's write, by the request id the agent chose, so a retried call answers the same and
+  // never adds twice. `result` is the answer: ids, plus what the write recorded (an amount and
+  // split, a new household or person name). No invite secrets. Answers retries for 23 hours; the
+  // hourly purge (convex/crons.ts) deletes it within 24, as the privacy policy
+  // (convex/lib/webContent.ts) says.
+  agentRequests: defineTable({
+    connectionId: v.id("agentConnections"),
+    accountId: v.id("accounts"),
+    requestId: v.string(),
+    tool: v.string(),
+    inputHash: v.string(),
+    result: v.string(),
+    createdAt: v.number(),
+    expiresAt: v.number(),
+  })
+    .index("by_connection_request", ["connectionId", "requestId"])
+    .index("by_account", ["accountId"])
+    .index("by_expires_at", ["expiresAt"]),
+
+  // OAuth clients that may ask a person to connect (convex/agentOAuth.ts). "registered" clients
+  // came through Dynamic Client Registration; "metadata" clients are HTTPS client ids whose
+  // metadata document was fetched and is cached until expiresAt. No personal data.
+  oauthClients: defineTable({
+    clientId: v.string(),
+    kind: v.union(v.literal("registered"), v.literal("metadata")),
+    name: v.string(),
+    redirectUris: v.array(v.string()),
+    clientUri: v.optional(v.string()),
+    // SHA-256 of a client secret, for registered clients that asked for one.
+    secretHash: v.optional(v.string()),
+    createdAt: v.number(),
+    expiresAt: v.optional(v.number()),
+  })
+    .index("by_client_id", ["clientId"])
+    .index("by_created", ["kind", "createdAt"]),
+
+  // An authorization request waiting on the consent page. Holds no account until approved, and
+  // is deleted on approve, deny or expiry (10 minutes). Only the hash of its id is kept.
+  oauthRequests: defineTable({
+    requestHash: v.string(),
+    clientId: v.string(),
+    redirectUri: v.string(),
+    state: v.optional(v.string()),
+    codeChallenge: v.string(),
+    resource: v.string(),
+    scope: v.string(),
+    issuer: v.string(),
+    createdAt: v.number(),
+    expiresAt: v.number(),
+  })
+    .index("by_request_hash", ["requestHash"])
+    .index("by_expires_at", ["expiresAt"]),
+
+  // One-time authorization codes (hashed), valid for a few minutes. Expired ones are deleted
+  // when new codes are made.
+  oauthCodes: defineTable({
+    codeHash: v.string(),
+    accountId: v.id("accounts"),
+    connectionId: v.id("agentConnections"),
+    clientId: v.string(),
+    redirectUri: v.string(),
+    codeChallenge: v.string(),
+    resource: v.string(),
+    scope: v.string(),
+    expiresAt: v.number(),
+    usedAt: v.optional(v.number()),
+  })
+    .index("by_code_hash", ["codeHash"])
+    .index("by_account", ["accountId"])
+    .index("by_expires_at", ["expiresAt"]),
+
+  // OAuth access and refresh tokens (hashed). Access tokens live an hour. Refresh tokens rotate
+  // on every use; a used refresh token presented again revokes the whole connection, except a
+  // retry of the latest rotation within 30 seconds, which gets the same new pair.
+  oauthTokens: defineTable({
+    tokenHash: v.string(),
+    kind: v.union(v.literal("access"), v.literal("refresh")),
+    accountId: v.id("accounts"),
+    connectionId: v.id("agentConnections"),
+    clientId: v.string(),
+    resource: v.string(),
+    scope: v.string(),
+    createdAt: v.number(),
+    expiresAt: v.number(),
+    usedAt: v.optional(v.number()),
+    // A used refresh token: the hash of the refresh token it was rotated into.
+    replacedBy: v.optional(v.string()),
+  })
+    .index("by_token_hash", ["tokenHash"])
+    .index("by_account", ["accountId"])
+    .index("by_connection", ["connectionId", "expiresAt"]),
 
   // APNs device tokens per account. A token is globally unique to one device, so a
   // re-registration from another account moves it rather than duplicating it. Apple's

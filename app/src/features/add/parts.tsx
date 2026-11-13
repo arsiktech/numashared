@@ -8,7 +8,8 @@ import type { Group, Household } from '@/core/types';
 import { todayISO } from '@/store/ids';
 import { ChevDown, ChevUp, Close, Pencil } from '@/ui/icons';
 import { IconButton, Press, T, TChip, TextButton } from '@/ui/primitives';
-import { SheetHead } from '@/ui/sheet';
+import { SheetHead, useSheet } from '@/ui/sheet';
+import { forwardSheetInputKey } from '@/ui/sheet-focus';
 import { useTheme } from '@/ui/theme';
 import { alpha, fonts, isAndroid, isWeb, type GroupTone } from '@/ui/tokens';
 import { dateLabel, dateSpoken, daysAgoISO, groupInitials, shiftISO } from './draft';
@@ -52,7 +53,7 @@ function DateChip({ tone, date, open, onPress }: { tone: GroupTone; date: string
   return (
     <Press onPress={onPress} accessibilityLabel={`Date: ${dateSpoken(date)}. Change`} accessibilityState={{ expanded: open }}
       hitSlop={6}
-      style={{ height: 32, paddingLeft: 12, paddingRight: 9, borderRadius: 16, flexDirection: 'row', alignItems: 'center', gap: 4,
+      style={{ minHeight: 32, paddingVertical: 2, paddingLeft: 12, paddingRight: 9, borderRadius: 16, flexDirection: 'row', alignItems: 'center', gap: 4,
         backgroundColor: open ? tone.ink : alpha(tone.ink, 0.09) }}>
       <T style={{ fontFamily: fonts.semibold, fontSize: 14, color: open ? tone.band : tone.ink }}>{dateLabel(date)}</T>
       {open ? <ChevUp size={14} color={tone.band} /> : <ChevDown size={14} color={tone.ink} />}
@@ -122,7 +123,7 @@ export function GroupAvatar({ h, group, tone, size = 38, ink }: { h: Household; 
   const text = groupInitials(h, group);
   return (
     <View style={{ width: size, height: size, borderRadius: size / 2, alignItems: 'center', justifyContent: 'center', backgroundColor: ink ? tone.ink : tone.band }}>
-      <T style={{ fontFamily: fonts.bold, fontSize: size * (text.length > 1 ? 0.34 : 0.42), color: ink ? tone.band : tone.ink }}>{text}</T>
+      <T maxFontSizeMultiplier={1} style={{ fontFamily: fonts.bold, fontSize: size * (text.length > 1 ? 0.34 : 0.42), color: ink ? tone.band : tone.ink }}>{text}</T>
     </View>
   );
 }
@@ -134,15 +135,20 @@ export function NoteLine({ tone, value, onChange, editing, setEditing, inputRef,
   tone: GroupTone; value: string; onChange: (v: string) => void; editing: boolean; setEditing: (v: boolean) => void;
   inputRef?: RefObject<TextInput | null>; onSubmit?: () => void; hint?: string; placeholder?: string; style?: StyleProp<ViewStyle>;
 }) {
+  const { escape } = useSheet();
+  const { largeText } = useTheme();
   const box: ViewStyle = { flexDirection: 'row', alignItems: 'center', gap: 10, minHeight: 44, paddingHorizontal: 14, borderRadius: 14, backgroundColor: alpha(tone.ink, 0.09) };
-  if (editing) {
+  // A persistent web input lets the browser finish Tab navigation after blur.
+  if (isWeb || editing) {
     return (
       <View style={[box, style]}>
         <Pencil size={18} color={alpha(tone.ink, 0.7)} />
-        <TextInput ref={inputRef} value={value} onChangeText={onChange} autoFocus placeholder={placeholder} maxLength={140}
-          placeholderTextColor={alpha(tone.ink, 0.62)} accessibilityLabel="Note" returnKeyType="done"
+        <TextInput ref={inputRef} value={value} onChangeText={onChange} autoFocus={!isWeb && editing} placeholder={placeholder} maxLength={140}
+          placeholderTextColor={alpha(tone.ink, 0.62)} accessibilityLabel={isWeb ? `${placeholder}, optional` : 'Note'} returnKeyType="done"
+          onFocus={isWeb ? () => setEditing(true) : undefined}
           onBlur={() => setEditing(false)} onSubmitEditing={() => { setEditing(false); onSubmit?.(); }}
-          style={[{ flex: 1, minHeight: 44, fontFamily: fonts.medium, fontSize: 16, color: tone.ink, paddingVertical: 0 }, isWeb ? ({ outlineStyle: 'none' } as object) : null]} />
+          onKeyPress={isWeb ? (e) => forwardSheetInputKey(e, escape) : undefined}
+          style={[{ flex: 1, minHeight: 44, fontFamily: fonts.medium, fontSize: 16, color: tone.ink, paddingVertical: 0 }, isWeb ? ({ outlineStyle: 'auto' } as object) : null]} />
       </View>
     );
   }
@@ -150,10 +156,11 @@ export function NoteLine({ tone, value, onChange, editing, setEditing, inputRef,
   return (
     <Press noScale onPress={() => setEditing(true)} accessibilityLabel={empty ? 'Add a note, optional' : `Note: ${value}. Edit`} style={[box, style]}>
       <Pencil size={18} color={alpha(tone.ink, 0.7)} />
-      <T numberOfLines={1} style={{ flex: 1, fontFamily: fonts.medium, fontSize: 16, color: empty ? alpha(tone.ink, 0.68) : tone.ink }}>
+      <T numberOfLines={largeText ? 2 : 1} style={{ flex: 1, fontFamily: fonts.medium, fontSize: 16, color: empty ? alpha(tone.ink, 0.68) : tone.ink }}>
         {empty ? placeholder : value}
       </T>
-      {hint ? <Kbd tone={tone} label={hint} /> : empty ? <T style={{ fontSize: 13, color: tone.ink, opacity: 0.7 }}>optional</T> : null}
+      {/* At the accessibility sizes "optional" stays in the spoken label and gives its room to the note. */}
+      {hint ? <Kbd tone={tone} label={hint} /> : empty && !largeText ? <T style={{ fontSize: 13, color: tone.ink, opacity: 0.7 }}>optional</T> : null}
     </Press>
   );
 }
@@ -179,8 +186,8 @@ export function Receipt({ children, tone, desk }: { children: ReactNode; tone: G
 export function ReceiptHead({ left, right, onRight, rightLabel }: { left: string; right?: string; onRight?: () => void; rightLabel?: string }) {
   const { c } = useTheme();
   return (
-    <View style={{ minHeight: 20, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 12, paddingHorizontal: 2 }}>
-      <T style={{ flexShrink: 1, fontFamily: fonts.semibold, fontSize: 13, color: c.ink2 }}>{left}</T>
+    <View style={{ minHeight: 20, flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between', columnGap: 12, rowGap: 4, paddingHorizontal: 2 }}>
+      <T style={{ fontFamily: fonts.semibold, fontSize: 13, color: c.ink2 }}>{left}</T>
       {right ? (
         onRight ? (
           <Press onPress={onRight} accessibilityLabel={rightLabel ?? right} hitSlop={12} style={{ minHeight: 20, justifyContent: 'center' }}>
@@ -235,12 +242,6 @@ export function useWebKeys(enabled: boolean, handlers: KeyHandlers) {
   const ref = useRef(handlers);
   ref.current = handlers;
   useEffect(() => {
-    if (!isWeb || typeof window === 'undefined') return;
-    // The control that opened the sheet keeps focus otherwise, and Enter would press it again.
-    const active = document.activeElement as HTMLElement | null;
-    active?.blur?.();
-  }, []);
-  useEffect(() => {
     if (!isWeb || !enabled || typeof window === 'undefined') return;
     const onKeyDown = (e: KeyboardEvent) => {
       if (e.metaKey || e.ctrlKey || e.altKey || e.defaultPrevented) return;
@@ -251,7 +252,7 @@ export function useWebKeys(enabled: boolean, handlers: KeyHandlers) {
       // Only the first Tab, while nothing has focus yet, jumps to the note. After that Tab and
       // Shift+Tab move through the controls as usual.
       if (e.key === 'Tab' && h.onTab) {
-        const nothingFocused = !t || t === document.body || t === document.documentElement;
+        const nothingFocused = !t || t === document.body || t === document.documentElement || t.getAttribute('role') === 'dialog';
         if (tabJumpsToNote(nothingFocused, e.shiftKey)) { e.preventDefault(); h.onTab(); }
         return;
       }

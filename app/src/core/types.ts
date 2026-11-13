@@ -73,6 +73,8 @@ type Base = {
   /** When it was recorded (server time once synced). */
   at: number;
   by: ID;
+  /** The connected AI agent that made it for `by` ("Claude"); absent for changes made in the app. */
+  via?: string;
   /** Server sequence once the server has accepted the event; absent while it waits to be sent. */
   seq?: number;
   /** The wire occurredAtMillis and time zone, fixed at creation so a resend is byte-identical. */
@@ -116,7 +118,12 @@ export type Household = {
   sync?: SyncMeta;
 };
 
-export type InviteInfo = { inviteId: ID; code: string; token: string; expiresAt: number; issued?: boolean };
+export type InviteInfo = {
+  inviteId: ID; code: string; token: string; expiresAt: number; issued?: boolean;
+  /** Metadata only on another device; invalidated secrets are never offered for sharing. */
+  state?: 'active' | 'unavailable' | 'elsewhere' | 'expired';
+  checkedAt?: number;
+};
 
 export type SyncMeta = {
   /** The account this copy belongs to. Only that account's session shows it. */
@@ -128,6 +135,8 @@ export type SyncMeta = {
   /** Pull cursors. */
   lastSeq: number;
   lastTextRev: number;
+  /** Authorized frozen snapshot: read history and erasures, but never send writes. */
+  frozen?: boolean;
   /** Set when the server refused something that needs a person to sort out. */
   paused?: { code: string; at: number };
   /** Per-person invites this device issued (owner only). */
@@ -155,11 +164,11 @@ export type SyncMeta = {
 export type RecordKind = 'expense' | 'settlement' | 'opening';
 
 export type TimelineEntry =
-  | { type: 'added'; at: number; by: ID; eventId: ID }
-  | { type: 'edited'; at: number; by: ID; eventId: ID; reason?: string; changes: FieldChange[] }
-  | { type: 'voided'; at: number; by: ID; eventId: ID; reason: string }
-  | { type: 'restored'; at: number; by: ID; eventId: ID }
-  | { type: 'flagged'; at: number; by: ID; eventId: ID; reason?: string }
+  | { type: 'added'; at: number; by: ID; via?: string; eventId: ID }
+  | { type: 'edited'; at: number; by: ID; via?: string; eventId: ID; reason?: string; changes: FieldChange[] }
+  | { type: 'voided'; at: number; by: ID; via?: string; eventId: ID; reason: string }
+  | { type: 'restored'; at: number; by: ID; via?: string; eventId: ID }
+  | { type: 'flagged'; at: number; by: ID; via?: string; eventId: ID; reason?: string }
   | { type: 'seen'; at: number; personId: ID; eventId: ID };
 
 export type FieldChange = { field: 'amount' | 'payer' | 'category' | 'title' | 'note' | 'date' | 'split'; from: string; to: string };
@@ -169,6 +178,8 @@ export type LedgerRecord = {
   kind: RecordKind;
   createdAt: number;
   createdBy: ID;
+  /** The AI agent that added it for `createdBy`, when one did. */
+  createdVia?: string;
   updatedAt: number;
   /** Current content (latest revision). */
   expense?: ExpenseContent;

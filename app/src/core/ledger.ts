@@ -261,6 +261,7 @@ function apply(base: Omit<Ctx, 'eventId'>, state: State, event: LedgerEvent): vo
   if (state.eventIds.has(event.id)) fail(ctx, 'duplicate-event', `Event ${event.id} is already recorded.`);
   if (typeof event.at !== 'number' || !Number.isFinite(event.at)) fail(ctx, 'invalid-time', 'Event time is missing.');
   checkPerson(ctx, event.by);
+  const via = event.via ? { via: event.via } : {};
 
   const existing = (): Working => {
     const w = state.records.get(event.recordId);
@@ -269,10 +270,10 @@ function apply(base: Omit<Ctx, 'eventId'>, state: State, event: LedgerEvent): vo
   };
   const create = (kind: LedgerRecord['kind'], content: ExpenseContent | SettlementContent | OpeningContent, fullEffect: Record<ID, Cents>) => {
     const record: LedgerRecord = {
-      id: event.recordId, kind, createdAt: event.at, createdBy: event.by, updatedAt: event.at,
+      id: event.recordId, kind, createdAt: event.at, createdBy: event.by, ...(event.via ? { createdVia: event.via } : {}), updatedAt: event.at,
       revisions: [{ eventId: event.id, at: event.at, by: event.by, content }],
       voided: false, flagged: false, effect: {},
-      timeline: [{ type: 'added', at: event.at, by: event.by, eventId: event.id }],
+      timeline: [{ type: 'added', at: event.at, by: event.by, ...via, eventId: event.id }],
     };
     if (kind === 'expense') record.expense = content as ExpenseContent;
     if (kind === 'settlement') record.settlement = content as SettlementContent;
@@ -332,7 +333,7 @@ function apply(base: Omit<Ctx, 'eventId'>, state: State, event: LedgerEvent): vo
       if (r.voided) fail(ctx, 'record-voided', 'Restore this expense before editing it.');
       const effect = expenseEffect(ctx, event.content);
       const parent = event.basis?.kind === 'parent' ? w.versions.get(event.basis.parentEventId)?.content as ExpenseContent | undefined : undefined;
-      r.timeline.push({ type: 'edited', at: event.at, by: event.by, eventId: event.id, reason: event.reason, changes: diff(ctx, parent ?? r.expense, event.content) });
+      r.timeline.push({ type: 'edited', at: event.at, by: event.by, ...via, eventId: event.id, reason: event.reason, changes: diff(ctx, parent ?? r.expense, event.content) });
       r.revisions.push({ eventId: event.id, at: event.at, by: event.by, content: event.content });
       r.expense = revise(w, event.content, effect, event.basis) as ExpenseContent;
       touch(r);
@@ -344,7 +345,7 @@ function apply(base: Omit<Ctx, 'eventId'>, state: State, event: LedgerEvent): vo
       if (r.kind !== 'opening' || !r.opening) fail(ctx, 'wrong-record-kind', 'Only an opening balance can take this change.');
       if (r.voided) fail(ctx, 'record-voided', 'Restore this opening balance before changing it.');
       const effect = openingEffect(ctx, event.content);
-      r.timeline.push({ type: 'edited', at: event.at, by: event.by, eventId: event.id, changes: [] });
+      r.timeline.push({ type: 'edited', at: event.at, by: event.by, ...via, eventId: event.id, changes: [] });
       r.revisions.push({ eventId: event.id, at: event.at, by: event.by, content: event.content });
       r.opening = revise(w, event.content, effect, event.basis) as OpeningContent;
       touch(r);
@@ -356,7 +357,7 @@ function apply(base: Omit<Ctx, 'eventId'>, state: State, event: LedgerEvent): vo
       if (r.voided) fail(ctx, 'record-voided', 'This repayment is voided.');
       if (r.flagged) fail(ctx, 'already-flagged', 'This repayment is already flagged.');
       r.flagged = true;
-      r.timeline.push({ type: 'flagged', at: event.at, by: event.by, eventId: event.id, reason: event.reason });
+      r.timeline.push({ type: 'flagged', at: event.at, by: event.by, ...via, eventId: event.id, reason: event.reason });
       touch(r);
       break;
     }
@@ -371,7 +372,7 @@ function apply(base: Omit<Ctx, 'eventId'>, state: State, event: LedgerEvent): vo
       }
       r.voided = true;
       r.voidReason = event.reason.trim();
-      r.timeline.push({ type: 'voided', at: event.at, by: event.by, eventId: event.id, reason: r.voidReason });
+      r.timeline.push({ type: 'voided', at: event.at, by: event.by, ...via, eventId: event.id, reason: r.voidReason });
       touch(r);
       break;
     }
@@ -381,7 +382,7 @@ function apply(base: Omit<Ctx, 'eventId'>, state: State, event: LedgerEvent): vo
       if (r.settlement?.reversalOf !== undefined) checkReversal(ctx, state, r.settlement, r.id);
       r.voided = false;
       delete r.voidReason;
-      r.timeline.push({ type: 'restored', at: event.at, by: event.by, eventId: event.id });
+      r.timeline.push({ type: 'restored', at: event.at, by: event.by, ...via, eventId: event.id });
       touch(r);
       break;
     }

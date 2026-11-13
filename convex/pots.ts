@@ -279,6 +279,7 @@ export const listMyPots = query({
         initialOrderedUnitIds: pot.initialOrderedUnitIds ?? null,
         memberId: membership.memberId,
         role: membership.role,
+        membershipStatus: membership.status,
         minimumReaderSchemaVersion: pot.minimumReaderSchemaVersion,
         lastSequence: membership.status === "archived"
           ? membership.archivedAtSequence

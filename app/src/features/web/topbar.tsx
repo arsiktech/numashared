@@ -1,6 +1,6 @@
-// The web top bar for tablet and desk layouts: brand, household switcher, history search, New expense
-// and the account avatar. It also owns the global keyboard shortcuts: N adds an expense, / searches
-// history, R records a repayment. Shortcuts are ignored while typing or while a sheet is open.
+// The web top bar for tablet and desk layouts: brand, household switcher, history search, Repay,
+// New expense and the account avatar. It also owns the global keyboard shortcuts: N adds an expense,
+// / searches history, R records a repayment. Shortcuts are ignored while typing or while a sheet is open.
 import { requestHistorySearch } from '@/features/history/search';
 import { useEffect, useRef } from 'react';
 import { View } from 'react-native';
@@ -8,7 +8,7 @@ import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { activeHousehold, useStore, yourGroup } from '@/store/store';
 import { openSheet, useUI } from '@/store/ui';
-import { ChevDown, Plus, Search } from '@/ui/icons';
+import { ChevDown, Plus, Repay, Search } from '@/ui/icons';
 import { Press, T } from '@/ui/primitives';
 import { useTheme } from '@/ui/theme';
 import { fonts, isWeb } from '@/ui/tokens';
@@ -32,6 +32,7 @@ export function WebTopBar() {
     if (!isWeb || typeof window === 'undefined') return;
     const onKey = (e: KeyboardEvent) => {
       if (e.metaKey || e.ctrlKey || e.altKey || e.defaultPrevented) return;
+      if (document.querySelector('[data-fb-self]')) return;
       const el = e.target as HTMLElement | null;
       if (el && (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA' || el.tagName === 'SELECT' || el.isContentEditable)) return;
       if (busy.current > 0) return;
@@ -66,6 +67,13 @@ export function WebTopBar() {
         <Search size={18} color={c.ink2} />
         <T numberOfLines={1} style={{ flex: 1, fontSize: 14.5, color: c.ink2 }}>Search history</T>
         <Kbd k="/" />
+      </Press>
+      <Press onPress={() => openSheet({ type: 'repay' })} accessibilityLabel="Repay" accessibilityHint="Shortcut: R"
+        style={{ height: 44, minWidth: 44, paddingLeft: 14, paddingRight: 10, borderRadius: 22, backgroundColor: c.card, borderWidth: 1, borderColor: c.hair,
+          flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+        <Repay size={18} color={c.ink} />
+        <T style={{ fontFamily: fonts.semibold, fontSize: 16 }}>Repay</T>
+        <Kbd k="R" />
       </Press>
       <Press onPress={() => openSheet({ type: 'add' })} accessibilityLabel="New expense" accessibilityHint="Shortcut: N"
         style={{ height: 40, paddingLeft: 14, paddingRight: 10, borderRadius: 20, backgroundColor: c.ink, flexDirection: 'row', alignItems: 'center', gap: 8 }}>

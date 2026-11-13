@@ -1,6 +1,6 @@
 // Home. Phone: bands, ticket and orb, then the latest records. Desk: three panes, balance on the
 // left, the history thread in the middle and the selected record on the right.
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { createElement, useEffect, useMemo, useRef, useState } from 'react';
 import { FlatList, ScrollView, StyleSheet, View } from 'react-native';
 import Animated, { Extrapolation, interpolate, runOnJS, useAnimatedReaction, useAnimatedScrollHandler, useAnimatedStyle, useSharedValue } from 'react-native-reanimated';
 import { Redirect, useRouter } from 'expo-router';
@@ -81,9 +81,14 @@ function PhoneHome({ freshIds }: { freshIds: Set<string> }) {
   const bands = <Bands h={h} balances={ledger.balances} hide={hide} />;
 
   return (
-    <View style={{ flex: 1, backgroundColor: c.bg }}>
-      {/* What you see. Screen readers use the copy in the list instead. */}
+    <View {...(isWeb ? { dataSet: { 'home-parallax': 'true' } } : {})} style={{ flex: 1, backgroundColor: c.bg }}>
+      {isWeb ? createElement('style', null, `
+        [data-home-bands-copy]:has(:focus-visible) { opacity: 1 !important; transform: none !important; }
+        [data-home-parallax]:has([data-home-bands-copy] :focus-visible) [data-home-bands-display] { visibility: hidden; }
+      `) : null}
+      {/* The list copy becomes visible and scrolls normally during keyboard focus. */}
       <View accessibilityElementsHidden importantForAccessibility="no-hide-descendants" aria-hidden pointerEvents="none"
+        {...(isWeb ? { dataSet: { 'home-bands-display': 'true' } } : {})}
         ref={(node) => { if (isWeb && node) (node as unknown as HTMLElement).setAttribute('inert', ''); }}
         onLayout={(e) => setBandsH(e.nativeEvent.layout.height)}>
         {bands}
@@ -105,17 +110,18 @@ function PhoneHome({ freshIds }: { freshIds: Set<string> }) {
             return (
               <View style={{ height: gap }}>
                 {/* Nearly, not fully, transparent: iOS ignores touches on views at or near zero opacity. */}
-                <Animated.View style={[{ position: 'absolute', left: 0, right: 0, top: -insets.top, opacity: 0.02 }, touchCopy]}>{bands}</Animated.View>
+                <Animated.View {...(isWeb ? { dataSet: { 'home-bands-copy': 'true' } } : {})}
+                  style={[{ position: 'absolute', left: 0, right: 0, top: -insets.top, opacity: 0.02 }, touchCopy]}>{bands}</Animated.View>
               </View>
             );
           }
           if (item.kind === 'head') {
             return (
               <Animated.View style={[{ backgroundColor: c.bg, paddingHorizontal: 22, paddingTop: 14, overflow: 'hidden' }, corners]}>
-                <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', height: 44 }}>
+                <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', minHeight: 44, flexWrap: 'wrap', columnGap: 12 }}>
                   {docked ? (
                     <Press accessibilityRole="button" accessibilityLabel="Back to balances" onPress={() => { list.current?.scrollToOffset({ offset: 0, animated: true }); setDocked(false); }}
-                      style={{ height: 44, flexDirection: 'row', alignItems: 'center', gap: 4, marginLeft: -4 }}>
+                      style={{ minHeight: 44, flexDirection: 'row', alignItems: 'center', gap: 4, marginLeft: -4 }}>
                       <ChevDown size={18} color={c.ink} />
                       <T style={{ fontSize: 16, fontFamily: fonts.medium }}>Balances</T>
                     </Press>
@@ -124,7 +130,7 @@ function PhoneHome({ freshIds }: { freshIds: Set<string> }) {
                   )}
                   {docked ? <T accessibilityRole="header" style={{ fontFamily: fonts.bold, fontSize: 17 }}>History</T> : null}
                   {ledger.records.length ? (
-                    <Press accessibilityRole="button" accessibilityLabel="Search history" onPress={search} style={{ height: 44, minWidth: docked ? 92 : undefined, flexDirection: 'row', alignItems: 'center', justifyContent: 'flex-end', gap: 6 }}>
+                    <Press accessibilityRole="button" accessibilityLabel="Search history" onPress={search} style={{ minHeight: 44, minWidth: docked ? 92 : undefined, flexDirection: 'row', alignItems: 'center', justifyContent: 'flex-end', gap: 6 }}>
                       <Search size={18} color={c.ink} />
                       {docked ? null : <T style={{ fontSize: 16, fontFamily: fonts.medium }}>Search</T>}
                     </Press>

@@ -279,6 +279,7 @@ export function fromWire(h: Household, listed: ListedEvent): LedgerEvent | null 
     id: ev.eventId,
     at: listed.recordedAtMillis ?? occurredAt,
     by: ev.actorMemberId,
+    ...(typeof listed.via === 'string' && listed.via.trim() ? { via: listed.via.trim().slice(0, 60) } : {}),
     seq: Number(listed.serverSequence),
     occurredAt,
     tz: ev.originatingTimeZone,
@@ -329,6 +330,17 @@ export function fromWire(h: Household, listed: ListedEvent): LedgerEvent | null 
     default:
       return null;
   }
+}
+
+/** The text an edit would carry over from this event, for the fields an edit resends. */
+export function carriedText(e: LedgerEvent, field: TextField): string | undefined {
+  if (e.kind === 'expenseAdded' || e.kind === 'expenseRevised') {
+    if (field === 'title') return e.content.title;
+    if (field === 'note') return e.content.note;
+    return undefined;
+  }
+  if ((e.kind === 'openingBalanceSet' || e.kind === 'openingRevised') && field === 'note') return e.content.note;
+  return undefined;
 }
 
 /** Applies one erased text field to an already-mapped event. */

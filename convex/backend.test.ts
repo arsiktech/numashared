@@ -1467,7 +1467,7 @@ describe("Backend event and multi-user foundation", () => {
         token: rawToken,
         event: memberClaimMetadata({ ...memberClaimed, eventId: id(1_507) }),
       }),
-      "INVITE_INVALID",
+      "INVITE_USED",
     );
   });
 
@@ -1563,7 +1563,7 @@ describe("Backend event and multi-user foundation", () => {
         ticket: preview.claimTicket,
         event: memberClaimMetadata({ ...event, eventId: id(1_555) }),
       }),
-      "INVITE_INVALID",
+      "INVITE_USED",
     );
     await expect((await t.fetch("/join/CODE01", {
       method: "POST",
@@ -1671,7 +1671,7 @@ describe("Backend event and multi-user foundation", () => {
     })).resolves.toEqual({ status: "revoked" });
     await expectTerminalCode(
       outsider(t).mutation(claimPotLinkInvite, { token }),
-      "INVITE_INVALID",
+      "INVITE_REVOKED",
     );
     await expect((await t.fetch("/join/REVOK1", {
       method: "POST",
@@ -1726,7 +1726,7 @@ describe("Backend event and multi-user foundation", () => {
       outsider(t).mutation(claimPotLinkInviteWithTicket, {
         ticket: preview.claimTicket,
       }),
-      "INVITE_INVALID",
+      "INVITE_TICKET_STALE",
     );
     expect(await owner(t).query(listPendingClaims, { potId: ids.pot }))
       .toHaveLength(0);
@@ -3504,6 +3504,61 @@ describe("Backend event and multi-user foundation", () => {
         timeZone: "Europe/Madrid",
         updatedAt: 2,
       });
+      const connectionId = await ctx.db.insert("agentConnections", {
+        accountId: deleting._id,
+        name: "Agent",
+        keyHash: "b".repeat(64),
+        keyHint: "nsag_abcd",
+        createdAt: 2,
+        windowStartedAt: 2,
+        windowCount: 0,
+      });
+      await ctx.db.insert("agentActivity", {
+        accountId: deleting._id,
+        connectionId,
+        tool: "get_balances",
+        ok: true,
+        at: 2,
+      });
+      // An agent connected with OAuth: its registered client, a code and both tokens.
+      await ctx.db.insert("oauthClients", {
+        clientId: "nsc_deleting_only",
+        kind: "registered",
+        name: "Agent",
+        redirectUris: ["http://127.0.0.1:4000/callback"],
+        createdAt: 2,
+      });
+      const oauthConnectionId = await ctx.db.insert("agentConnections", {
+        accountId: deleting._id,
+        name: "Agent",
+        clientId: "nsc_deleting_only",
+        createdAt: 2,
+        windowStartedAt: 2,
+        windowCount: 0,
+      });
+      const grant = {
+        accountId: deleting._id,
+        connectionId: oauthConnectionId,
+        clientId: "nsc_deleting_only",
+        resource: "http://127.0.0.1:3211/mcp",
+        scope: "shared:read",
+      };
+      await ctx.db.insert("oauthCodes", {
+        ...grant,
+        codeHash: "c".repeat(64),
+        redirectUri: "http://127.0.0.1:4000/callback",
+        codeChallenge: "x".repeat(43),
+        expiresAt: 3,
+      });
+      for (const kind of ["access", "refresh"] as const) {
+        await ctx.db.insert("oauthTokens", {
+          ...grant,
+          tokenHash: kind.padEnd(64, "0"),
+          kind,
+          createdAt: 2,
+          expiresAt: Date.now() + 3_600_000,
+        });
+      }
       return { deleting: deleting._id, remaining: remaining._id };
     });
 
@@ -3576,6 +3631,13 @@ describe("Backend event and multi-user foundation", () => {
         deletingAccount: await ctx.db.get(accountIds.deleting),
         deletingTokens: (await ctx.db.query("pushTokens").collect())
           .filter((token) => token.accountId === accountIds.deleting),
+        agentRows: [
+          ...(await ctx.db.query("agentConnections").collect()),
+          ...(await ctx.db.query("agentActivity").collect()),
+          ...(await ctx.db.query("oauthClients").collect()),
+          ...(await ctx.db.query("oauthCodes").collect()),
+          ...(await ctx.db.query("oauthTokens").collect()),
+        ],
         deletingText: (await ctx.db.query("eventTexts").collect())
           .filter((text) => text.authorAccountId === accountIds.deleting),
       };
@@ -3592,6 +3654,7 @@ describe("Backend event and multi-user foundation", () => {
     );
     expect(retained.deletingAccount).toBeNull();
     expect(retained.deletingTokens).toEqual([]);
+    expect(retained.agentRows).toEqual([]);
     expect(retained.deletingText).toEqual([]);
     await expect(t.query(accountDeletionReceipt, { requestId, now })).resolves.toEqual({
       complete: true,

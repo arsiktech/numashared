@@ -1,7 +1,11 @@
 Bricolage Grotesque: Copyright 2022 The Bricolage Grotesque Project Authors (https://github.com/ateliertriay/bricolage)
 Instrument Sans: Copyright 2022 The Instrument Sans Project Authors (https://github.com/Instrument/instrument-sans)
+Sofia Sans: Copyright 2019 The Sofia Sans Project Authors (https://github.com/lettersoup/Sofia-Sans)
+Onest: Copyright 2021 The Onest Project Authors (https://github.com/simpals/onest)
 
-Static instances downloaded from Google Fonts. Both fonts are licensed under the SIL Open Font License, Version 1.1:
+Latin text uses the bundled Bricolage Grotesque and Instrument Sans files. Cyrillic uses a
+unicode-range subset of Sofia Sans Extra Condensed (the condensed display) and Onest (body and
+the wider display). All four fonts are licensed under the SIL Open Font License, Version 1.1:
 
 
 This Font Software is licensed under the SIL Open Font License, Version 1.1.

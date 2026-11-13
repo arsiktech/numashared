@@ -173,6 +173,38 @@ export async function appendEventsToPot(
     }
   }
 
+  /**
+   * An edit resends the fields it did not change. Text carried over unchanged stays with the
+   * person who wrote it, so deleting their account also erases it from later edits. A card refund
+   * adds a line after the note, which stays theirs too. An edit reason belongs to the edit itself.
+   */
+  async function carriedTextAuthor(
+    event: EventInput,
+    authored: { field: TextField; value: string },
+  ): Promise<Id<"accounts"> | undefined> {
+    if (event.payload.kind !== "expenseRevised" || authored.field === "reason") return undefined;
+    const { basis } = event.payload;
+    const parents = basis.kind === "parent"
+      ? [basis.parentEventId]
+      : [basis.firstEventId, basis.secondEventId];
+    for (const parentEventId of parents) {
+      const parentText = await ctx.db
+        .query("eventTexts")
+        .withIndex("by_event_field", (query) =>
+          query
+            .eq("potId", args.pot.potId)
+            .eq("eventId", parentEventId)
+            .eq("field", authored.field),
+        )
+        .unique();
+      if (!parentText) continue;
+      const carried = authored.value === parentText.value
+        || (authored.field === "note" && authored.value.startsWith(`${parentText.value}. `));
+      if (carried) return parentText.authorAccountId;
+    }
+    return undefined;
+  }
+
   async function loadRecordState(recordId: string): Promise<FinancialRecordState> {
     let recordState = recordStates.get(recordId);
     if (recordState) return recordState;
@@ -351,7 +383,7 @@ export async function appendEventsToPot(
         sequence,
         field: authored.field,
         value: authored.value,
-        authorAccountId: args.accountId,
+        authorAccountId: await carriedTextAuthor(event, authored) ?? args.accountId,
         createdAt,
       });
     }

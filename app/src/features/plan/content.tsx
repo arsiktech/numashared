@@ -13,7 +13,7 @@ import { CTA, Dot, Pill, Press, T, TextButton } from '@/ui/primitives';
 import { SheetHead, useSheet } from '@/ui/sheet';
 import { useTheme } from '@/ui/theme';
 import { fonts, isAndroid } from '@/ui/tokens';
-import { money, nameOf, useHousehold } from '../hooks';
+import { money, nameOf, objectName, useHousehold } from '../hooks';
 import { dayMonth, isoDay } from '../history/model';
 
 export function PlanContent() {
@@ -40,7 +40,7 @@ export function PlanContent() {
   else {
     const debtor = bal < 0 ? mine : other!;
     const creditor = bal < 0 ? other! : mine;
-    title = `${nameOf(h, debtor)} ${isPlural(debtor, h.people, h.youId) ? 'owe' : 'owes'}\n${nameOf(h, creditor)} ${money(h, Math.abs(bal), hide)}`;
+    title = `${nameOf(h, debtor)} ${isPlural(debtor, h.people, h.youId) ? 'owe' : 'owes'}\n${objectName(h, creditor)} ${money(h, Math.abs(bal), hide)}`;
   }
   const sub = square
     ? `Nobody owes anything in ${h.name} right now.`
@@ -170,7 +170,7 @@ function Move({ h, t, mine, hide, onRecord }: { h: Household; t: Transfer; mine:
   return (
     <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 14, paddingHorizontal: 16, borderRadius: 18, backgroundColor: c.card,
       borderWidth: yours ? 2 : 1, borderColor: yours ? c.ink : c.hair }}
-      accessibilityLabel={`${nameOf(h, from)} owes ${nameOf(h, to)} ${money(h, t.amount, hide)}`}>
+      accessibilityLabel={`${nameOf(h, from)} ${isPlural(from, h.people, h.youId) ? 'owe' : 'owes'} ${objectName(h, to)} ${money(h, t.amount, hide)}`}>
       <View style={{ flex: 1, minWidth: 0 }}>
         <Pair h={h} from={from} to={to} dot={(g) => tone(g).deep} />
         <T style={{ fontFamily: fonts.display, fontSize: 26, letterSpacing: -0.8, marginTop: 2, fontVariant: ['tabular-nums'] }}>{money(h, t.amount, hide)}</T>

@@ -14,8 +14,25 @@ export function useHousehold() {
 export const nameOf = (h: Household, g: Group | ID) =>
   groupName(typeof g === 'string' ? h.groups.find((x) => x.id === g)! : g, h.people, h.youId);
 
+/** A group's name after a verb: "Sam paid you", "Alex owes you + Sam". */
+export const objectName = (h: Household, g: Group | ID) => nameOf(h, g).replace(/^You\b/, 'you');
+
+/** A repayment's title: "Sam paid you", "You paid Alex + Jo", "You + Sam paid Mia". */
+export function settlementTitle(h: Household, r: LedgerRecord) {
+  const s = r.settlement!;
+  return `${nameOf(h, s.fromGroupId)} paid ${objectName(h, s.toGroupId)}`;
+}
+
 export const personName = (h: Household, id: ID, viewerAware = true) =>
   viewerAware && id === h.youId ? 'You' : h.people.find((p) => p.id === id)?.name ?? 'Someone';
+
+/** "Arseny via Claude" when a connected AI agent made the change for that person; else their name. */
+export const authorName = (h: Household, id: ID, via?: string) =>
+  via ? `${personName(h, id)} via ${via}` : personName(h, id);
+
+/** " · added by Sam" on an expense someone else paid; " · added by You via Claude" whenever an agent added it. */
+export const addedByLine = (h: Household, r: { createdBy: ID; createdVia?: string }, payerId: ID) =>
+  r.createdBy !== payerId || r.createdVia ? ` · added by ${authorName(h, r.createdBy, r.createdVia)}` : '';
 
 export const initials = (h: Household, id: ID) => (id === h.youId ? 'Y' : (h.people.find((p) => p.id === id)?.name ?? '?').slice(0, 1).toUpperCase());
 

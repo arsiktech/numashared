@@ -8,7 +8,7 @@ vi.mock('expo-apple-authentication', () => ({ isAvailableAsync: vi.fn(() => { th
 vi.mock('expo-crypto', () => ({}));
 vi.mock('expo-secure-store', () => ({}));
 vi.mock('expo-notifications', () => notifications);
-vi.mock('../config', () => ({ CONVEX_URL: 'http://127.0.0.1:3210', SITE_URL: 'http://127.0.0.1:3211' }));
+vi.mock('../config', () => ({ CONVEX_URL: 'http://127.0.0.1:3210', SITE_URL: 'http://127.0.0.1:3211', PUBLIC_SITE_URL: 'http://127.0.0.1:3211' }));
 vi.mock('../../store/store', () => ({
   getState: () => ({ households: [], prefs: { notifications: true } }),
   showAccount: vi.fn(),

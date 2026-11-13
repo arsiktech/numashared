@@ -389,6 +389,7 @@ export function addPerson(id: ID, name: string): ID | null {
 // ---------- ledger writes ----------
 
 export class SaveError extends Error {}
+export const FROZEN_HISTORY_MESSAGE = 'This household is read-only. You can still view its history.';
 
 /**
  * Appends a validated event and resolves only once it is written to the device. If the write
@@ -402,6 +403,9 @@ async function append(householdId: ID, event: LedgerEvent, label: string): Promi
   }
   const h = state.households.find((x) => x.id === householdId);
   if (!h) throw new SaveError('Household not found.');
+  // The current membership wins over a draft opened before the archive arrived.
+  // Refuse before validation, persistence, balance changes or success/Undo feedback.
+  if (h.sync?.frozen) throw new SaveError(FROZEN_HISTORY_MESSAGE);
   validateEvent(h, event);
   const stamped = stamp(event);
   set({ ...state, households: state.households.map((x) => (x.id === householdId ? { ...x, events: [...x.events, stamped] } : x)) });

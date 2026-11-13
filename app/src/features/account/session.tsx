@@ -6,6 +6,7 @@ import { View } from 'react-native';
 import { appleSignInSupported, AuthError, currentSession, googleSignInAvailable, subscribeSession } from '@/sync/auth';
 import { signIn } from '@/sync/runtime';
 import { GoogleWebButton } from './googleWeb';
+import { signInColumn } from './signInWidth';
 import { showToast } from '@/store/ui';
 import { Apple } from '@/ui/icons';
 import { CTA, haptic } from '@/ui/primitives';
@@ -71,7 +72,7 @@ export function SignInButtons({ verb, onSignedIn, disabled }: {
   };
   const tail = verb ? ` ${verb}` : '';
   return (
-    <View style={{ gap: 12 }}>
+    <View style={[{ gap: 12 }, google && isWeb ? signInColumn : null]}>
       {apple ? (
         <CTA variant="apple" label={busy === 'apple' ? 'Signing in…' : `Continue with Apple${tail}`} disabled={!!busy || disabled}
           icon={<Apple size={20} color="#FFFFFF" />} onPress={() => run('apple')} />

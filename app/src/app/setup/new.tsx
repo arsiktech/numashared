@@ -10,21 +10,22 @@ import { CTA, IconButton, ListCard, Press, T } from '@/ui/primitives';
 import { useTheme } from '@/ui/theme';
 import { fonts, isWeb } from '@/ui/tokens';
 import { Caption, Field, Label, Screen, ScreenHeader, Select } from '@/features/onboarding/chrome';
-import { CURRENCIES, currencyLabel } from '@/features/onboarding/model';
+import { CURRENCIES, currencyLabel, DEFAULT_HOUSEHOLD_NAME, householdTitle } from '@/features/onboarding/model';
 
 type Row = { key: number; name: string };
 
 export default function NewHousehold() {
   const router = useRouter();
   const { c } = useTheme();
-  const [name, setName] = useState('Our place');
+  // Empty, with "Our place" as the placeholder and the fallback, so typing never adds to it.
+  const [name, setName] = useState('');
   const [currency, setCurrency] = useState('EUR');
   const [youName, setYouName] = useState('');
   const [others, setOthers] = useState<Row[]>([{ key: 1, name: '' }]);
   const seq = useRef(2);
   const inputs = useRef(new Map<number, TextInput | null>());
   const full = others.length + 1 >= MAX_GROUPS;
-  const title = name.trim() || 'Our place';
+  const title = householdTitle(name);
 
   const add = () => {
     if (full) return;
@@ -60,7 +61,7 @@ export default function NewHousehold() {
       footer={<CTA label="Create household" accessibilityLabel={`Create household ${title}`} onPress={create} />}>
       <Label nativeID="nh-name" style={{ marginTop: 22 }}>Name</Label>
       <Field value={name} onChangeText={setName} accessibilityLabel="Household name"
-        placeholder="Our place" returnKeyType="next" autoCapitalize="words" maxLength={40} />
+        placeholder={DEFAULT_HOUSEHOLD_NAME} returnKeyType="next" autoCapitalize="words" maxLength={40} />
 
       <Label>Currency</Label>
       <Select label="Currency" value={currency} onChange={setCurrency}

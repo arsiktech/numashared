@@ -25,6 +25,22 @@ export function requestHistorySearch(v = true) {
   open = v;
   for (const l of openListeners) l();
 }
+export function getHistorySearchOpen() { return open; }
 export function useHistorySearchOpen(): boolean {
   return useSyncExternalStore((l) => { openListeners.add(l); return () => { openListeners.delete(l); }; }, () => open, () => open);
+}
+
+/** Clear the text and close the field. */
+export function closeHistorySearch() {
+  setHistoryQuery('');
+  requestHistorySearch(false);
+}
+
+/**
+ * The X on the history search field. Typed text used to clear in place and leave the
+ * field open; the X closes it whether or not anything is typed.
+ */
+export function onHistorySearchX(_query: string, closeField: () => void) {
+  closeHistorySearch();
+  closeField();
 }

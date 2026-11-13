@@ -11,19 +11,28 @@ import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { hydrate } from '@/store/store';
 import { startSyncRuntime } from '@/sync/runtime';
 import { ThemeProvider, useTheme } from '@/ui/theme';
-import { fontFiles, isAndroid } from '@/ui/tokens';
+import { installCyrillicFaces } from '@/ui/cyrillicFaces';
+import { fontFiles, isAndroid, isWeb } from '@/ui/tokens';
 import { SheetHost } from '@/sheets/host';
 import { sheetBackdrop } from '@/ui/sheet';
 import { UndoLane } from '@/ui/lane';
 import { Celebrate, Toast } from '@/ui/celebrate';
+import { FeedbackButton } from '@/features/feedback/button';
 
 SplashScreen.preventAutoHideAsync().catch(() => {});
 
 export default function RootLayout() {
   const [fontsLoaded, fontError] = useFonts(fontFiles);
   const [ready, setReady] = useState(false);
+  const [cyrillicReady, setCyrillicReady] = useState(!isWeb);
   useEffect(() => { hydrate().finally(() => { setReady(true); startSyncRuntime(); }); }, []);
-  const go = ready && (fontsLoaded || !!fontError);
+  useEffect(() => {
+    if (!fontsLoaded) return;
+    let cancel = false;
+    installCyrillicFaces().finally(() => { if (!cancel) setCyrillicReady(true); });
+    return () => { cancel = true; };
+  }, [fontsLoaded]);
+  const go = ready && (fontsLoaded || !!fontError) && (cyrillicReady || !!fontError);
   useEffect(() => { if (go) SplashScreen.hideAsync().catch(() => {}); }, [go]);
   if (!go) return null;
   return (
@@ -57,6 +66,7 @@ function Shell() {
         </Animated.View>
         <UndoLane />
         <SheetHost />
+        <FeedbackButton />
         <Celebrate />
         <Toast />
       </View>

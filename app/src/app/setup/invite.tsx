@@ -17,7 +17,7 @@ import { shareText } from '@/features/onboarding/share';
 import { explainFailure, SignInButtons, useSession, useSignInOptions } from '@/features/account/session';
 import { showToast } from '@/store/ui';
 import { PUBLIC_SITE_URL } from '@/sync/config';
-import { failureOf } from '@/sync/engine';
+import { failureOf, inviteUsable, INVITE_RECHECK_MS } from '@/sync/engine';
 import { online, turnOnSync, useSyncStatus } from '@/sync/runtime';
 import { groupLimitWords } from '@/sync/contract';
 
@@ -69,11 +69,22 @@ function Codes({ h }: { h: Household }) {
   const { c } = useTheme();
   const status = useSyncStatus();
   const pending = h.people.filter((p) => p.id !== h.youId && !p.joined && !p.archived);
-  const missing = pending.some((p) => !h.sync!.invites?.[p.id]?.issued);
+  const [checking, setChecking] = useState(true);
+  const [checked, setChecked] = useState(false);
+  const refresh = async () => {
+    setChecking(true);
+    try { await online.invites(h); setChecked(true); }
+    catch { setChecked(false); }
+    finally { setChecking(false); }
+  };
   useEffect(() => {
-    if (!h.sync!.setup && missing) online.invites(h).catch(() => {});
+    if (h.sync!.setup) return;
+    void refresh();
+    // Only this visible surface polls metadata. Invalid codes are never replaced by it.
+    const timer = setInterval(() => { void refresh(); }, INVITE_RECHECK_MS);
+    return () => clearInterval(timer);
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [h.id, missing, h.sync?.setup]);
+  }, [h.id, h.sync?.setup]);
   const single = pending.length === 1 ? h.sync!.invites?.[pending[0].id] : undefined;
   return (
     <View>
@@ -84,7 +95,8 @@ function Codes({ h }: { h: Household }) {
           </Banner>
         </View>
       ) : null}
-      {single?.issued ? (
+      {!h.sync!.setup && !checked && !checking ? <CTA variant="second" label="Check codes" onPress={refresh} /> : null}
+      {checked && !checking && single && inviteUsable(single) ? (
         <View style={{ marginTop: 22, backgroundColor: c.card, borderRadius: 22, paddingTop: 26, paddingHorizontal: 22, paddingBottom: 24, alignItems: 'center' }}>
           <InvitePattern code={single.code} label={`Invite picture for ${pending[0].name}. The code is ${single.code.split('').join(' ')}`} />
           <T style={{ fontFamily: fonts.semibold, fontSize: 12.5, color: c.ink2, marginTop: 14 }}>{pending[0].name}’s code</T>
@@ -96,7 +108,7 @@ function Codes({ h }: { h: Household }) {
             A code for each person
           </T>
           <View style={{ gap: 12 }}>
-            {pending.map((p) => <CodeCard key={p.id} h={h} p={p} />)}
+            {pending.map((p) => <CodeCard key={p.id} h={h} p={p} checked={checked && !checking} />)}
           </View>
         </>
       ) : null}
@@ -109,12 +121,30 @@ function Codes({ h }: { h: Household }) {
   );
 }
 
-function CodeCard({ h, p }: { h: Household; p: Person }) {
+function CodeCard({ h, p, checked }: { h: Household; p: Person; checked: boolean }) {
   const { c } = useTheme();
   const invite = h.sync!.invites?.[p.id];
-  const ready = invite?.issued;
-  const code = ready ? showCode(invite.code) : '';
-  const link = ready ? `${PUBLIC_SITE_URL}/join/${invite.token}?code=${invite.code}` : '';
+  const [busy, setBusy] = useState(false);
+  const ready = checked && inviteUsable(invite) && !busy;
+  const code = ready && invite ? showCode(invite.code) : '';
+  const share = async (copy: boolean) => {
+    if (busy) return;
+    setBusy(true);
+    try {
+      const current = await online.invite(h, p.id);
+      if (!current) { showToast('That code is no longer available. Check or replace it.'); return; }
+      const link = `${PUBLIC_SITE_URL}/join/${current.token}?code=${current.code}`;
+      await shareText(copy ? current.code : `${p.name}, join ${h.name} on Numa Shared: ${link}\nOr type the code ${showCode(current.code)} in the app.`, copy ? 'Code copied' : 'Invite copied', copy ? undefined : `Join ${h.name}`);
+    } catch (e) { showToast(explainFailure(failureOf(e).code)); }
+    finally { setBusy(false); }
+  };
+  const replace = async () => {
+    if (!invite || busy) return;
+    setBusy(true);
+    try { await online.replaceInvite(h, p.id, invite.inviteId); }
+    catch (e) { showToast(explainFailure(failureOf(e).code)); }
+    finally { setBusy(false); }
+  };
   return (
     <View style={{ backgroundColor: c.card, borderRadius: 20, padding: 18, gap: 12 }}>
       <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
@@ -122,19 +152,21 @@ function CodeCard({ h, p }: { h: Household; p: Person }) {
           <T style={{ fontFamily: fonts.bold, fontSize: 14 }}>{initials(h, p.id)}</T>
         </View>
         <T style={{ flex: 1, fontFamily: fonts.semibold, fontSize: 17 }}>{p.name}</T>
-        {ready ? (
+        {ready && invite ? (
           <T selectable accessibilityLabel={`${p.name}’s code ${invite.code.split('').join(' ')}`}
             style={{ fontFamily: fonts.semibold, fontSize: 24, letterSpacing: 3, fontVariant: ['tabular-nums'] }}>{code}</T>
-        ) : <T style={{ fontSize: 14, color: c.ink2 }}>Making a code…</T>}
+        ) : <T style={{ fontSize: 14, color: c.ink2 }}>{!checked ? 'Checking code…' : invite?.state === 'elsewhere' ? 'Code on another device' : invite?.state === 'expired' ? 'Code expired' : 'Code unavailable'}</T>}
       </View>
-      {ready ? (
+      {ready && invite ? (
         <View style={{ flexDirection: 'row', gap: 10 }}>
           <Pill label={`Send to ${p.name}`} style={{ flex: 1, height: 44, borderRadius: 22, alignSelf: 'auto' }} icon={<ShareIcon size={17} color={c.bg} />}
             accessibilityLabel={`Send ${p.name} their invite`}
-            onPress={() => shareText(`${p.name}, join ${h.name} on Numa Shared: ${link}\nOr type the code ${code} in the app.`, 'Invite copied', `Join ${h.name}`)} />
+            onPress={() => share(false)} />
           <Pill light label="Copy code" style={{ flex: 1, height: 44, borderRadius: 22, alignSelf: 'auto' }} icon={<Copy size={17} color={c.ink} />}
-            accessibilityLabel={`Copy ${p.name}’s code`} onPress={() => shareText(invite.code, 'Code copied')} />
+            accessibilityLabel={`Copy ${p.name}’s code`} onPress={() => share(true)} />
         </View>
+      ) : checked && invite?.state && !h.sync!.frozen ? (
+        <CTA variant="second" label={busy ? 'Replacing…' : `Replace ${p.name}’s code`} disabled={busy} onPress={replace} />
       ) : null}
     </View>
   );

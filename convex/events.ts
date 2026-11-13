@@ -126,6 +126,9 @@ export const listEvents = query({
         // When the server sequenced the event. occurredAtMillis is the author's chosen time
         // (an expense can be backdated); this says when it was actually recorded.
         recordedAtMillis: stored.createdAt,
+        // The connected agent that appended it for the actor ("Arseny via Claude"). Outside the
+        // event envelope: readers that don't know it (Swift build 11) ignore it.
+        ...(stored.via === undefined ? {} : { via: stored.via }),
         textStates,
       });
     }

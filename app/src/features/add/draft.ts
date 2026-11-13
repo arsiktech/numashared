@@ -7,6 +7,19 @@ import { nameOf } from '../hooks';
 
 export const CATEGORIES: readonly Category[] = ['groceries', 'household', 'rent', 'bills', 'internet', 'eating-out', 'cleaning', 'other'];
 
+/**
+ * Text erased while an edit is open (its author deleted their account) leaves the draft too,
+ * so saving cannot send it again. Anything the person typed since opening stays.
+ */
+export function withoutErasedText<D extends { title: string; note: string }>(
+  draft: D, opened: { title: string; note: string }, current: { title?: string; note?: string },
+): D {
+  const title = !current.title && opened.title && draft.title === opened.title;
+  const note = !current.note && opened.note && draft.note === opened.note;
+  if (!title && !note) return draft;
+  return { ...draft, ...(title ? { title: '' } : {}), ...(note ? { note: '' } : {}) };
+}
+
 // ---------- dates ----------
 
 export function shiftISO(iso: string, days: number): string {

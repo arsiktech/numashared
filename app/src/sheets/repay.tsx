@@ -152,7 +152,7 @@ function RepayBody({ h, spec, groups, setGroups, t }: {
   };
 
   const focusNote = () => { setPanel(null); setNoteEditing(true); setTimeout(() => noteRef.current?.focus(), 0); };
-  useWebKeys(isTop, { onKey, onEnter: save, onTab: focusNote });
+  useWebKeys(isTop, { onKey, onEnter: save, onTab: details ? focusNote : undefined });
 
   // ---------- wording ----------
 
@@ -249,14 +249,17 @@ function RepayBody({ h, spec, groups, setGroups, t }: {
           style={{ marginTop: 10 }} onSubmit={isWeb ? save : undefined} />
         </> : null}
       </View>
-      <View style={{ flex: 1, minHeight: isAndroid ? 4 * 44 + 8 : 0, overflow: 'hidden', justifyContent: 'flex-end', paddingHorizontal: 12, paddingTop: 6 }} onLayout={(e) => setMidH(e.nativeEvent.layout.height)}>
-        <Keypad onKey={(k) => onKey(k as Key)} color={t.ink} height={keyHeight(screenH * 0.9, midH)} allowDot={currencyDigits(cur) > 0} />
+      <View style={{ flex: isWeb ? undefined : 1, flexGrow: 1, minHeight: isAndroid ? 4 * 44 + 8 : 0, overflow: 'hidden', justifyContent: 'flex-end', paddingHorizontal: 12, paddingTop: 6 }} onLayout={(e) => setMidH(e.nativeEvent.layout.height)}>
+        <Keypad onKey={(k) => onKey(k as Key)} color={t.ink} height={keyHeight(screenH * 0.9, isWeb ? 0 : midH)} allowDot={currencyDigits(cur) > 0} />
       </View>
     </>
   );
 
+  // The web scrolls the whole sheet. Android scrolls only the form, so the receipt and its action
+  // stay pinned above the keyboard. iOS lays the sheet out without a scroller.
+  const Body = isWeb ? SheetScrollView : View;
   return (
-    <View style={{ flex: 1 }}>
+    <Body style={{ flex: 1 }} {...(isWeb ? { contentContainerStyle: { flexGrow: 1 }, keyboardShouldPersistTaps: 'handled' as const } : {})}>
       <SheetTop title="Record a repayment" tone={t} onCancel={() => close()} date={date} dateOpen={panel === 'date'}
         onDate={() => { haptic.tick(); setPanel(panel === 'date' ? null : 'date'); }} />
       {isAndroid ? (
@@ -276,7 +279,7 @@ function RepayBody({ h, spec, groups, setGroups, t }: {
         ) : null}
         <CTA label={error === 'save' ? 'Try again' : amount > 0 ? `Record ${money(amount)} repaid` : 'Type an amount'} disabled={!canSave} onPress={save} />
       </Receipt>
-    </View>
+    </Body>
   );
 }
 

@@ -218,6 +218,10 @@ describe("free-host web entry", () => {
     const body = await (await t.fetch("/")).text();
     expect(body).toContain('class="button" href="https://shared.example.com/app/">Open the web app');
     expect(body).toContain('class="orb orb--link" data-orb href="https://shared.example.com/app/"');
+    // The orb is a real link, so nothing around it may hide it from screen readers: the stage's
+    // decorative parts carry aria-hidden themselves.
+    expect(body).not.toMatch(/class="stage"[^>]*aria-hidden/);
+    expect(body).not.toMatch(/<a\b[^>]*aria-hidden/);
     expect(body).toContain("Free during the beta.");
     expect(body).toContain("Ask to test the iPhone app");
     expect(body).not.toContain("<!--web-->");
@@ -481,9 +485,37 @@ describe("free-host web entry", () => {
     expect(supportBody).toContain("transfer ownership before leaving");
     expect(supportBody).toContain("frozen, read-only local snapshot");
     expect(supportBody).toContain('href="/terms"');
+    const deletion = supportBody.slice(supportBody.indexOf('id="delete-account"'), supportBody.indexOf("<h2>Contact</h2>"));
+    expect(deletion).toContain("Sign in first, then Delete.");
+    expect(deletion.indexOf("Open")).toBeLessThan(deletion.indexOf("Sign in first, then Delete."));
+    expect(deletion).not.toContain("Review what will happen");
     expect(privacyBody).toContain("United States (US East, Virginia)");
     expect(privacyBody).toContain("Apple Push Notification service");
     expect(privacyBody).toContain('href="/terms"');
+    expect(privacyBody).toContain("Last updated 10 November 2026");
+    // Agent access: who decides, what a connected agent reads and changes, who receives it, what
+    // is kept, and how to stop it. Keep in step with docs/PRIVACY.md and docs/AGENT-ACCESS.md.
+    const agents = privacyBody.slice(privacyBody.indexOf("<h2>AI agents you connect</h2>"), privacyBody.indexOf("<h2>Your choices and rights</h2>"));
+    expect(agents.length).toBeGreaterThan(1000);
+    for (const phrase of [
+      "You can choose to connect an AI agent",
+      "including titles, amounts, categories, notes",
+      "add expenses and repayments, edit and void records, and manage the household",
+      "A new connection starts with all three switches on",
+      "The agent acts as you",
+      "everyone in the household sees its changes under your name",
+      "Recent versions of the Numa Shared app also show the agent’s name",
+      "It can never delete your account, delete or leave a household, or remove a member",
+      "Numa Shared never moves money",
+      "its own terms and privacy policy apply",
+      "one-way hashes",
+      "The activity list never records amounts, names or what the agent was shown",
+      "for at most 24 hours",
+      "Settings, AI agents and choose Disconnect",
+      "Deleting your account erases all your connections, tokens, activity and request ids",
+    ]) expect(agents).toContain(phrase);
+    expect(privacyBody).not.toContain("It can only read");
+    expect(privacyBody).not.toContain("—");
 
     const terms = await t.fetch("/terms");
     const termsBody = await terms.text();

@@ -7,3 +7,9 @@ export const SHORT_SHEET_HEIGHT = 560;
 export const SHORT_KEY_HEIGHT = 44;
 
 export const isShortSheet = (screenH: number) => screenH < SHORT_SHEET_HEIGHT;
+
+/**
+ * At an accessibility text size the amount and keypad stay pinned above the Add button, but only
+ * when the screen is tall enough: a short screen keeps the sheet that scrolls as a whole.
+ */
+export const pinsKeypad = (largeText: boolean, screenH: number) => largeText && !isShortSheet(screenH);
