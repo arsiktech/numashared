@@ -74,3 +74,25 @@ The privacy policy (`privacyHTML` in `convex/lib/webContent.ts`, served at
 When an agent tool, a switch, a stored field or a lifetime changes, update the
 policy, its date and the assertions in `convex/web.test.ts` in the same change.
 Store label guidance is in `PRIVACY-LABELS.md`.
+
+# App updates and diagnostics
+
+The privacy policy has a section, "App updates and diagnostics". It must match
+the native build configuration.
+
+- **What is sent**: `expo-updates` is enabled in native builds (`app/app.json`,
+  `updates.url` and the `production` channel). On each start the app asks
+  Expo's EAS Update service for an update. The request carries the
+  installation identifier `EAS-Client-ID` and the runtime and platform
+  details. After a fatal error during start, the next request also carries
+  the `Expo-Fatal-Error` header: up to 1,024 characters of that error.
+- **No switch**: the app has no diagnostic-consent setting, and the policy
+  says so. Do not describe this as opt-in.
+- **Who receives it**: Expo (650 Industries, Inc.). The web app does not load
+  `expo-updates`.
+- **Store forms**: declare this under device identifiers, crash data and
+  diagnostics. `PRIVACY-LABELS.md` has the label guidance.
+
+If updates are turned off for a build, or a crash or analytics SDK is added,
+update the policy, its date and the assertions in `convex/web.test.ts` in the
+same change.
