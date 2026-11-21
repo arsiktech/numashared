@@ -80,6 +80,7 @@ const CODE_MESSAGES: Record<string, string> = {
   AGENT_CURRENCY_MISMATCH: "Refused: the currency is not the household's. Numa Shared doesn't convert currencies.",
   AGENT_AMOUNT_INVALID: "The amount is not valid.",
   AGENT_TEXT_TOO_LONG: "Some text is too long.",
+  RESERVED_REDACTED_TEXT: "That text is reserved by Numa Shared and can't be used.",
   AGENT_CATEGORY_UNKNOWN: "That category doesn't exist.",
   AGENT_METHOD_UNKNOWN: "That repayment method doesn't exist.",
   AGENT_DATE_INVALID: "The date is not valid.",
@@ -197,7 +198,11 @@ export const mcp = httpAction(async (ctx, request) => {
   }
 
   let body: unknown;
-  try { body = await request.json(); } catch { return json(rpcError(null, -32700, "The request is not valid JSON."), 400); }
+  try {
+    const raw = await request.text();
+    if (raw.length > 65_536) return json(rpcError(null, -32600, "The request is too large."), 413);
+    body = JSON.parse(raw);
+  } catch { return json(rpcError(null, -32700, "The request is not valid JSON."), 400); }
   // One message per POST. MCP removed JSON-RPC batching in 2025-06-18, and the clients we serve
   // never sent batches; a batch would also run many tools on one counted call.
   if (Array.isArray(body)) {
@@ -301,7 +306,11 @@ export const mcp = httpAction(async (ctx, request) => {
         const name = String(m.params?.name ?? "");
         const tool = agentTools.find((t) => t.name === name);
         if (!tool) return { reply: rpcError(m.id, -32602, `Unknown tool ${name}. Use tools/list for the tools Numa Shared offers.`) };
-        const args = (m.params?.arguments ?? {}) as Record<string, unknown>;
+        const rawArgs = m.params?.arguments;
+        if (rawArgs !== undefined && (typeof rawArgs !== "object" || rawArgs === null || Array.isArray(rawArgs))) {
+          return { reply: rpcError(m.id, -32602, "Tool arguments must be a JSON object.") };
+        }
+        const args = (rawArgs ?? {}) as Record<string, unknown>;
         let result: { content: Array<{ type: "text"; text: string }>; structuredContent?: unknown; isError?: boolean };
         let ok = true;
         try {

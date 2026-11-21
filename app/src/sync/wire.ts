@@ -63,22 +63,19 @@ export type ListedEvent = {
   textStates: TextState[];
 };
 
-export type PotConfiguration = {
-  potId: string;
-  currency: WireCurrency;
-  orderedUnitIds: string[];
-  ownerMemberId: string;
-  minimumReaderSchemaVersion: bigint;
-};
-
 export const REDACTED = '[redacted]';
 
 /** Builds the manifest and authored text in the canonical field order, dropping blank values. */
 export function authored(text: Partial<Record<TextField, string | undefined>>) {
-  const fields = TEXT_FIELD_ORDER.filter((f) => isPresent(text[f]));
+  const entries = TEXT_FIELD_ORDER.flatMap((field) => {
+    const raw = text[field];
+    if (typeof raw !== 'string') return [];
+    const value = raw.slice(0, 512);
+    return isPresent(value) ? [{ field, value }] : [];
+  });
   return {
-    textFields: fields,
-    authoredText: fields.map((field) => ({ field, value: text[field]!.slice(0, 512) })),
+    textFields: entries.map((e) => e.field),
+    authoredText: entries,
   };
 }
 

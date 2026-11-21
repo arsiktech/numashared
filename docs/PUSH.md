@@ -1,6 +1,6 @@
 # Push delivery
 
-Numa Shared uses alert pushes only for the exhaustive matrix in `GOAL_BRIEF.md §6`. The server composes the English, pot-named body; clients never supply notification text or amounts.
+Numa Shared uses alert pushes only for the exhaustive matrix defined in `convex/lib/notificationMatrix.ts` (`expenseAdded`, `expenseRevised`, `recordVoided`, `settlementRecorded`, plus newly contested revisions; opening balances, restores, and settlement flags stay silent). The server composes the English, pot-named body; clients never supply notification text or amounts.
 
 ## Delivery path
 
@@ -57,7 +57,7 @@ Local unit tests generate an ephemeral EC key and never contact Apple. They prov
 
 ```bash
 npm run backend:typecheck
-npm run backend:test -- --run
+npm run backend:test
 ./scripts/convex-local.sh dev --start '/usr/bin/true'
 ```
 

@@ -1,7 +1,7 @@
 // Your account, the step between "Start a household" and setting it up (and the way back in for
 // someone who already uses Numa Shared). Signing in is what lets the people you invite see the same
 // household on their own phones. Without it, the household stays on this phone.
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import { View } from 'react-native';
 import { Redirect, useLocalSearchParams, useRouter } from 'expo-router';
 import { CloudOff } from '@/ui/icons';
@@ -18,15 +18,17 @@ export default function Account() {
   const { mode } = useLocalSearchParams<{ mode?: string }>();
   const returning = mode === 'signin';
   const session = useSession();
+  const hadSessionOnMount = useRef(!!session);
   const options = useSignInOptions();
   const phone = layout === 'phone';
   const citrus = tone('citrus');
   const lilac = tone('lilac');
   const here = isWeb ? 'in this browser' : 'on this phone';
 
-  // Signed in already: nothing to ask here.
-  useEffect(() => { if (session && !returning) router.replace('/setup/new'); }, [session, returning, router]);
-  if (session && returning) return <Redirect href="/home" />;
+  // Signed in already before arriving here: skip straight ahead. When the person signs in on this
+  // screen, SignInButtons waits for sync to finish and calls `done(arrived)` instead.
+  useEffect(() => { if (hadSessionOnMount.current && session && !returning) router.replace('/setup/new'); }, [session, returning, router]);
+  if (hadSessionOnMount.current && session && returning) return <Redirect href="/home" />;
 
   const done = (arrived: number) => {
     if (!returning) { router.replace('/setup/new'); return; }

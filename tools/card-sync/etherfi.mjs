@@ -68,7 +68,16 @@ export function merchantOf(tx) {
 
 export const categoryOf = (tx) => (typeof tx.merchantData?.mcc_category === 'string' ? tx.merchantData.mcc_category : undefined);
 
-/** "12.3456" → "12.35" in a 2-decimal currency. */
+const NONSTANDARD_DIGITS = {
+  BIF: 0, CLP: 0, DJF: 0, GNF: 0, ISK: 0, JPY: 0, KMF: 0, KRW: 0, PYG: 0, RWF: 0,
+  UGX: 0, UYI: 0, VND: 0, VUV: 0, XAF: 0, XOF: 0, XPF: 0,
+  BHD: 3, IQD: 3, JOD: 3, KWD: 3, LYD: 3, OMR: 3, TND: 3,
+  CLF: 4, UYW: 4,
+};
+
+export const currencyDigits = (currency) => NONSTANDARD_DIGITS[String(currency).toUpperCase()] ?? 2;
+
+/** "12.3456" → "12.35" in a 2-decimal currency, "1235" in JPY, "1.235" in BHD. */
 export const decimal = (n, digits = 2) => (Math.round(n * 10 ** digits) / 10 ** digits).toFixed(digits);
 
 /**
@@ -98,10 +107,11 @@ export function spendsFrom(transactions, { cards, since, currency, rate }) {
       if (!r) { skipped.push({ id, card, why: `no ${money.currency}→${currency} rate yet` }); continue; }
       amount = money.amount * r;
     }
+    const digits = currencyDigits(currency);
     const merchantKey = typeof tx.merchantData?.merchant_id === 'string' && tx.merchantData.merchant_id ? tx.merchantData.merchant_id : undefined;
     spends.push({
       id: `etherfi:${id}`, card, occurredAt: new Date(at).toISOString(), merchant: merchantOf(tx),
-      amount: decimal(amount), currency, ...(categoryOf(tx) ? { category: categoryOf(tx) } : {}),
+      amount: decimal(amount, digits), currency, ...(categoryOf(tx) ? { category: categoryOf(tx) } : {}),
       ...(kind !== 'spend' ? { kind } : {}), ...(merchantKey ? { merchantKey } : {}),
     });
   }

@@ -98,8 +98,6 @@ export type LedgerEvent =
   | (Base & { kind: 'recordVoided'; recordId: ID; reason: string })
   | (Base & { kind: 'recordRestored'; recordId: ID });
 
-export type EventKind = LedgerEvent['kind'];
-
 export type Household = {
   id: ID;
   name: string;

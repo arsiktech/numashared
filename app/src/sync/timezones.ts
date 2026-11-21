@@ -6,12 +6,6 @@ const ALIASES: Record<string, string> = {
   "Asia/Kolkata": "Asia/Calcutta",
   "Etc/UTC": "UTC",
   "Etc/GMT": "GMT",
-  "Europe/Kyiv": "Europe/Kiev",
-  "America/Nuuk": "America/Godthab",
-  "Asia/Kathmandu": "Asia/Katmandu",
-  "Asia/Yangon": "Asia/Rangoon",
-  "Pacific/Chuuk": "Pacific/Truk",
-  "Pacific/Pohnpei": "Pacific/Ponape",
 };
 
 export function wireTimeZone(zone?: string): string {

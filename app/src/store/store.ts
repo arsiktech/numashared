@@ -3,11 +3,11 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useSyncExternalStore } from 'react';
 import {
-  canUndoInHousehold, reduce, validateEvent, sampleHousehold,
+  canUndoInHousehold, reduce, sampleHousehold,
 } from '@/core';
 import type {
-  Category, ExpenseContent, Household, ID, LedgerEvent, OpeningContent, OpeningEntry, PaymentMethod, Person, Group,
-  SettlementContent, Split,
+  ExpenseContent, Household, ID, LedgerEvent, OpeningContent, OpeningEntry, Person, Group,
+  SettlementContent,
 } from '@/core/types';
 import { GROUP_COLORS, MAX_GROUPS } from '@/core/types';
 import { maxGroupSize } from '../sync/contract';
@@ -29,8 +29,6 @@ export type State = {
   locked: boolean;
   /** Event ids created on this device in this session, newest last: the Undo lane reads these. */
   recent: { eventId: ID; householdId: ID; at: number; label: string }[];
-  /** Simulated failure switch for QA of the Save failed state (never set in normal use). */
-  failNextSave: boolean;
   /**
    * Shared households of accounts that aren't signed in right now, by account id ('?' for copies
    * made before households recorded their account). They stay on the device, out of sight, until
@@ -48,15 +46,18 @@ const initial: State = {
   prefs: { hideAmounts: false, appearance: 'system', notifications: true },
   locked: false,
   recent: [],
-  failNextSave: false,
 };
 
 let state: State = initial;
 let hydrated = false;
 const listeners = new Set<() => void>();
 
-function emit() {
+function notify() {
   for (const l of listeners) l();
+}
+
+function emit() {
+  notify();
   schedulePersist();
 }
 
@@ -65,7 +66,7 @@ let writeQueue: Promise<void> = Promise.resolve();
 let persistTimer: ReturnType<typeof setTimeout> | null = null;
 
 const snapshot = () => {
-  const { recent: _recent, failNextSave: _f, ...rest } = state;
+  const { recent: _recent, ...rest } = state;
   return JSON.stringify(rest);
 };
 
@@ -77,6 +78,8 @@ function persistNow(): Promise<void> {
   writeQueue = write;
   return write;
 }
+
+export const flushPersistence = persistNow;
 
 /** Background changes (preferences, sync, seen marks) are batched; a failure is still shown. */
 function schedulePersist() {
@@ -93,7 +96,7 @@ export async function hydrate(): Promise<void> {
     if (raw) {
       const saved = JSON.parse(raw) as Partial<State>;
       if (saved.version === 1 && Array.isArray(saved.households)) {
-        state = { ...initial, ...saved, recent: [], failNextSave: false } as State;
+        state = { ...initial, ...saved, recent: [] } as State;
       }
     }
   } catch {
@@ -101,10 +104,8 @@ export async function hydrate(): Promise<void> {
   }
   hydrated = true;
   applyAccount();
-  emit();
+  notify();
 }
-
-export const isHydrated = () => hydrated;
 
 // On the web, two tabs share one saved state. When the other tab saves, take its version, so this
 // tab's next save can't write over what was added there. Changes this tab hasn't saved yet (a save
@@ -127,8 +128,8 @@ if (typeof window !== 'undefined' && typeof window.addEventListener === 'functio
     if (pending) households.push(...state.households.filter((h) => !saved.households!.some((x) => x.id === h.id)));
     // Each tab keeps showing the household it was on, so a screen mid-setup isn't swapped out under it.
     const activeId = households.some((h) => h.id === state.activeId) ? state.activeId : saved.activeId ?? null;
-    state = { ...initial, ...saved, households, activeId, recent: state.recent, failNextSave: false } as State;
-    for (const l of listeners) l();
+    state = { ...initial, ...saved, households, activeId, recent: state.recent } as State;
+    notify();
     if (pending) schedulePersist();
     applyAccount();
   });
@@ -180,7 +181,14 @@ export function forgetAccount(accountId: string) {
   const parked = { ...state.parked };
   delete parked[accountId];
   const rest = state.households.filter((h) => !h.sync || (h.sync.accountId ?? accountId) !== accountId);
-  set({ ...state, parked, households: rest, activeId: rest.some((h) => h.id === state.activeId) ? state.activeId : (rest[0]?.id ?? null) });
+  const keptIds = new Set(rest.map((h) => h.id));
+  set({
+    ...state,
+    parked,
+    households: rest,
+    recent: state.recent.filter((r) => keptIds.has(r.householdId)),
+    activeId: rest.some((h) => h.id === state.activeId) ? state.activeId : (rest[0]?.id ?? null),
+  });
 }
 
 /** For the sync runtime: legacy copies the server confirms as this account's come back into view. */
@@ -286,7 +294,12 @@ export function putHousehold(h: Household) {
 
 export function removeHousehold(id: ID) {
   const rest = state.households.filter((h) => h.id !== id);
-  set({ ...state, households: rest, activeId: state.activeId === id ? (rest[0]?.id ?? null) : state.activeId });
+  set({
+    ...state,
+    households: rest,
+    recent: state.recent.filter((r) => r.householdId !== id),
+    activeId: state.activeId === id ? (rest[0]?.id ?? null) : state.activeId,
+  });
 }
 
 /**
@@ -397,26 +410,27 @@ export const FROZEN_HISTORY_MESSAGE = 'This household is read-only. You can stil
  * saved that a restart would lose.
  */
 async function append(householdId: ID, event: LedgerEvent, label: string): Promise<ID> {
-  if (state.failNextSave) {
-    set({ ...state, failNextSave: false });
-    throw new SaveError('Couldn’t save just now.');
-  }
   const h = state.households.find((x) => x.id === householdId);
   if (!h) throw new SaveError('Household not found.');
   // The current membership wins over a draft opened before the archive arrived.
   // Refuse before validation, persistence, balance changes or success/Undo feedback.
   if (h.sync?.frozen) throw new SaveError(FROZEN_HISTORY_MESSAGE);
-  validateEvent(h, event);
   const stamped = stamp(event);
-  set({ ...state, households: state.households.map((x) => (x.id === householdId ? { ...x, events: [...x.events, stamped] } : x)) });
+  const nextH: Household = { ...h, events: [...h.events, stamped] };
+  const nextLedger = reduce(nextH);
+  ledgerCache.set(nextH, nextLedger);
+  state = { ...state, households: state.households.map((x) => (x.id === householdId ? nextH : x)) };
+  notify();
   try {
     await persistNow();
   } catch {
-    set({ ...state, households: state.households.map((x) => (x.id === householdId ? { ...x, events: x.events.filter((e) => e.id !== event.id) } : x)) });
+    state = { ...state, households: state.households.map((x) => (x.id === householdId ? { ...x, events: x.events.filter((e) => e.id !== event.id) } : x)) };
+    notify();
     throw new SaveError('Couldn’t save on this phone. Free up some space, then try again.');
   }
   // Only now is it saved: show it in the undo lane.
-  set({ ...state, recent: [...state.recent.slice(-9), { eventId: event.id, householdId, at: event.at, label }] });
+  state = { ...state, recent: [...state.recent.slice(-9), { eventId: event.id, householdId, at: event.at, label }] };
+  notify();
   return event.id;
 }
 
@@ -514,10 +528,5 @@ export function signOut(mode: 'lock' | 'erase') {
 export function unlock() { set({ ...state, locked: false }); }
 
 export function leaveHousehold(id: ID) {
-  const rest = state.households.filter((h) => h.id !== id);
-  set({ ...state, households: rest, activeId: rest[0]?.id ?? null });
+  removeHousehold(id);
 }
-
-export function failNextSaveForQA() { set({ ...state, failNextSave: true }); }
-
-export type { Category, PaymentMethod, Split };

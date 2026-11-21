@@ -18,15 +18,17 @@ def srgb(path, untagged_profile=None):
     image = Image.open(path)
     image.load()
     profile = image.info.get("icc_profile")
-    if profile or untagged_profile:
-        image = ImageCms.profileToProfile(
-            image.convert("RGB"), (ImageCms.ImageCmsProfile(io.BytesIO(profile)) if profile
-                                   else ImageCms.ImageCmsProfile(str(untagged_profile))),
-            ImageCms.createProfile("sRGB"), outputMode="RGB")
-    elif image.mode != "RGB":
+    if image.mode in ("RGBA", "LA", "PA") or (image.mode == "P" and "transparency" in image.info):
         rgba = image.convert("RGBA")
         background = Image.new("RGBA", rgba.size, "white")
         image = Image.alpha_composite(background, rgba).convert("RGB")
+    elif image.mode != "RGB":
+        image = image.convert("RGB")
+    if profile or untagged_profile:
+        image = ImageCms.profileToProfile(
+            image, (ImageCms.ImageCmsProfile(io.BytesIO(profile)) if profile
+                    else ImageCms.ImageCmsProfile(str(untagged_profile))),
+            ImageCms.createProfile("sRGB"), outputMode="RGB")
     return image
 
 

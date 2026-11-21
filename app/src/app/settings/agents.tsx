@@ -49,14 +49,15 @@ export default function AgentsScreen() {
   // A prompt that didn't reach the clipboard, shown here once so its connection isn't lost.
   const [uncopied, setUncopied] = useState<string | null>(null);
 
+  const shared = !!h?.sync && !h.sync.setup;
   const refresh = useCallback(async () => {
-    if (!h?.sync || h.sync.setup) return;
+    if (!shared) return;
     try {
       const [connections, recent] = await Promise.all([agents.list(), agents.activity()]);
       setList(connections);
       setActivity(recent.slice(0, 8));
     } catch (e) { setError(explainFailure(failureOf(e).code)); }
-  }, [h?.sync]);
+  }, [h?.id, shared]);
   useEffect(() => { void refresh(); }, [refresh]);
 
   if (!h) return <Redirect href="/welcome" />;
@@ -87,11 +88,15 @@ export default function AgentsScreen() {
   };
   // The switch moves at once; the server's answer confirms it or puts it back.
   const setPermission = async (agent: AgentConnection, key: AgentPermission, allowed: boolean) => {
-    const before = agent.permissions ?? READ_ONLY;
-    const patch = (permissions: typeof before) => setList((rows) => rows?.map((row) => (row.id === agent.id ? { ...row, permissions } : row)));
-    patch(withPermission(before, key, allowed));
+    setList((rows) => rows?.map((row) => (row.id === agent.id ? { ...row, permissions: withPermission(row.permissions ?? READ_ONLY, key, allowed) } : row)));
     setError(null);
-    try { patch((await agents.setPermission(agent.id, key, allowed)).permissions); } catch (e) { patch(before); setError(explainFailure(failureOf(e).code)); }
+    try {
+      const { permissions } = await agents.setPermission(agent.id, key, allowed);
+      setList((rows) => rows?.map((row) => (row.id === agent.id ? { ...row, permissions } : row)));
+    } catch (e) {
+      setList((rows) => rows?.map((row) => (row.id === agent.id ? { ...row, permissions: withPermission(row.permissions ?? READ_ONLY, key, !allowed) } : row)));
+      setError(explainFailure(failureOf(e).code));
+    }
   };
   const disconnect = async (id: string) => {
     setBusy(true); setError(null);

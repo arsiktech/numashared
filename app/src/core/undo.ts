@@ -42,7 +42,7 @@ export function canUndoInHousehold(household: Household, eventId: ID, now: numbe
   const index = household.events.findIndex((e) => e.id === eventId);
   if (index < 0) return false;
   const event = household.events[index];
-  if (event.by !== household.youId || !canUndo(event, now, windowMs)) return false;
+  if (event.by !== household.youId || event.seq !== undefined || event.via !== undefined || !canUndo(event, now, windowMs)) return false;
   const dependedOn = household.events.slice(index + 1).some((later) =>
     later.recordId === event.recordId
     || (later.kind === 'settlementRecorded' && later.content.reversalOf === event.recordId));

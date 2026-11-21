@@ -11,6 +11,8 @@ import { v } from "convex/values";
 import { internal } from "./_generated/api";
 import type { Doc, Id } from "./_generated/dataModel";
 import { httpAction, internalMutation, mutation, query, type MutationCtx, type QueryCtx } from "./_generated/server";
+import { accountIsUsable } from "./agentAccess";
+import { queueEventPushes } from "./pushQueue";
 import { fail, requireActiveMembership, requireSession } from "./lib/access";
 import { appendEventsToPot } from "./lib/appendEvents";
 import { buildFinancialRecordState } from "./lib/financialRecordState";
@@ -20,6 +22,7 @@ import { requireApprovedWriteTarget } from "./lib/deployment";
 import type { EventInput } from "./lib/eventValidation";
 import { sha256Hex } from "./lib/hash";
 import { ios18TimeZoneIdentifiers } from "./lib/ios18TimeZoneIdentifiers";
+import { isNotificationEligible } from "./lib/notificationMatrix";
 import { generateUUIDv7 } from "./lib/uuidV7";
 
 export const maximumSpendsPerRequest = 50;
@@ -57,6 +60,9 @@ export const link = mutation({
     requireApprovedWriteTarget();
     const { account, membership, pot } = await ownerOf(ctx, args.potId);
     if (!/^[0-9a-f]{64}$/.test(args.keyHash)) fail("CARD_SYNC_KEY_INVALID");
+    if (await ctx.db.query("cardSyncLinks").withIndex("by_key_hash", (q) => q.eq("keyHash", args.keyHash)).first()) {
+      fail("CARD_SYNC_KEY_INVALID");
+    }
     if (!ios18TimeZoneIdentifiers.has(args.timeZone)) fail("INVALID_TIME_ZONE");
     if (args.cards.length < 1 || args.cards.length > maximumCards) fail("CARD_SYNC_CARDS_INVALID");
     const topology = await loadBudgetGroupTopology(ctx, pot);
@@ -196,8 +202,7 @@ export const receive = internalMutation({
     requireApprovedWriteTarget();
     const link = await ctx.db.query("cardSyncLinks").withIndex("by_key_hash", (q) => q.eq("keyHash", args.keyHash)).unique();
     if (!link || link.revokedAt !== undefined) return { status: 401, error: "CARD_SYNC_KEY_INVALID" };
-    const account = await ctx.db.get(link.accountId);
-    if (!account || account.deletionStartedAt !== undefined) return { status: 401, error: "CARD_SYNC_KEY_INVALID" };
+    if (!(await accountIsUsable(ctx, link.accountId))) return { status: 401, error: "CARD_SYNC_KEY_INVALID" };
     const pot = await ctx.db.query("pots").withIndex("by_pot_id", (q) => q.eq("potId", link.potId)).unique();
     if (!pot || pot.deletingAt !== undefined || pot.archivedAtSequence !== undefined) return { status: 410, error: "HOUSEHOLD_GONE" };
     const membership = await ctx.db.query("potMembers")
@@ -297,8 +302,12 @@ export const receive = internalMutation({
 
       if (seen || inBatch.has(spend.id)) {
         // Older spends were stored before merchant ids were sent; fill them in for refund matching.
-        if (seen && seen.kind === undefined && ((merchantKey && !seen.merchantKey) || seen.occurredAtMillis === undefined)) {
-          await ctx.db.patch(seen._id, { ...(merchantKey && !seen.merchantKey ? { merchantKey } : {}), occurredAtMillis: spend.occurredAtMillis });
+        const validTime = Number.isSafeInteger(spend.occurredAtMillis) && spend.occurredAtMillis > 0 && spend.occurredAtMillis <= now + 86_400_000;
+        const patch: { merchantKey?: string; occurredAtMillis?: number } = {};
+        if (seen && seen.kind === undefined) {
+          if (merchantKey && !seen.merchantKey) patch.merchantKey = merchantKey;
+          if (seen.occurredAtMillis === undefined && validTime) patch.occurredAtMillis = spend.occurredAtMillis;
+          if (Object.keys(patch).length > 0) await ctx.db.patch(seen._id, patch);
         }
         outcomes.push({ id: spend.id, result: "duplicate" });
         continue;
@@ -320,9 +329,10 @@ export const receive = internalMutation({
         let target: Tracked | null = null;
         let exact: Tracked | null = null;
         for (const row of candidates) {
+          if (merchantKey && row.merchantKey && row.merchantKey !== merchantKey) continue;
           const t = await trackedFor(row);
           if (!t?.head || t.voided || t.head.content.amount.minorUnits < minor || t.head.content.allocations.length !== 1) continue;
-          const merchantMatches = merchantKey && row.merchantKey ? row.merchantKey === merchantKey
+          const merchantMatches = merchantKey && row.merchantKey ? true
             : sameMerchant(t.head.texts.get("title") ?? "", clip(spend.merchant, 120) || "Card payment");
           if (!merchantMatches) continue;
           if (t.head.content.amount.minorUnits === minor) { exact = t; break; }
@@ -404,10 +414,13 @@ export const receive = internalMutation({
       outcomes.push({ id: spend.id, result: "added" });
     }
     if (events.length) {
-      await appendEventsToPot(ctx, { pot, accountId: link.accountId as Id<"accounts">, actorMemberId: link.actorMemberId, events });
-      for (const event of events) {
-        await ctx.scheduler.runAfter(0, internal.apns.deliverEventPush, { potId: link.potId, eventId: event.eventId });
-      }
+      const appended = await appendEventsToPot(ctx, { pot, accountId: link.accountId as Id<"accounts">, actorMemberId: link.actorMemberId, events });
+      const inserted = new Set(appended.insertedEventIds);
+      await queueEventPushes(
+        ctx,
+        link.potId,
+        events.filter((event) => inserted.has(event.eventId) && isNotificationEligible(event.payload)).map((event) => event.eventId),
+      );
     }
     for (const row of rows) await ctx.db.insert("cardSyncSpends", row);
     for (const id of cancelled) await ctx.db.patch(id, { cancelledAt: now });
@@ -429,13 +442,21 @@ export const spendsHttp = httpAction(async (ctx, request) => {
   const key = /^Bearer ([A-Za-z0-9_-]{32,128})$/.exec(auth)?.[1];
   if (!key) return json({ error: "CARD_SYNC_KEY_INVALID" }, 401);
   let body: unknown;
-  try { body = await request.json(); } catch { return json({ error: "INVALID_JSON" }, 400); }
+  try {
+    const raw = await request.text();
+    if (raw.length > 131_072) return json({ error: "PAYLOAD_TOO_LARGE" }, 413);
+    body = JSON.parse(raw);
+  } catch { return json({ error: "INVALID_JSON" }, 400); }
   const spends = (body as { spends?: unknown })?.spends;
   if (!Array.isArray(spends) || spends.length > maximumSpendsPerRequest) {
-    return json({ error: `Send 1 to ${maximumSpendsPerRequest} spends as "spends".` }, 400);
+    return json({ error: `Send up to ${maximumSpendsPerRequest} spends as "spends".` }, 400);
   }
   const clean = [];
-  for (const s of spends as Record<string, unknown>[]) {
+  for (const item of spends) {
+    if (!item || typeof item !== "object" || Array.isArray(item)) {
+      return json({ error: "Each spend needs id, card, occurredAt, merchant, amount (a decimal string) and currency." }, 400);
+    }
+    const s = item as Record<string, unknown>;
     const occurred = typeof s.occurredAt === "string" ? Date.parse(s.occurredAt) : s.occurredAtMillis;
     if (typeof s.id !== "string" || typeof s.card !== "string" || typeof occurred !== "number" || !Number.isFinite(occurred)
       || typeof s.merchant !== "string" || typeof s.amount !== "string" || typeof s.currency !== "string"
@@ -456,5 +477,3 @@ export const spendsHttp = httpAction(async (ctx, request) => {
   if (result.status !== 200) return json({ error: result.error }, result.status);
   return json({ outcomes: result.outcomes });
 });
-
-export type CardSyncLink = Doc<"cardSyncLinks">;

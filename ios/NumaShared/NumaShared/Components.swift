@@ -229,8 +229,7 @@ struct NativeCapsuleButton: UIViewRepresentable {
 
 // MARK: - Haptics (prepared generators; fired only at the spec's moments)
 
-// UIKit-gated so the pure-logic files that call Haptics (AppModel) still
-// compile on macOS for the swiftc test harness in Tests/LedgerTests.swift.
+// UIKit-gated so non-UIKit targets can still compile helpers cleanly.
 #if canImport(UIKit)
 enum Haptics {
     private static let soft = UIImpactFeedbackGenerator(style: .soft)

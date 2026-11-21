@@ -49,6 +49,7 @@ async function writeStored(s: Session | null): Promise<void> {
 
 let session: Session | null = null;
 let loaded = false;
+let loading: Promise<Session | null> | null = null;
 /**
  * Bumped whenever the session is replaced or ended. A refresh that started under an older
  * generation (a sign-out or another sign-in happened meanwhile) is thrown away.
@@ -59,16 +60,28 @@ const emit = () => { for (const l of listeners) l(); };
 
 export function subscribeSession(l: () => void) { listeners.add(l); return () => { listeners.delete(l); }; }
 export const currentSession = () => session;
-export const sessionLoaded = () => loaded;
 
 export async function loadSession(): Promise<Session | null> {
-  if (!loaded) {
-    session = await readStored();
-    if (session && session.refreshExpiresAt <= Date.now()) { session = null; await writeStored(null); }
-    loaded = true;
-    emit();
+  if (loaded) return session;
+  if (!loading) {
+    const started = generation;
+    loading = (async () => {
+      let stored = await readStored();
+      if (stored && stored.refreshExpiresAt <= Date.now()) {
+        stored = null;
+        await writeStored(null);
+      }
+      if (started === generation) {
+        session = stored;
+        loaded = true;
+        emit();
+      } else {
+        loaded = true;
+      }
+      return session;
+    })().finally(() => { loading = null; });
   }
-  return session;
+  return loading;
 }
 
 let sessionWrites: Promise<void> = Promise.resolve();

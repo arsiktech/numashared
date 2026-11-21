@@ -6,7 +6,7 @@ import { AppState, Platform } from 'react-native';
 import { useSyncExternalStore } from 'react';
 import type { Household, ID } from '../core/types';
 import { ALL_ON, type AgentPermission, type AgentPermissions } from '../features/agents/permissions';
-import { claimParked, forgetAccount, getState, putHousehold, removeHousehold, showAccount, switchHousehold } from '../store/store';
+import { claimParked, flushPersistence, forgetAccount, getState, putHousehold, removeHousehold, showAccount, switchHousehold } from '../store/store';
 import { previewDeletion, runDeletion, type DeletionDeps, type DeletionPreview } from './accountDeletion';
 import { accessToken, currentSession, forgetSession, loadSession, post, readDeletion, writeDeletion, signInWithApple, signInWithGoogle, signOutSession, subscribeSession } from './auth';
 import { CONVEX_URL, PUBLIC_SITE_URL, SITE_URL } from './config';
@@ -41,7 +41,6 @@ function setStatus(patch: Partial<SyncStatus>) {
   status = next;
   for (const l of statusListeners) l();
 }
-export const getSyncStatus = () => status;
 export function useSyncStatus(): SyncStatus {
   return useSyncExternalStore(
     (l) => { statusListeners.add(l); return () => { statusListeners.delete(l); }; },
@@ -89,6 +88,10 @@ let running: Promise<void> | null = null;
 let again = false;
 let latestPots: PotSummary[] | null = null;
 const inviteChecks = new Map<ID, number>();
+const CONTRACT_TTL_MS = 5 * 60_000;
+let contractCheckedAt = 0;
+let retryAfter = 0;
+let retryStreak = 0;
 
 /** Runs a full sync now, or right after the one in progress. */
 export function requestSync(): Promise<void> {
@@ -105,8 +108,13 @@ export function requestSync(): Promise<void> {
 
 async function syncOnce() {
   setStatus({ busy: true });
+  let lastError: string | undefined;
+  let hadRetryable = false;
   try {
-    await refreshContract(SITE_URL);
+    if (Date.now() - contractCheckedAt >= CONTRACT_TTL_MS) {
+      await refreshContract(SITE_URL);
+      contractCheckedAt = Date.now();
+    }
     const pots = latestPots ?? await backend.query<PotSummary[]>('pots:listMyPots', {});
     latestPots = null;
     const accountId = currentSession()?.accountId;
@@ -121,27 +129,42 @@ async function syncOnce() {
           await pull(backend, access, h.id, { archived: isFrozenPot(pot) });
         }
         if (pot && isFrozenPot(pot)) continue;
-        await flush(backend, access, h.id);
+        const flushed = await flush(backend, access, h.id);
+        if (flushed === 'retry') hadRetryable = true;
         if (h.sync!.role === 'owner' && Date.now() - (inviteChecks.get(h.id) ?? 0) >= INVITE_RECHECK_MS) {
           inviteChecks.set(h.id, Date.now());
           await issueInvites(backend, access, h.id);
         }
       } catch (e) {
         const f = failureOf(e);
-        if (!f.retryable) setStatus({ lastError: f.code });
+        if (f.retryable) hadRetryable = true;
+        else lastError = f.code;
       }
     }
     const throttled = synced().filter((h) => retryReasons.get(h.id)?.endsWith('RATE_LIMITED')).map((h) => h.id).join(',');
-    setStatus({ busy: false, ready: true, lastError: undefined, throttled: throttled || undefined });
+    if (hadRetryable || throttled) {
+      retryStreak = Math.min(retryStreak + 1, 5);
+      retryAfter = Date.now() + (throttled ? 60_000 : Math.min(60_000, 2_000 * 2 ** retryStreak));
+    } else {
+      retryStreak = 0;
+      retryAfter = 0;
+    }
+    setStatus({ busy: false, ready: true, lastError, throttled: throttled || undefined });
   } catch (e) {
     const f = failureOf(e);
+    if (f.retryable) {
+      retryStreak = Math.min(retryStreak + 1, 5);
+      retryAfter = Date.now() + Math.min(60_000, 2_000 * 2 ** retryStreak);
+    }
     setStatus({ busy: false, lastError: f.retryable ? undefined : f.code });
   }
 }
 
 /** Sends queued events once their undo window has passed. */
 function tick() {
+  if (AppState.currentState && AppState.currentState !== 'active') return;
   const now = Date.now();
+  if (now < retryAfter) return;
   const due = synced().some((h) => !h.sync!.frozen && !h.sync!.paused && h.events.some((e) => e.seq === undefined && now - e.at >= SEND_DELAY_MS));
   if (due) void requestSync();
 }
@@ -164,6 +187,8 @@ function connect() {
   );
   unsubscribePots = client.onUpdate(ref('pots:listMyPots'), {} as never, (pots: PotSummary[]) => {
     latestPots = pots;
+    retryAfter = 0;
+    retryStreak = 0;
     void requestSync();
   }, () => { /* auth or network: the next update or tick retries */ });
   timer = setInterval(tick, 2000);
@@ -181,6 +206,9 @@ function disconnect() {
   connectedAccountId = null;
   latestPots = null;
   inviteChecks.clear();
+  contractCheckedAt = 0;
+  retryAfter = 0;
+  retryStreak = 0;
   void c?.close();
   setStatus({ signedIn: false, connected: false, busy: false, ready: false });
 }
@@ -199,7 +227,13 @@ export function startSyncRuntime() {
   };
   subscribeSession(follow);
   void loadSession().then(follow).then(resumeAccountDeletion);
-  AppState.addEventListener('change', (s) => { if (s === 'active') void requestSync(); });
+  AppState.addEventListener('change', (s) => {
+    if (s === 'active') {
+      retryAfter = 0;
+      retryStreak = 0;
+      void requestSync();
+    }
+  });
   if (Platform.OS === 'ios') {
     // Tapping a notification opens the household it is about.
     void import('expo-notifications').then((Notifications) => {
@@ -406,7 +440,7 @@ export const online = {
     return inviteUsable(invite) ? invite! : null;
   })()),
   replaceInvite: (h: Household, memberId: ID, inviteId: ID) => within(issueInvites(backend, access, h.id, Date.now(), { memberId, inviteId })),
-  retry: (h: Household) => { resume(access, h.id); return requestSync(); },
+  retry: (h: Household) => { retryAfter = 0; retryStreak = 0; resume(access, h.id); return requestSync(); },
 };
 
 /** Signs out: ends the session and removes households that live on the server from this device. */
@@ -419,6 +453,7 @@ export async function signOutEverywhere(): Promise<void> {
   disconnect();
   if (accountId) forgetAccount(accountId);
   for (const h of synced()) removeHousehold(h.id);
+  await flushPersistence();
 }
 
 // ---------- account deletion ----------
@@ -430,6 +465,7 @@ const deletion: DeletionDeps = {
   session: () => currentSession(),
   purgeLocal: async (accountId) => {
     forgetAccount(accountId);
+    await flushPersistence();
     if (currentSession()?.accountId === accountId) {
       disconnect();
       await forgetSession();
@@ -481,7 +517,7 @@ export async function registerPush(ask = true): Promise<boolean> {
   return true;
 }
 
-async function unregisterPush() {
+export async function unregisterPush() {
   if (!pushToken || !client) return;
   await backend.mutation('notifications:unregisterPushToken', { deviceToken: pushToken });
   pushToken = null;

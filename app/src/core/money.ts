@@ -15,11 +15,6 @@ export function currencyDigits(currency: string): number {
   return NONSTANDARD_DIGITS[currency.toUpperCase()] ?? 2;
 }
 
-/** 10 ^ currencyDigits(currency). */
-export function minorUnitScale(currency: string): number {
-  return 10 ** currencyDigits(currency);
-}
-
 /**
  * Keypad cap: an entered amount has at most this many digits in minor units, whatever the
  * currency. EUR allows 9,999,999,999.99, JPY and VND allow 999,999,999,999, BHD 999,999,999.999.

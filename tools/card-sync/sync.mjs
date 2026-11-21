@@ -30,7 +30,9 @@ const mode = process.argv.includes('--login') ? 'login' : process.argv.includes(
 function config() {
   const c = JSON.parse(readFileSync(join(DIR, 'config.json'), 'utf8'));
   if (!c.url || !Array.isArray(c.cards) || !c.cards.length) throw new Error('config.json needs "url" and "cards".');
-  return { currency: 'EUR', since: '2026-01-01T00:00:00Z', pages: 20, ...c };
+  const merged = { currency: 'EUR', since: '2026-01-01T00:00:00Z', pages: 20, ...c };
+  if (!Number.isFinite(Date.parse(merged.since))) throw new Error('config.json "since" must be a valid ISO timestamp.');
+  return merged;
 }
 
 function key() {
@@ -44,14 +46,14 @@ function key() {
 
 /** Daily ECB rates (frankfurter.app) for the rare charge in another currency. */
 async function rates(currency, needed) {
+  const unique = new Map();
+  for (const [from, day] of needed) unique.set(`${from}:${day}`, [from, day]);
   const out = new Map();
-  for (const [from, day] of needed) {
-    const k = `${from}:${day}`;
-    if (out.has(k)) continue;
+  await Promise.all([...unique].map(async ([k, [from, day]]) => {
     const res = await fetch(`https://api.frankfurter.app/${day}?from=${from}&to=${currency}`);
     const json = res.ok ? await res.json() : null;
     out.set(k, json?.rates?.[currency] ?? null);
-  }
+  }));
   return (from, date) => out.get(`${from}:${date.toISOString().slice(0, 10)}`) ?? null;
 }
 
@@ -68,7 +70,8 @@ async function readHistory(cfg, { headless }) {
     try { response = await first; } catch { return { loggedOut: true, rows: [] }; }
     if (response.status() === 401 || response.status() === 403) return { loggedOut: true, rows: [] };
     const request = response.request();
-    const headers = await request.allHeaders();
+    const rawHeaders = await request.allHeaders();
+    const headers = Object.fromEntries(Object.entries(rawHeaders).filter(([k]) => !k.startsWith(':')));
     const rows = [];
     let body = await response.json();
     const since = Date.parse(cfg.since);
@@ -82,6 +85,7 @@ async function readHistory(cfg, { headless }) {
       url.searchParams.set('page', String(next));
       const res = await context.request.get(url.toString(), { headers });
       if (res.status() === 401 || res.status() === 403) return { loggedOut: true, rows: [] };
+      if (!res.ok()) throw new Error(`ether.fi transaction history returned HTTP ${res.status()} on page ${next}.`);
       body = await res.json();
     }
     return { loggedOut: false, rows };
@@ -114,25 +118,32 @@ async function main() {
     return 0;
   }
 
+  const since = Date.parse(cfg.since);
+  const inWindow = rows.filter((tx) => {
+    const at = Date.parse(tx?.timestamp);
+    return String(tx?.id ?? '') && Number.isFinite(at) && at >= since;
+  }).length;
   const cardless = skipped.filter((s) => s.why === 'no card number in the transaction');
-  if (cardless.length && cardless.length === rows.length) {
+  if (cardless.length && cardless.length === inWindow) {
     console.error('No transaction says which card it was on; nothing sent. Run --inspect and check the card field.');
     return 1;
   }
+  const token = spends.length ? key() : '';
   let added = 0;
   for (let i = 0; i < spends.length; i += 50) {
     const res = await fetch(cfg.url, {
-      method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${key()}` },
+      method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
       body: JSON.stringify({ spends: spends.slice(i, i + 50) }),
     });
     const json = await res.json().catch(() => ({}));
     if (!res.ok) { console.error(`Numa Shared refused the spends (${res.status}): ${json.error ?? 'unknown error'}`); return 1; }
-    added += json.outcomes.filter((o) => o.result === 'added').length;
-    for (const o of json.outcomes.filter((x) => x.result === 'ignored')) console.log(`Not added ${o.id}: ${o.reason}`);
-    for (const o of json.outcomes.filter((x) => x.result === 'refunded' || x.result === 'voided')) console.log(`${o.result === 'voided' ? 'Removed' : 'Reduced'} the spend for ${o.id}`);
-    for (const o of json.outcomes.filter((x) => x.result === 'unmatched')) console.log(`NOTICE: refund ${o.id} needs a person: ${o.reason}`);
+    const outcomes = Array.isArray(json.outcomes) ? json.outcomes : [];
+    added += outcomes.filter((o) => o.result === 'added').length;
+    for (const o of outcomes.filter((x) => x.result === 'ignored')) console.log(`Not added ${o.id}: ${o.reason}`);
+    for (const o of outcomes.filter((x) => x.result === 'refunded' || x.result === 'voided')) console.log(`${o.result === 'voided' ? 'Removed' : 'Reduced'} the spend for ${o.id}`);
+    for (const o of outcomes.filter((x) => x.result === 'unmatched')) console.log(`NOTICE: refund ${o.id} needs a person: ${o.reason}`);
   }
-  for (const s of skipped.filter((x) => !/not final yet/.test(x.why))) console.log(`Skipped ${s.id}: ${s.why}${s.merchant ? ` (${s.merchant})` : ''}`);
+  for (const s of skipped.filter((x) => !/not final yet/.test(x.why))) console.log(`Skipped ${s.id}: ${s.why}`);
   console.log(`${new Date().toISOString()} read ${rows.length}, sent ${spends.length}, added ${added}.`);
   return 0;
 }

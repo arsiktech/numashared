@@ -41,22 +41,27 @@ export default function PeopleScreen() {
 
   const shared = !!h.sync && !h.sync.setup;
   const moveTo = async (index: number) => {
-    if (!sel) return;
+    if (!sel || busy) return;
     const before = h.groups.map((g) => g.memberIds);
     const next = movePerson(before, sel, index);
     if (next === before) { showToast(`A group is up to ${groupLimitWords()} people who pay as one`); return; }
-    if (shared) {
-      try { await online.regroup(h, next); } catch (e) { showToast(explainFailure(failureOf(e).code)); return; }
-    } else {
-      try { setGroups(h.id, next.map((m) => ({ memberIds: m }))); } catch (e) { showToast((e as Error).message); return; }
+    setBusy(true);
+    try {
+      if (shared) await online.regroup(h, next);
+      else setGroups(h.id, next.map((m) => ({ memberIds: m })));
+      haptic.tick();
+      setSel(null);
+    } catch (e) {
+      showToast(shared ? explainFailure(failureOf(e).code) : (e as Error).message);
+    } finally {
+      setBusy(false);
     }
-    haptic.tick();
-    setSel(null);
   };
 
   // Only the household's owner can remove people once it is shared.
   const mayRemove = (pid: ID) => canRemovePerson(h, pid) && (!shared || h.sync!.role === 'owner');
   const remove = async (pid: ID) => {
+    if (busy) return;
     const name = nm(pid);
     setBusy(true);
     try {
@@ -74,15 +79,22 @@ export default function PeopleScreen() {
 
   const add = async () => {
     const v = newName.trim();
-    if (!v) return;
-    if (shared) {
-      if (h.sync!.role !== 'owner') { showToast('Only the person who set up the household can add people'); return; }
-      try { await online.addPerson(h, v); } catch (e) { showToast(explainFailure(failureOf(e).code)); return; }
-      showToast(`${v} added. Their invite code is on the Invite screen`);
-      haptic.success();
-    } else if (addPerson(h.id, v)) { showToast(`${v} added`); haptic.success(); }
-    setNewName('');
-    setAdding(false);
+    if (!v || busy) return;
+    setBusy(true);
+    try {
+      if (shared) {
+        if (h.sync!.role !== 'owner') { showToast('Only the person who set up the household can add people'); return; }
+        await online.addPerson(h, v);
+        showToast(`${v} added. Their invite code is on the Invite screen`);
+        haptic.success();
+      } else if (addPerson(h.id, v)) { showToast(`${v} added`); haptic.success(); }
+      setNewName('');
+      setAdding(false);
+    } catch (e) {
+      showToast(explainFailure(failureOf(e).code));
+    } finally {
+      setBusy(false);
+    }
   };
 
   return (
@@ -121,11 +133,11 @@ export default function PeopleScreen() {
                 const p = h.people.find((x) => x.id === pid)!;
                 const you = pid === h.youId;
                 const on = sel === pid;
-                const status = you ? 'On this device' : p.joined ? `Joined${p.joinedAt ? ` ${dayMonth(p.joinedAt)}` : ''}` : 'Not joined yet';
+                const status = you ? 'On this device' : p.archived ? 'Left the household' : p.joined ? `Joined${p.joinedAt ? ` ${dayMonth(p.joinedAt)}` : ''}` : 'Not joined yet';
                 const row = (
                   <>
                     <View style={{ width: 40, height: 40, borderRadius: 20, backgroundColor: on ? t.ink : alpha(t.ink, 0.09), alignItems: 'center', justifyContent: 'center' }}>
-                      <T style={{ fontFamily: fonts.bold, fontSize: 15, color: on ? t.band : t.ink }}>{you ? 'Y' : p.name.slice(0, 1).toUpperCase()}</T>
+                      <T maxFontSizeMultiplier={1} style={{ fontFamily: fonts.bold, fontSize: 15, color: on ? t.band : t.ink }}>{you ? 'Y' : p.name.slice(0, 1).toUpperCase()}</T>
                     </View>
                     <View style={{ flex: 1 }}>
                       <T style={{ fontFamily: fonts.semibold, fontSize: 16, color: t.ink }}>{p.name}{you ? ' (you)' : ''}</T>
@@ -171,7 +183,7 @@ export default function PeopleScreen() {
           <Field value={newName} onChangeText={setNewName} placeholder="Their name" autoFocus accessibilityLabel="New person’s name"
             onSubmitEditing={add} returnKeyType="done" maxLength={24} autoCapitalize="words" />
           <View style={{ flexDirection: 'row', gap: 8 }}>
-            <Pill label="Add" onPress={add} style={{ flex: 1, alignSelf: 'auto' }} />
+            <Pill label={busy ? 'Adding…' : 'Add'} onPress={busy ? undefined : add} style={{ flex: 1, alignSelf: 'auto', opacity: busy ? 0.6 : 1 }} />
             <Pill light label="Cancel" onPress={() => { setAdding(false); setNewName(''); }} style={{ flex: 1, alignSelf: 'auto', backgroundColor: pillBg }} />
           </View>
         </View>

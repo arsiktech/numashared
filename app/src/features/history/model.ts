@@ -47,7 +47,7 @@ export function seenBy(h: Household, r: LedgerRecord): string | null {
   const first = r.timeline.find((t) => t.type === 'added');
   if (!first) return null;
   const viewers = Object.keys(h.seen[first.eventId] ?? {}).filter((id) => id !== r.createdBy);
-  const others = h.people.filter((p) => p.id !== r.createdBy);
+  const others = h.people.filter((p) => p.id !== r.createdBy && !p.archived);
   if (!viewers.length) return null;
   if (others.length > 2 && others.every((p) => viewers.includes(p.id))) return 'everyone';
   return joinNames(h.people.filter((p) => viewers.includes(p.id)).map((p) => personName(h, p.id)));

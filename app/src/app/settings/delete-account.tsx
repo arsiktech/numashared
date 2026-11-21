@@ -24,12 +24,19 @@ export default function DeleteAccountScreen() {
   const [preview, setPreview] = useState<DeletionPreview | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [attempt, setAttempt] = useState(0);
   const unsent = unsentCount();
 
   useEffect(() => {
     if (!session) return;
-    accountDeletionPreview().then(setPreview, (e) => setError(explainFailure(failureOf(e).code)));
-  }, [session]);
+    let live = true;
+    setError(null);
+    accountDeletionPreview().then(
+      (res) => { if (live) setPreview(res); },
+      (e) => { if (live) setError(explainFailure(failureOf(e).code)); },
+    );
+    return () => { live = false; };
+  }, [session, attempt]);
 
   if (!session && !busy) return <Redirect href="/settings" />;
 
@@ -47,7 +54,9 @@ export default function DeleteAccountScreen() {
     }
   };
 
-  const footer = (
+  const footer = !preview && error ? (
+    <CTA variant="second" label="Try again" onPress={() => setAttempt((n) => n + 1)} />
+  ) : (
     <CTA variant="danger" label={busy ? 'Deleting…' : 'Delete my account'} disabled={busy || !preview} onPress={confirm}
       accessibilityLabel="Delete my account. This can’t be undone" />
   );
@@ -70,7 +79,7 @@ export default function DeleteAccountScreen() {
       {unsent > 0 ? (
         <View style={{ marginTop: 16 }}>
           <Banner kind="warn" icon={<Warn size={18} color={c.warnInk} />}>
-            <BannerText kind="warn" strong={`${unsent} ${unsent === 1 ? 'change hasn’t' : 'changes haven’t'} reached the others yet.`} rest=" They’re lost if you delete now." />
+            <BannerText kind="warn" strong={`${unsent} ${unsent === 1 ? 'change hasn’t' : 'changes haven’t'} reached the others yet.`} rest="They’re lost if you delete now." />
           </Banner>
         </View>
       ) : null}

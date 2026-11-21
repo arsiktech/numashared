@@ -2,7 +2,7 @@
 // other group. Two groups get the big two-band layout; three or more get compact bands that say what
 // each group means for you. At the accessibility text sizes the ticket and orb leave the seam and sit
 // in a row under your name, so the bands grow with the text instead of clipping it.
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter } from 'expo-router';
 import { View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -29,11 +29,12 @@ export function Bands({ h, balances, hide, compact, tail }: { h: Household; bala
   const bal = balances[mine.id] ?? 0;
   const many = others.length > 1;
   const nameSize = compact ? 56 : Math.min(74, (width - 44) / 4.6);
-  const plan = planSettlement(balances);
+  const plan = useMemo(() => planSettlement(balances), [balances]);
   const transfers = plan.status === 'exact' ? plan.transfers : [];
   const topH = (compact ? 20 : insets.top) + (compact ? 0 : 44) + 14 + 20 + nameSize * 0.95 + (many ? 34 : 60);
   const square = Object.values(balances).every((v) => v === 0);
   const empty = h.events.length === 0;
+  const youSquare = !square && !empty && bal === 0;
   const partners = mine.memberIds.filter((id) => id !== h.youId).map((id) => h.people.find((p) => p.id === id)!);
   const me = h.people.find((p) => p.id === h.youId)?.name.trim();
   const named = me && me !== 'You' ? me : '';
@@ -41,28 +42,35 @@ export function Bands({ h, balances, hide, compact, tail }: { h: Household; bala
   const ticketTop = topH - 39;
   const lowest = others.length ? tone(others[others.length - 1]).band : c.chip;
   const orbSize = compact || large ? 76 : 92;
-  const ticketInk = c.dark ? c.ink : '#1E2420';
+  const ticketInk = c.ink;
   const amountText = money(h, Math.abs(bal), hide);
   // On the seam the ticket leaves room for the orb; in the large-text row it shares the width with it.
   const ticketRoom = large ? (compact ? 360 : width) - 44 - orbSize - 12 - 40 - 34 : (compact ? 360 : width) - 132 - 74;
   const amountMax = large ? cappedSize(compact ? 32 : 38, fontScale, TEXT_CAP.display) : compact ? 32 : 38;
   const amountSize = ticketSize(amountText, amountMax, ticketRoom);
+  const ticketLabel = square || empty
+    ? 'All square. See the balance'
+    : youSquare
+      ? `${partners.length ? 'Your group is' : 'You’re'} square. See the balance`
+      : `${nameOf(h, mine)} ${bal < 0 ? 'owe' : 'get back'} ${money(h, Math.abs(bal), hide)}. See why`;
   const ticket = (
-    <Press accessibilityLabel={square ? 'All square. See the balance' : `${nameOf(h, mine)} ${bal < 0 ? 'owe' : 'get back'} ${money(h, Math.abs(bal), hide)}. See why`}
+    <Press accessibilityLabel={ticketLabel}
       onPress={() => openSheet({ type: 'plan' })}
-      style={[{ minHeight: 78, paddingHorizontal: 20, borderRadius: 39, backgroundColor: c.dark ? c.card : '#FBFAF6',
+      style={[{ minHeight: 78, paddingHorizontal: 20, borderRadius: 39, backgroundColor: c.dark ? c.card : c.bg,
         flexDirection: 'row', alignItems: 'center', gap: 12,
         shadowColor: '#1E2420', shadowOpacity: 0.2, shadowRadius: 15, shadowOffset: { width: 0, height: 12 }, elevation: 6 },
         large ? { flex: 1, paddingVertical: 12 } : { position: 'absolute', left: 20, top: ticketTop, height: 78, maxWidth: (compact ? 360 : width) - 132 }]}>
-      {square || empty ? (
+      {square || empty || youSquare ? (
         <>
-          <T maxFontSizeMultiplier={TEXT_CAP.display} style={{ flexShrink: 1, fontFamily: fonts.cond, fontSize: 30, color: ticketInk }}>All square</T>
+          <T maxFontSizeMultiplier={TEXT_CAP.display} style={{ flexShrink: 1, fontFamily: fonts.cond, fontSize: youSquare && partners.length ? 24 : 30, color: ticketInk }}>
+            {square || empty ? 'All square' : partners.length ? 'Your group is square' : 'You’re square'}
+          </T>
           <Check size={22} color={ticketInk} />
         </>
       ) : (
         <>
           <View style={{ flexShrink: 1, minWidth: 0 }}>
-            <T numberOfLines={large ? 2 : 1} maxFontSizeMultiplier={TEXT_CAP.label} style={{ fontFamily: fonts.semibold, fontSize: 13, color: c.dark ? c.ink2 : '#595D56' }}>
+            <T numberOfLines={large ? 2 : 1} maxFontSizeMultiplier={TEXT_CAP.label} style={{ fontFamily: fonts.semibold, fontSize: 13, color: c.ink2 }}>
               {partners.length ? (bal < 0 ? 'Your group owes' : 'Your group gets back') : bal < 0 ? 'You owe' : 'You get back'}
             </T>
             {/* The amount is sized here, the system text size included, so it always fits on one line. */}
@@ -144,7 +152,7 @@ function TwoGroupBand({ h, g, balances, nameSize, square, large }: { h: Househol
         {members.map((p) => (
           <View key={p.id} style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
             <Dot color={p.joined ? c.good : alpha('#000000', 0.3)} />
-            <T style={{ fontFamily: fonts.semibold, fontSize: 14, color: t.ink, opacity: 0.85 }}>{p.joined || !h.sync ? p.name : `${p.name} · invited`}</T>
+            <T style={{ fontFamily: fonts.semibold, fontSize: 14, color: t.ink, opacity: 0.85 }}>{p.archived ? `${p.name} · left` : p.joined || !h.sync ? p.name : `${p.name} · invited`}</T>
           </View>
         ))}
       </View>
@@ -212,6 +220,7 @@ function GroupTitle({ text, size, color, header }: { text: string; size: number;
     const available = host.clientWidth;
     const needed = el.scrollWidth;
     const next = available > 8 && needed > available + 1 ? Math.max(20, Math.floor(size * available / needed)) : size;
+    el.style.fontSize = `${next}px`;
     setFontSize((cur) => (cur === next ? cur : next));
   };
   useEffect(() => { fit(); }, [text, size]);

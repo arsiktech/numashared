@@ -27,6 +27,7 @@ export default function ExportScreen() {
   const households = useStore((s) => s.households);
   const [pick, setPick] = useState<string | null>(null);
   const [range, setRange] = useState<Range>('all');
+  const [busy, setBusy] = useState(false);
   const track = usePillBg();
   const h = households.find((x) => x.id === (pick ?? active?.id)) ?? active;
   const { csv, count } = useMemo(() => {
@@ -38,7 +39,8 @@ export default function ExportScreen() {
   const preview = csv.split('\n').slice(0, 4);
 
   const run = async () => {
-    if (!count) return;
+    if (!count || busy) return;
+    setBusy(true);
     const name = datedName(csvFileName(h));
     if (isWeb) {
       const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' });
@@ -51,6 +53,7 @@ export default function ExportScreen() {
       a.remove();
       setTimeout(() => URL.revokeObjectURL(url), 1000);
       showToast(`Downloaded ${name}`);
+      setBusy(false);
       return;
     }
     try {
@@ -62,12 +65,14 @@ export default function ExportScreen() {
       haptic.success();
     } catch {
       showToast('Couldn’t open sharing on this device.');
+    } finally {
+      setBusy(false);
     }
   };
 
   const footer = (
-    <CTA label={count ? `Export ${count} ${count === 1 ? 'record' : 'records'}` : 'Nothing to export'} disabled={!count} onPress={run}
-      icon={<Download size={20} color={count ? c.bg : c.ink3} />} />
+    <CTA label={busy ? 'Exporting…' : count ? `Export ${count} ${count === 1 ? 'record' : 'records'}` : 'Nothing to export'} disabled={!count || busy} onPress={run}
+      icon={<Download size={20} color={count && !busy ? c.bg : c.ink3} />} />
   );
 
   return (

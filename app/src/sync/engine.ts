@@ -16,7 +16,7 @@ import {
 import { TERMINAL_EVENT_CODES } from './terminal';
 import { wireTimeZone } from './timezones';
 import { isUuidv7, uuidv7 } from './uuid';
-import type { ListedEvent, TextField, WireEvent, WireSettlementGroup } from './wire';
+import { isPresent, type ListedEvent, type TextField, type WireEvent, type WireSettlementGroup } from './wire';
 
 export interface Backend {
   /** Stable account binding for adapters whose object identity survives a session change. */
@@ -91,7 +91,7 @@ export function prepareForSync(h: Household, now = Date.now()): Household {
     if (!next) { next = uuidv7(now); map.set(old, next); }
     return next;
   };
-  const people: Person[] = h.people.map((p) => ({ ...p, id: id(p.id), unitId: p.unitId ?? undefined }));
+  const people: Person[] = h.people.map((p) => ({ ...p, id: id(p.id), unitId: p.unitId ? id(p.unitId) : undefined }));
   const groups: Group[] = h.groups.map((g) => {
     const memberIds = g.memberIds.map(id);
     if (memberIds.length === 1) {
@@ -101,7 +101,7 @@ export function prepareForSync(h: Household, now = Date.now()): Household {
       map.set(g.id, unit);
       return { id: unit, color: g.color, memberIds };
     }
-    return { id: id(g.id), color: g.color, memberIds, serverGroupId: g.serverGroupId ?? uuidv7(now) };
+    return { id: id(g.id), color: g.color, memberIds, serverGroupId: g.serverGroupId ? id(g.serverGroupId) : uuidv7(now) };
   });
   for (const p of people) {
     p.groupId = map.get(p.groupId) ?? id(p.groupId);
@@ -116,6 +116,13 @@ export function prepareForSync(h: Household, now = Date.now()): Household {
   return { ...h, id: id(h.id), youId: id(h.youId), people, groups, events, seen };
 }
 
+function remapBasis(basis: Extract<LedgerEvent, { kind: 'expenseRevised' | 'openingRevised' }>['basis'], id: (s: string) => string) {
+  if (!basis) return undefined;
+  if (basis.kind === 'parent') return { kind: 'parent' as const, parentEventId: id(basis.parentEventId) };
+  const [firstEventId, secondEventId] = [id(basis.firstEventId), id(basis.secondEventId)].sort();
+  return { kind: 'resolution' as const, firstEventId, secondEventId };
+}
+
 function remapEvent(e: LedgerEvent, id: (s: string) => string, g: (s: string) => string): LedgerEvent {
   const base = { ...e, id: id(e.id), by: id(e.by), recordId: id(e.recordId) };
   switch (e.kind) {
@@ -126,19 +133,21 @@ function remapEvent(e: LedgerEvent, id: (s: string) => string, g: (s: string) =>
         ? { ...c.split, groupIds: c.split.groupIds.map(g) }
         : { mode: 'exact' as const, shares: Object.fromEntries(Object.entries(c.split.shares).map(([k, v]) => [g(k), v])) };
       const next = { ...base, content: { ...c, payerId: id(c.payerId), split } } as LedgerEvent;
-      if (next.kind === 'expenseRevised' && next.basis?.kind === 'parent') next.basis = { kind: 'parent', parentEventId: id(next.basis.parentEventId) };
+      if (next.kind === 'expenseRevised' && next.basis) next.basis = remapBasis(next.basis, id);
       return next;
     }
     case 'settlementRecorded':
       return { ...base, kind: 'settlementRecorded', content: { ...e.content, fromGroupId: g(e.content.fromGroupId), toGroupId: g(e.content.toGroupId), ...(e.content.reversalOf ? { reversalOf: id(e.content.reversalOf) } : {}) } };
     case 'openingBalanceSet':
       return { ...base, kind: 'openingBalanceSet', content: { ...e.content, entries: e.content.entries.map((x) => ({ ...x, fromGroupId: g(x.fromGroupId), toGroupId: g(x.toGroupId) })) } };
-    case 'openingRevised':
+    case 'openingRevised': {
+      const basis = remapBasis(e.basis, id);
       return {
         ...base, kind: 'openingRevised',
-        ...(e.basis?.kind === 'parent' ? { basis: { kind: 'parent', parentEventId: id(e.basis.parentEventId) } } : {}),
+        ...(basis ? { basis } : {}),
         content: { ...e.content, entries: e.content.entries.map((x) => ({ ...x, fromGroupId: g(x.fromGroupId), toGroupId: g(x.toGroupId) })) },
       };
+    }
     default:
       return base as LedgerEvent;
   }
@@ -240,15 +249,19 @@ export async function promote(backend: Backend, access: Access, householdId: ID)
     throw new SyncError(f);
   }
   const seqById = new Map(result.events.map((x) => [x.eventId, Number(x.sequence)]));
-  const latest = access.get(householdId)!;
+  const latest = access.get(householdId);
+  if (!latest?.sync) return;
   access.put({
     ...latest,
     events: ordered(latest.events.map((e) => (seqById.has(e.id) ? { ...e, seq: seqById.get(e.id) } : e))),
-    sync: { ...latest.sync!, setup: undefined, paused: undefined },
+    sync: { ...latest.sync, setup: undefined, paused: undefined },
   });
 }
 
-const displayName = (name: string) => (name.trim() ? name.trim().slice(0, 128) : 'Someone');
+const displayName = (name: string) => {
+  const trimmed = name.trim().slice(0, 128);
+  return isPresent(trimmed) ? trimmed : 'Someone';
+};
 
 // ---------- ordering and local consistency ----------
 
@@ -271,9 +284,8 @@ export function settle(h: Household, now = Date.now()): Household {
       return cur;
     } catch (e) {
       if (!(e instanceof LedgerError) || !e.eventId) {
-        if (cur.events.length === 0) return cur;
-        // A household-level problem: keep only server events and stop guessing.
-        return { ...cur, events: cur.events.filter((x) => x.seq !== undefined).slice(0, -1) };
+        // A household-level problem (not attributable to a specific event): never drop server history.
+        return cur;
       }
       const bad = cur.events.find((x) => x.id === e.eventId);
       if (!bad) return cur;
@@ -348,18 +360,20 @@ export async function flush(backend: Backend, access: Access, householdId: ID, n
       const res = await backend.mutation<{ events: { eventId: string; sequence: bigint }[] }>('events:appendEvents', { potId: h.id, events: [wire] });
       retryReasons.delete(householdId);
       const seq = Number(res.events[0].sequence);
-      const latest = access.get(householdId)!;
+      const latest = access.get(householdId);
+      if (!latest?.sync) return 'done';
       access.put({ ...latest, events: ordered(latest.events.map((e) => (e.id === next.id ? { ...e, seq } : e))) });
     } catch (error) {
       const f = failureOf(error);
       if (f.retryable) { retryReasons.set(householdId, f.code); return 'retry'; }
-      const latest = access.get(householdId)!;
+      const latest = access.get(householdId);
+      if (!latest?.sync) return 'done';
       if (TERMINAL_EVENT_CODES.has(f.code) || f.code.startsWith('CLIENT_')) {
         // This event can never be accepted: set it aside, and anything that depended on it.
         access.put(settle({
           ...latest,
           events: latest.events.filter((e) => e.id !== next.id),
-          sync: { ...latest.sync!, rejected: [...(latest.sync!.rejected ?? []), { eventId: next.id, code: f.code, label: labelOf(next), at: now() }] },
+          sync: { ...latest.sync, rejected: [...(latest.sync.rejected ?? []), { eventId: next.id, code: f.code, label: labelOf(next), at: now() }] },
         }));
         continue;
       }
@@ -400,7 +414,8 @@ export async function pull(backend: Backend, access: Access, householdId: ID, op
     }
   }
 
-  const h0 = access.get(householdId)!;
+  const h0 = access.get(householdId);
+  if (!h0?.sync) return;
   const shape = (events: ListedEvent[]): Household => {
     const structure = applyStructure({ name: h0.name, people: h0.people, groups: h0.groups }, events);
     const people = roster ? applyRoster(structure.people, roster) : structure.people;
@@ -448,23 +463,37 @@ export async function pull(backend: Backend, access: Access, householdId: ID, op
   // Erased text (account deletion) arrives as redactions of events already pulled above.
   let rev = BigInt(next.sync!.lastTextRev);
   const erased: { recordId: ID; field: TextField; value: string }[] = [];
+  const redactionsByEvent = new Map<ID, TextField[]>();
+  const eventById = new Map(next.events.map((e) => [e.id, e]));
   for (;;) {
     const page = await backend.query<TextPage>('events:listTextChangesWithSkippedRevisions', { potId: householdId, afterRevision: rev });
     for (const change of page.changes) {
-      const source = next.events.find((e) => e.id === change.eventId);
+      const source = eventById.get(change.eventId);
       const value = source && carriedText(source, change.field);
       if (source && value !== undefined) erased.push({ recordId: source.recordId, field: change.field, value });
-      next = { ...next, events: next.events.map((e) => (e.id === change.eventId ? redact(e, change.field) : e)) };
+      const fields = redactionsByEvent.get(change.eventId);
+      if (fields) fields.push(change.field);
+      else redactionsByEvent.set(change.eventId, [change.field]);
     }
     if (page.nextAfterRevision <= rev) break;
     rev = page.nextAfterRevision;
     if (!page.hasMore) break;
   }
+  if (redactionsByEvent.size > 0) {
+    next = {
+      ...next,
+      events: next.events.map((e) => {
+        const fields = redactionsByEvent.get(e.id);
+        return fields ? fields.reduce((acc, f) => redact(acc, f), e) : e;
+      }),
+    };
+  }
   next = { ...next, sync: { ...next.sync!, lastTextRev: Number(rev) } };
 
   // Merge with what the device did meanwhile (pull awaited the network): keep anything added,
   // and drop unsent events that were undone, so an undo is never brought back.
-  const latest = access.get(householdId)!;
+  const latest = access.get(householdId);
+  if (!latest?.sync) return;
   const onDevice = new Map(latest.events.map((e) => [e.id, e]));
   const kept = next.events.flatMap((e) => (e.seq !== undefined ? [e] : onDevice.has(e.id) ? [onDevice.get(e.id)!] : []));
   const extra = latest.events.filter((e) => e.seq === undefined && !kept.some((x) => x.id === e.id));
@@ -472,7 +501,16 @@ export async function pull(backend: Backend, access: Access, householdId: ID, op
   const events = [...kept, ...extra].map((e) => (e.seq !== undefined ? e : erased.reduce(
     (out, x) => (out.recordId === x.recordId && carriedText(out, x.field) === x.value ? redact(out, x.field) : out), e,
   )));
-  access.put(dropUnusedArchived(settle({ ...next, events, seen: latest.seen })));
+  // Preserve sync fields that pull() does not own (e.g. concurrent invite secrets or frozen flags).
+  const mergedSync: SyncMeta = {
+    ...latest.sync,
+    ...next.sync!,
+    ...(latest.sync.invites !== undefined ? { invites: latest.sync.invites } : {}),
+    ...(latest.sync.frozen !== undefined ? { frozen: latest.sync.frozen } : {}),
+    ...(latest.sync.rejected !== undefined ? { rejected: latest.sync.rejected } : {}),
+    ...(latest.sync.accountId !== undefined ? { accountId: latest.sync.accountId } : {}),
+  };
+  access.put(dropUnusedArchived(settle({ ...next, sync: mergedSync, events, seen: latest.seen })));
 }
 
 // ---------- the account's households ----------
@@ -536,15 +574,6 @@ export async function adoptPots(backend: Backend, access: Access, pots?: PotSumm
   return added;
 }
 
-/** Pull then send for one household; promotes first if needed. */
-export async function syncHousehold(backend: Backend, access: Access, householdId: ID): Promise<void> {
-  const h = access.get(householdId);
-  if (!h?.sync) return;
-  if (h.sync.setup) await promote(backend, access, householdId);
-  await pull(backend, access, householdId);
-  await flush(backend, access, householdId);
-}
-
 // ---------- invites and joining ----------
 
 const CODE_ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
@@ -606,9 +635,10 @@ async function reconcileAndIssueInvites(backend: Backend, access: Access, househ
     }
   };
   for (const person of h.people) {
-    const cur = access.get(householdId)!;
+    const cur = access.get(householdId);
+    if (!cur?.sync) return;
     if (person.id === cur.youId || person.joined || person.archived) continue;
-    const existing = cur.sync!.invites?.[person.id];
+    const existing = cur.sync.invites?.[person.id];
     const remote = live.find(x => x.kind === 'perMember' && x.pendingMemberId === person.id && x.expiresAt > now);
     const replacing = replacement?.memberId === person.id && replacement.inviteId === existing?.inviteId
       && (!remote || remote.inviteId === replacement.inviteId);

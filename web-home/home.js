@@ -5,8 +5,9 @@
   "use strict";
   var root = document.documentElement;
   // A phone shorter than this can't fit the table above the text: it gets the plain page.
-  if (window.innerWidth <= 900 && window.innerHeight < 760) return;
-  root.classList.add("live");
+  function isShort() { return window.innerWidth <= 900 && window.innerHeight < 760; }
+  function syncLive() { root.classList.toggle("live", !isShort()); }
+  syncLive();
 
   var clamp = function (x, a, b) { return Math.min(b === undefined ? 1 : b, Math.max(a === undefined ? 0 : a, x)); };
   var seg = function (x, a, b) { return clamp((x - a) / (b - a)); };
@@ -38,8 +39,7 @@
   syncRM();
   if (mqRM.addEventListener) mqRM.addEventListener("change", syncRM);
 
-  var stage, acts = {}, amt, dir, verify, slips = {};
-  var last = "";
+  var stage, acts = {}, amt, dir, slips = {};
   var queued = false;
 
   function init() {
@@ -47,15 +47,13 @@
     if (!stage) return;
     amt = stage.querySelector("[data-amt]");
     dir = stage.querySelector(".dir");
-    verify = stage;
     ["hello", "add", "why", "repay", "history", "request"].forEach(function (id) {
       acts[id] = document.getElementById(id);
     });
     Array.prototype.forEach.call(stage.querySelectorAll("[data-slip]"), function (el) { slips[el.getAttribute("data-slip")] = el; });
     window.addEventListener("scroll", request, { passive: true });
-    window.addEventListener("resize", request);
+    window.addEventListener("resize", function () { syncLive(); request(); });
     document.addEventListener("focusin", onFocus);
-    root.classList.add("sc-ready");
     frame();
   }
 
@@ -76,6 +74,7 @@
   }
 
   function frame() {
+    if (isShort()) return;
     var vh = window.innerHeight;
     var m = {};
     var order = ["hello", "add", "why", "repay", "history", "request"];
@@ -137,14 +136,6 @@
     s.setProperty("--phone", r2(phone));
     s.setProperty("--shot", r2(shot));
     root.classList.toggle("settled", square > 0.85);
-
-    var copyState = order.map(function (id) { return acts[id].style.getPropertyValue("--o"); }).join(",");
-    var rowState = [Awhy, Arep].map(function (x) { return Math.round(x * 12); }).join(",");
-    var state = [copyState, rowState, text, r2(lean), r2(press), r2(f1), r2(f2), r2(f3), r2(share), r2(square), r2(ledger), r2(together), r2(phone), r2(shot)].join("|");
-    if (state !== last) { last = state; verify.setAttribute("data-sc-verify-state", state); }
-    // Resolved holds: the number rests at 84 while the copy catches up, and the clear table at the close.
-    var hold = (Aadd > 0.74 && Aadd < 1 && phone > 0.9) || Areq > 0.5;
-    if (hold) verify.setAttribute("data-sc-verify-hold", "true"); else verify.removeAttribute("data-sc-verify-hold");
   }
 
   // A focused control inside faded copy: park the page where that copy is open.

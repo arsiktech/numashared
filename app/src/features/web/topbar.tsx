@@ -83,7 +83,7 @@ export function WebTopBar() {
       </Press>
       <Press onPress={() => router.push('/settings')} accessibilityLabel="Settings and account"
         style={{ width: 44, height: 44, borderRadius: 22, backgroundColor: mine.band, alignItems: 'center', justifyContent: 'center' }}>
-        <T style={{ fontFamily: fonts.display, fontSize: 16, color: mine.ink }}>Y</T>
+        <T maxFontSizeMultiplier={1} style={{ fontFamily: fonts.display, fontSize: 16, color: mine.ink }}>Y</T>
       </Press>
     </View>
   );

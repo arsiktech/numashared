@@ -122,7 +122,7 @@ export default function Groups() {
                       style={{ minHeight: 44, paddingLeft: 8, paddingRight: 16, borderRadius: 22, flexDirection: 'row', alignItems: 'center', gap: 8,
                         backgroundColor: on ? t.ink : alpha(t.ink, 0.09) }}>
                       <View style={{ width: 28, height: 28, borderRadius: 14, backgroundColor: on ? t.band : t.ink, alignItems: 'center', justifyContent: 'center' }}>
-                        <T style={{ fontFamily: fonts.bold, fontSize: 12, color: on ? t.ink : t.band }}>{nm(pid).slice(0, 1).toUpperCase()}</T>
+                        <T maxFontSizeMultiplier={1} style={{ fontFamily: fonts.bold, fontSize: 12, color: on ? t.ink : t.band }}>{nm(pid).slice(0, 1).toUpperCase()}</T>
                       </View>
                       <T style={{ fontFamily: fonts.semibold, fontSize: 16, color: on ? t.band : t.ink }}>{nm(pid)}</T>
                     </Press>

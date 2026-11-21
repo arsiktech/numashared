@@ -1,10 +1,11 @@
 // Home. Phone: bands, ticket and orb, then the latest records. Desk: three panes, balance on the
 // left, the history thread in the middle and the selected record on the right.
 import { createElement, useEffect, useMemo, useRef, useState } from 'react';
-import { FlatList, ScrollView, StyleSheet, View } from 'react-native';
+import { FlatList, ScrollView, View } from 'react-native';
 import Animated, { Extrapolation, interpolate, runOnJS, useAnimatedReaction, useAnimatedScrollHandler, useAnimatedStyle, useSharedValue } from 'react-native-reanimated';
 import { Redirect, useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { todayISO } from '@/store/ids';
 import { markSeen, useStore } from '@/store/store';
 import { openSheet } from '@/store/ui';
 import { Check, ChevDown, Search } from '@/ui/icons';
@@ -23,7 +24,7 @@ import { RecordDetail } from '@/features/detail/content';
 import { WebTopBar } from '@/features/web/topbar';
 
 export default function Home() {
-  const { h, ledger, hide } = useHousehold();
+  const { h, ledger } = useHousehold();
   const { layout } = useTheme();
   const recent = useStore((s) => s.recent);
   useEffect(() => {
@@ -170,7 +171,7 @@ function EmptyState() {
   const { h } = useHousehold();
   const router = useRouter();
   if (!h) return null;
-  const invited = h.people.filter((p) => !p.joined && p.id !== h.youId);
+  const invited = h.people.filter((p) => !p.joined && !p.archived && p.id !== h.youId);
   return (
     <View style={{ alignItems: 'center', paddingTop: 18, gap: 8 }}>
       <View style={{ width: 64, height: 64, borderRadius: 32, borderWidth: 2, borderStyle: 'dashed', borderColor: c.ink3, alignItems: 'center', justifyContent: 'center' }}>
@@ -202,7 +203,7 @@ function DeskHome() {
   const sel = useMemo(() => (selected && ledger?.byId[selected] ? selected : null), [selected, ledger]);
   if (!h || !ledger) return null;
   return (
-    <View style={{ flex: 1, backgroundColor: '#F1EFE8' }}>
+    <View style={{ flex: 1, backgroundColor: c.dark ? c.bg : '#F1EFE8' }}>
       <WebTopBar />
       <View style={{ flex: 1, flexDirection: 'row' }}>
         <ScrollView style={{ width: layout === 'desk' ? 360 : 320, flexGrow: 0, backgroundColor: c.bg, borderRightWidth: 1, borderRightColor: c.hair }}>
@@ -240,7 +241,7 @@ function MonthStats() {
   const { h, ledger, hide } = useHousehold();
   const { c } = useTheme();
   if (!h || !ledger) return null;
-  const month = new Date().toISOString().slice(0, 7);
+  const month = todayISO().slice(0, 7);
   const ex = ledger.records.filter((r) => r.kind === 'expense' && !r.voided && r.expense!.date.startsWith(month));
   const total = ex.reduce((a, r) => a + r.expense!.amount, 0);
   const byGroup = h.groups.map((g) => ({ g, sum: ex.filter((r) => h.people.find((p) => p.id === r.expense!.payerId)?.groupId === g.id).reduce((a, r) => a + r.expense!.amount, 0) }));

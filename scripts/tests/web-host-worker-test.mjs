@@ -87,3 +87,32 @@ test("other POSTs still redirect so rate limits see the caller", async () => {
   assert.equal(response.status, 307);
   assert.equal(calls.length, 0);
 });
+
+test("POST /card-sync/spends is proxied so the bearer key is preserved", async () => {
+  const calls = capture(new Response(JSON.stringify({ outcomes: [] }), { status: 200, headers: { "content-type": "application/json" } }));
+  const response = await worker.fetch(new Request("https://shared.numaworth.com/card-sync/spends", {
+    method: "POST",
+    headers: { authorization: "Bearer nscs_test", "content-type": "application/json" },
+    body: JSON.stringify({ spends: [] }),
+  }), env);
+  assert.equal(response.status, 200);
+  assert.equal(calls.length, 1);
+  assert.equal(calls[0].url, "https://adept-camel-457.convex.site/card-sync/spends");
+  assert.equal(calls[0].init.headers.get("authorization"), "Bearer nscs_test");
+});
+
+test("GET /join/* allows the invite form 307 redirect to the backend under CSP3", async () => {
+  capture(new Response("<form method='post'></form>", {
+    status: 200,
+    headers: {
+      "content-type": "text/html; charset=utf-8",
+      "content-security-policy": "default-src 'none'; form-action 'self'; frame-ancestors 'none'",
+    },
+  }));
+  const response = await worker.fetch(new Request("https://shared.numaworth.com/join/ABC234"), env);
+  assert.equal(response.status, 200);
+  assert.equal(
+    response.headers.get("content-security-policy"),
+    "default-src 'none'; form-action 'self' https://adept-camel-457.convex.site; frame-ancestors 'none'",
+  );
+});

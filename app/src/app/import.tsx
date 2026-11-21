@@ -64,15 +64,19 @@ export default function ImportSheet() {
   const [you, setYou] = useState<string | null>(null);
   const [created, setCreated] = useState<string | null>(null);
 
-  const preview = useMemo<SheetImport | null>(() => {
-    if (!loaded) return null;
+  const { preview, previewError } = useMemo<{ preview: SheetImport | null; previewError: string | null }>(() => {
+    if (!loaded) return { preview: null, previewError: null };
     try {
-      return buildHousehold({ name: name || loaded.title, expenses: loaded.expenses, payments: loaded.payments, youName: you ?? undefined });
+      return {
+        preview: buildHousehold({ name: name || loaded.title, expenses: loaded.expenses, payments: loaded.payments, youName: you ?? undefined }),
+        previewError: null,
+      };
     } catch (e) {
-      setTimeout(() => setError(e instanceof Error ? e.message : 'The sheet couldn’t be read.'), 0);
-      return null;
+      return { preview: null, previewError: e instanceof Error ? e.message : 'The sheet couldn’t be read.' };
     }
   }, [loaded, name, you]);
+
+  const displayError = error ?? previewError;
 
   const read = async () => {
     if (busy) return;
@@ -91,6 +95,7 @@ export default function ImportSheet() {
   };
 
   const share = async (id: string) => {
+    setBusy('creating'); setError(null);
     try {
       const serverId = await turnOnSync(id);
       showToast('Shared. The rest of the history is uploading.');
@@ -98,6 +103,8 @@ export default function ImportSheet() {
       return serverId;
     } catch (e) {
       setError(explainFailure(failureOf(e).code));
+    } finally {
+      setBusy(null);
     }
   };
 
@@ -110,7 +117,7 @@ export default function ImportSheet() {
     setCreated(h.id);
     haptic.success();
     if (session) await share(h.id);
-    setBusy(null);
+    else setBusy(null);
   };
 
   const balance = preview ? balanceSummary(preview.household) : null;
@@ -118,7 +125,12 @@ export default function ImportSheet() {
   const groups = preview ? preview.household.groups.map((g) => g.memberIds.map((id) => preview.household.people.find((p) => p.id === id)!.name).join(' + ')) : [];
 
   const footer = created ? (
-    session ? null : <CTA variant="second" label={`Not now, keep it in ${thisDevice}`} onPress={() => router.replace('/home')} />
+    session ? (
+      <View style={{ gap: 8 }}>
+        <CTA label={busy === 'creating' ? 'Sharing…' : 'Try sharing again'} disabled={!!busy} onPress={() => { void share(created); }} />
+        <CTA variant="second" label={`Continue in ${thisDevice}`} disabled={!!busy} onPress={() => router.replace('/home')} />
+      </View>
+    ) : <CTA variant="second" label={`Not now, keep it in ${thisDevice}`} onPress={() => router.replace('/home')} />
   ) : preview ? (
     <CTA label={busy === 'creating' ? 'Creating…' : `Create ${(name || 'household').trim()}`} disabled={!!busy} onPress={create} />
   ) : (
@@ -137,9 +149,9 @@ export default function ImportSheet() {
         returnKeyType="go" onSubmitEditing={read} editable={!created} />
       <Caption>The sheet needs “Anyone with the link can view”. It is read once, in {thisDevice}.</Caption>
 
-      {error ? (
+      {displayError ? (
         <View style={{ marginTop: 16 }} accessibilityLiveRegion="polite">
-          <Banner kind="warn" icon={<Warn size={18} color={c.warnInk} />}><BannerText kind="warn" rest={error} /></Banner>
+          <Banner kind="warn" icon={<Warn size={18} color={c.warnInk} />}><BannerText kind="warn" rest={displayError} /></Banner>
         </View>
       ) : null}
 
@@ -162,7 +174,7 @@ export default function ImportSheet() {
             <T style={{ fontSize: 15, color: c.ink2 }}>Groups: {groups.join('  ·  ')}</T>
             {balance ? (
               <T style={{ fontFamily: fonts.semibold, fontSize: 17, marginTop: 4 }}>
-                {balance.owing} owe {balance.owed} {formatMoney(balance.cents, preview.currency)}
+                {balance.owing} {balance.owing.includes('+') ? 'owe' : 'owes'} {balance.owed} {formatMoney(balance.cents, preview.currency)}
               </T>
             ) : <T style={{ fontFamily: fonts.semibold, fontSize: 17, marginTop: 4 }}>Everyone is square</T>}
             <T style={{ fontSize: 13.5, color: c.ink2 }}>Check this against the balance in your sheet before you create the household.</T>

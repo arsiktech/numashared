@@ -24,7 +24,8 @@ export function tabsFromHtmlView(html: string): Tab[] {
   const tabs: Tab[] = [];
   const re = /\{name: *"((?:[^"\\]|\\.)*)"[^}]*?gid: *"(\d+)"/g;
   for (let m = re.exec(html); m; m = re.exec(html)) {
-    const name = JSON.parse(`"${m[1]}"`) as string;
+    let name = m[1];
+    try { name = JSON.parse(`"${m[1]}"`) as string; } catch { /* JS escapes like \' aren't JSON */ }
     if (!tabs.some((t) => t.gid === m![2])) tabs.push({ name, gid: m[2] });
   }
   return tabs;
@@ -267,9 +268,11 @@ export function buildHousehold(input: {
     return g;
   };
   for (const label of groupLabels) {
-    const members = split(label).filter((n) => !personOf.has(n));
+    const parts = split(label);
+    if (!parts.length) throw new ImportError(`Couldn’t read group name “${label}”.`);
+    const members = parts.filter((n) => !personOf.has(n));
     if (members.length) groupOfLabel.set(label, addGroup(members));
-    else groupOfLabel.set(label, groups.find((g) => g.memberIds.includes(personOf.get(split(label)[0])!.id))!);
+    else groupOfLabel.set(label, groups.find((g) => g.memberIds.includes(personOf.get(parts[0])!.id))!);
   }
   for (const n of names) if (!personOf.has(n)) addGroup([n]);
   if (groups.length > GROUP_COLORS.length) throw new ImportError(`At most ${GROUP_COLORS.length} groups.`);
@@ -335,8 +338,9 @@ export function buildHousehold(input: {
   drafts.sort((a, b) => a.at.getTime() - b.at.getTime());
 
   const currencies = new Map<string, number>();
+  const amountCol = columns(input.expenses[0] ?? []).amount;
   for (const r of input.expenses.slice(1)) {
-    const c = r.map((x) => parseMoney(x)?.currency).find(Boolean);
+    const c = amountCol !== undefined ? parseMoney(r[amountCol] ?? '')?.currency : r.map((x) => parseMoney(x)?.currency).find(Boolean);
     if (c) currencies.set(c, (currencies.get(c) ?? 0) + 1);
   }
   const currency = [...currencies].sort((a, b) => b[1] - a[1])[0]?.[0] ?? 'EUR';

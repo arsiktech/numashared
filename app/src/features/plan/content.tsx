@@ -2,7 +2,7 @@
 // moved your group's balance. Two groups read as one sentence; three or more get the diverging
 // owes / gets-back chart and one card per repayment.
 import type { ReactNode } from 'react';
-import { ScrollView, View } from 'react-native';
+import { View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { explain, formatMoney, isPlural, planSettlement } from '@/core';
 import type { ExplainLine, Group, Household, Transfer } from '@/core/types';
@@ -10,7 +10,7 @@ import { yourGroup } from '@/store/store';
 import { openSheet, replaceSheet } from '@/store/ui';
 import { ArrowRight, Check, Close } from '@/ui/icons';
 import { CTA, Dot, Pill, Press, T, TextButton } from '@/ui/primitives';
-import { SheetHead, useSheet } from '@/ui/sheet';
+import { SheetHead, SheetScrollView, useSheet } from '@/ui/sheet';
 import { useTheme } from '@/ui/theme';
 import { fonts, isAndroid } from '@/ui/tokens';
 import { money, nameOf, objectName, useHousehold } from '../hooks';
@@ -65,7 +65,7 @@ export function PlanContent() {
       ) : (
         <SheetHead title="Balance" right={<TextButton label="Done" bold onPress={() => close('done')} />} />
       )}
-      <ScrollView style={{ flex: 1 }} contentContainerStyle={{ paddingHorizontal: 22, paddingTop: 8, paddingBottom: 20 }}>
+      <SheetScrollView style={{ flex: 1 }} contentContainerStyle={{ paddingHorizontal: 22, paddingTop: 8, paddingBottom: 20 }}>
         <T accessibilityRole="header" style={{ fontFamily: fonts.cond, fontSize: many || square ? 40 : 36, lineHeight: many || square ? 42 : 38, letterSpacing: -0.4 }}>{title}</T>
         <T style={{ fontSize: 14, lineHeight: 19, color: c.ink2, marginTop: 8 }}>{sub}</T>
 
@@ -97,7 +97,7 @@ export function PlanContent() {
             <T style={{ fontFamily: fonts.semibold, fontSize: 12.5, color: c.ink2, marginTop: 14 }}>Tap any line to see who added it and every change.</T>
           </View>
         ) : null}
-      </ScrollView>
+      </SheetScrollView>
       {cta ? <View style={{ paddingHorizontal: 18, paddingTop: 8, paddingBottom: Math.max(insets.bottom, 12) + 4 }}>{cta}</View> : null}
     </View>
   );
@@ -129,7 +129,7 @@ function Diverging({ h, balances, hide }: { h: Household; balances: Record<strin
   return (
     <View style={{ marginTop: 22 }} accessibilityLabel={h.groups.map((g) => {
       const b = balances[g.id] ?? 0;
-      return `${nameOf(h, g)} ${b < 0 ? `owes ${money(h, -b)}` : b > 0 ? `gets back ${money(h, b)}` : 'square'}`;
+      return `${nameOf(h, g)} ${b < 0 ? `owes ${money(h, -b, hide)}` : b > 0 ? `gets back ${money(h, b, hide)}` : 'square'}`;
     }).join('. ')}>
       <View style={{ flexDirection: 'row', marginBottom: 4 }}>
         <View style={{ width: nameW }} />
@@ -143,7 +143,7 @@ function Diverging({ h, balances, hide }: { h: Household; balances: Record<strin
         const bar = (side: 'l' | 'r') => (
           <View style={{ position: 'absolute', top: 0, bottom: 0, [side === 'l' ? 'right' : 'left']: 4, width: w, minWidth: 72, borderRadius: 8,
             backgroundColor: t.band, justifyContent: 'center', paddingHorizontal: 8 }}>
-            <T numberOfLines={1} style={{ fontFamily: fonts.bold, fontSize: 13, color: t.ink, fontVariant: ['tabular-nums'], textAlign: side === 'l' ? 'left' : 'left' }}>{money(h, Math.abs(b), hide)}</T>
+            <T numberOfLines={1} style={{ fontFamily: fonts.bold, fontSize: 13, color: t.ink, fontVariant: ['tabular-nums'], textAlign: 'left' }}>{money(h, Math.abs(b), hide)}</T>
           </View>
         );
         return (
@@ -176,7 +176,7 @@ function Move({ h, t, mine, hide, onRecord }: { h: Household; t: Transfer; mine:
         <T style={{ fontFamily: fonts.display, fontSize: 26, letterSpacing: -0.8, marginTop: 2, fontVariant: ['tabular-nums'] }}>{money(h, t.amount, hide)}</T>
       </View>
       {yours ? (
-        <Pill label="Record it" accessibilityLabel={`Record ${nameOf(h, from)} paying ${nameOf(h, to)} ${money(h, t.amount)}`} onPress={onRecord} />
+        <Pill label="Record it" accessibilityLabel={`Record ${nameOf(h, from)} paying ${nameOf(h, to)} ${money(h, t.amount, hide)}`} onPress={onRecord} />
       ) : (
         <T style={{ fontFamily: fonts.semibold, fontSize: 12.5, lineHeight: 17, color: c.ink2, textAlign: 'right', maxWidth: 130 }}>
           {nameOf(h, from)} or {nameOf(h, to)}{'\n'}record this one

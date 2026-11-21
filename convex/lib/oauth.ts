@@ -249,8 +249,11 @@ export type ClientRegistration = {
 
 type Failure = { error: string; description: string };
 
-const cleanName = (value: unknown, fallback: string) =>
-  typeof value === "string" && value.trim() ? value.replace(/[\u0000-\u001f\u007f]/g, "").trim().slice(0, 60) : fallback;
+const cleanName = (value: unknown, fallback: string) => {
+  if (typeof value !== "string") return fallback;
+  const cleaned = value.replace(/[\u0000-\u001f\u007f]/g, "").trim().slice(0, 60);
+  return cleaned || fallback;
+};
 
 function httpsURL(value: unknown): string | undefined {
   if (typeof value !== "string" || value.length > 300) return undefined;
@@ -281,7 +284,7 @@ export function parseRegistration(body: unknown): { ok: true; value: ClientRegis
     return { ok: false, error: "invalid_client_metadata", description: "Only authorization_code and refresh_token are supported." };
   }
   const responseTypes = Array.isArray(meta.response_types) ? meta.response_types.map(String) : ["code"];
-  if (responseTypes.some((r) => r !== "code")) {
+  if (!responseTypes.includes("code") || responseTypes.some((r) => r !== "code")) {
     return { ok: false, error: "invalid_client_metadata", description: "Only the code response type is supported." };
   }
   const method = meta.token_endpoint_auth_method ?? "none";
@@ -336,7 +339,7 @@ export function parseClientMetadataDocument(clientId: string, document: unknown)
   }
   const parsed = parseRegistration({ ...doc, token_endpoint_auth_method: "none" });
   if (!parsed.ok) return { ok: false, error: "invalid_client", description: parsed.description };
-  if (typeof doc.client_name !== "string" || !doc.client_name.trim()) {
+  if (typeof doc.client_name !== "string" || !doc.client_name.replace(/[\u0000-\u001f\u007f]/g, "").trim()) {
     return { ok: false, error: "invalid_client", description: "The client metadata document has no client_name." };
   }
   return parsed;
@@ -344,8 +347,8 @@ export function parseClientMetadataDocument(clientId: string, document: unknown)
 
 /** How long a fetched metadata document may be cached, from its Cache-Control header (1 minute to 1 day). */
 export function metadataCacheMillis(cacheControl: string | null): number {
-  const maxAge = cacheControl?.match(/max-age=(\d+)/)?.[1];
-  if (cacheControl && /no-store|no-cache/.test(cacheControl)) return 60_000;
+  const maxAge = cacheControl?.match(/max-age=(\d+)/i)?.[1];
+  if (cacheControl && /no-store|no-cache/i.test(cacheControl)) return 60_000;
   if (!maxAge) return METADATA_CACHE_MILLIS;
   return Math.min(Math.max(Number(maxAge) * 1_000, 60_000), 86_400_000);
 }

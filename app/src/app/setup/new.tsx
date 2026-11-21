@@ -97,7 +97,7 @@ function PersonRow({ initial, value, onChange, placeholder, suffix, label, onRem
     <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12, minHeight: 52, paddingLeft: 16, paddingRight: onRemove ? 4 : 16,
       borderBottomWidth: 1, borderBottomColor: c.hair }}>
       <View style={{ width: 32, height: 32, borderRadius: 16, backgroundColor: c.chip, alignItems: 'center', justifyContent: 'center' }}>
-        <T style={{ fontFamily: fonts.bold, fontSize: 13 }}>{initial}</T>
+        <T maxFontSizeMultiplier={1} style={{ fontFamily: fonts.bold, fontSize: 13 }}>{initial}</T>
       </View>
       <TextInput ref={inputRef} value={value} onChangeText={onChange} placeholder={placeholder} placeholderTextColor={c.ink3}
         accessibilityLabel={label} autoCapitalize="words" maxLength={24} returnKeyType="next" onSubmitEditing={onSubmit}

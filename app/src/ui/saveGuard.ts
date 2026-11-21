@@ -11,3 +11,7 @@ export function saveGuard(key: number): { current: boolean } {
     set current(v: boolean) { if (v) savingSheets.add(key); else savingSheets.delete(key); },
   };
 }
+
+export function clearSaveGuard(key: number): void {
+  savingSheets.delete(key);
+}

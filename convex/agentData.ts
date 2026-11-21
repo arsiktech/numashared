@@ -6,6 +6,7 @@ import { v } from "convex/values";
 import type { Doc, Id } from "./_generated/dataModel";
 import { internalQuery, type QueryCtx } from "./_generated/server";
 import { fail, requireActiveMembership } from "./lib/access";
+import { maximumActivePotsPerAccount } from "./lib/accountWriteQuota";
 import {
   applyFinancialEventState,
   currentContribution,
@@ -26,8 +27,6 @@ const financialKinds = [
   "settlementFlagged",
   "openingBalanceSet",
 ] as const;
-
-const textFields = ["title", "category", "note", "reason"] as const;
 
 const scopeArgs = { accountId: v.id("accounts"), scopePotId: v.union(v.string(), v.null()) };
 
@@ -123,7 +122,9 @@ function recordStates(events: readonly FinancialEvent[]) {
       states.set(event.recordId, state);
     }
     applyFinancialEventState(state, event);
-    byRecord.set(event.recordId, [...(byRecord.get(event.recordId) ?? []), event]);
+    const list = byRecord.get(event.recordId);
+    if (list) list.push(event);
+    else byRecord.set(event.recordId, [event]);
   }
   return { states, byRecord };
 }
@@ -134,7 +135,7 @@ export const households = internalQuery({
   handler: async (ctx, args) => {
     const memberships = await ctx.db.query("potMembers")
       .withIndex("by_account_status", (q) => q.eq("accountId", args.accountId).eq("status", "active"))
-      .take(50);
+      .take(maximumActivePotsPerAccount);
     const result = [];
     for (const membership of memberships) {
       if (args.scopePotId !== null && membership.potId !== args.scopePotId) continue;
@@ -257,7 +258,12 @@ export const records = internalQuery({
       before = BigInt(args.beforeSequence);
     }
 
-    const events = await financialEvents(ctx, pot.potId);
+    const events = args.recordId !== undefined
+      ? await ctx.db.query("events")
+        .withIndex("by_pot_record", (q) => q.eq("potId", pot.potId).eq("recordId", args.recordId))
+        .order("asc")
+        .collect()
+      : await financialEvents(ctx, pot.potId);
     const { states, byRecord } = recordStates(events);
     const roots = [...byRecord.entries()]
       .map(([recordId, list]) => ({ recordId, root: list[0]!, list }))
@@ -266,35 +272,34 @@ export const records = internalQuery({
       .sort((a, b) => (a.root.sequence < b.root.sequence ? 1 : a.root.sequence > b.root.sequence ? -1 : 0));
     const page = roots.slice(0, limit);
 
+    const loadEventTexts = async (eventId: string) => {
+      const rows = await ctx.db.query("eventTexts")
+        .withIndex("by_pot_event", (q) => q.eq("potId", pot.potId).eq("eventId", eventId))
+        .collect();
+      return new Map(rows.map((row) => [row.field, row.value]));
+    };
+
     const out = [];
     for (const entry of page) {
       const state = states.get(entry.recordId)!;
-      const texts: Record<string, string | null> = {};
-      for (const event of [...entry.list].reverse()) {
-        for (const field of textFields) {
-          if (field in texts || !event.textFields.includes(field)) continue;
-          const row = await ctx.db.query("eventTexts")
-            .withIndex("by_event_field", (q) => q.eq("potId", pot.potId).eq("eventId", event.eventId).eq("field", field))
-            .unique();
-          texts[field] = row?.value ?? null;
-        }
-      }
-      const base = {
-        recordId: entry.recordId,
-        occurredAt: new Date(Number(entry.root.occurredAtMillis)).toISOString(),
-        recordedAt: new Date(entry.root.createdAt).toISOString(),
-        sequence: entry.root.sequence.toString(),
-        title: texts.title ?? null,
-        category: texts.category ?? null,
-        note: texts.note ?? null,
-        reason: texts.reason ?? null,
-        // The agent connection that added the record, when one did.
-        addedVia: entry.root.via ?? null,
-      };
       if (state.rootKind === "settlement" && state.settlement) {
+        const rootTexts = await loadEventTexts(entry.root.eventId);
+        let reason: string | null = null;
+        if (state.isFlagged) {
+          const flagEvent = [...entry.list].reverse().find((ev) => ev.payload.kind === "settlementFlagged");
+          if (flagEvent) reason = (await loadEventTexts(flagEvent.eventId)).get("reason") ?? null;
+        }
         const content = state.settlement.content;
         out.push({
-          ...base,
+          recordId: entry.recordId,
+          occurredAt: new Date(Number(entry.root.occurredAtMillis)).toISOString(),
+          recordedAt: new Date(entry.root.createdAt).toISOString(),
+          sequence: entry.root.sequence.toString(),
+          title: rootTexts.get("title") ?? null,
+          category: rootTexts.get("category") ?? null,
+          note: rootTexts.get("note") ?? null,
+          reason,
+          addedVia: entry.root.via ?? null,
           kind: "repayment",
           status: state.isFlagged ? "flagged" : "live",
           from: label(content.fromUnitId),
@@ -312,7 +317,25 @@ export const records = internalQuery({
       }
       const content = head?.payload.content;
       const status = state.isVoided ? "voided" : state.heads.size > 1 ? "contested" : "live";
-      if (!content) continue;
+      if (!content || !headEventId) continue;
+      const headTexts = await loadEventTexts(headEventId);
+      let reason: string | null = headTexts.get("reason") ?? null;
+      if (state.isVoided) {
+        const voidEvent = [...entry.list].reverse().find((ev) => ev.payload.kind === "recordVoided");
+        reason = voidEvent ? (await loadEventTexts(voidEvent.eventId)).get("reason") ?? null : null;
+      }
+      const base = {
+        recordId: entry.recordId,
+        occurredAt: new Date(Number(entry.root.occurredAtMillis)).toISOString(),
+        recordedAt: new Date(entry.root.createdAt).toISOString(),
+        sequence: entry.root.sequence.toString(),
+        title: headTexts.get("title") ?? null,
+        category: headTexts.get("category") ?? null,
+        note: headTexts.get("note") ?? null,
+        reason,
+        // The agent connection that added the record, when one did.
+        addedVia: entry.root.via ?? null,
+      };
       if ("entries" in content) {
         out.push({
           ...base,

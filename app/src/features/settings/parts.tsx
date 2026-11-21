@@ -2,13 +2,13 @@
 // list with leading icons and inset dividers. Tablet and desk web: the settings shell with the top
 // bar, a section nav on the left and the content column on the right.
 import { type ReactNode } from 'react';
-import { ScrollView, View } from 'react-native';
+import { KeyboardAvoidingView, ScrollView, View } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ChevRight } from '@/ui/icons';
 import { Press, T } from '@/ui/primitives';
 import { useTheme } from '@/ui/theme';
-import { fonts, isAndroid } from '@/ui/tokens';
+import { fonts, isAndroid, isIOS } from '@/ui/tokens';
 import { ScreenHeader } from '@/features/onboarding/chrome';
 import { WebTopBar } from '@/features/web/topbar';
 import { SETTINGS_NAV, type DeskSection } from './section';
@@ -41,9 +41,9 @@ export function SGroup({ title, children, first }: { title?: string; children: R
 }
 
 /** One settings row. Pass `onPress` to make it a button; `right` replaces the chevron. */
-export function SRow({ label, sub, value, icon, onPress, right, danger, last, first, a11y, chevron = true, children }: {
+export function SRow({ label, sub, value, icon, onPress, right, danger, last, first, a11y, chevron = true }: {
   label: string; sub?: string; value?: string; icon?: ReactNode; onPress?: () => void; right?: ReactNode; danger?: boolean;
-  last?: boolean; first?: boolean; a11y?: string; chevron?: boolean; children?: ReactNode;
+  last?: boolean; first?: boolean; a11y?: string; chevron?: boolean;
 }) {
   const { c } = useTheme();
   const desk = useDesk();
@@ -56,7 +56,6 @@ export function SRow({ label, sub, value, icon, onPress, right, danger, last, fi
       <View style={{ flex: 1, minWidth: 0 }}>
         <T style={{ fontFamily: fonts.medium, fontSize: 16, lineHeight: 20, color: labelColor }}>{label}</T>
         {sub || value ? <T style={{ fontSize: 14, lineHeight: 18, color: c.ink2, marginTop: 2 }}>{[value, sub].filter(Boolean).join(' · ')}</T> : null}
-        {children}
       </View>
       {right}
     </View>
@@ -67,13 +66,12 @@ export function SRow({ label, sub, value, icon, onPress, right, danger, last, fi
       <View style={{ flex: 1, minWidth: 0 }}>
         <T style={{ fontSize: 16, lineHeight: 21, color: labelColor }}>{label}</T>
         {sub ? <T style={{ fontSize: 13, lineHeight: 17, color: c.ink2, marginTop: 2 }}>{sub}</T> : null}
-        {children}
       </View>
       {value ? <T numberOfLines={1} style={{ fontSize: 15, color: c.ink2, flexShrink: 1, maxWidth: '50%', textAlign: 'right' }}>{value}</T> : null}
       {right ?? (onPress && chevron ? <ChevRight size={18} color={c.ink3} /> : null)}
     </View>
   );
-  if (!onPress) return <View accessible={!children && !right} accessibilityLabel={a11y ?? [label, value, sub].filter(Boolean).join(', ')}>{body}</View>;
+  if (!onPress) return <View accessible={!right} accessibilityLabel={a11y ?? [label, value, sub].filter(Boolean).join(', ')}>{body}</View>;
   return <Press noScale onPress={onPress} accessibilityLabel={a11y ?? [label, value, sub].filter(Boolean).join(', ')}>{body}</Press>;
 }
 
@@ -99,13 +97,13 @@ export function SettingsShell({ title, back, active, children, footer, onSection
   const router = useRouter();
   if (layout === 'phone') {
     return (
-      <View style={{ flex: 1, backgroundColor: c.bg }}>
-        <ScrollView style={{ flex: 1 }} contentContainerStyle={{ paddingTop: Math.max(insets.top, 12), paddingHorizontal: isAndroid ? 0 : 16, paddingBottom: footer ? 20 : insets.bottom + 32 }}>
+      <KeyboardAvoidingView behavior={isIOS ? 'padding' : undefined} style={{ flex: 1, backgroundColor: c.bg }}>
+        <ScrollView style={{ flex: 1 }} keyboardShouldPersistTaps="handled" contentContainerStyle={{ paddingTop: Math.max(insets.top, 12), paddingHorizontal: isAndroid ? 0 : 16, paddingBottom: footer ? 20 : insets.bottom + 32 }}>
           <View style={{ paddingHorizontal: isAndroid ? 16 : 4 }}><ScreenHeader title={title} back={back} /></View>
           {children}
         </ScrollView>
         {footer ? <View style={{ paddingHorizontal: 16, paddingTop: 10, paddingBottom: Math.max(insets.bottom + 4, 16), backgroundColor: c.bg }}>{footer}</View> : null}
-      </View>
+      </KeyboardAvoidingView>
     );
   }
   const desk = layout === 'desk';

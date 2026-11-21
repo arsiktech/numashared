@@ -13,15 +13,15 @@ const hash = (buf) => crypto.createHash("sha256").update(buf).digest("hex").slic
 const rd = (f) => fs.readFileSync(f);
 
 const assets = {
-  "app-home.webp": { file: src("assets", "app-09-home.webp"), type: "image/webp" },
-  "app-expense.webp": { file: src("assets", "app-22-expense.webp"), type: "image/webp" },
-  "bricolage-700.woff2": { file: src("assets", "bricolage-700.woff2"), type: "font/woff2" },
+  "app-home.webp": { buf: rd(src("assets", "app-09-home.webp")), type: "image/webp" },
+  "app-expense.webp": { buf: rd(src("assets", "app-22-expense.webp")), type: "image/webp" },
+  "bricolage-700.woff2": { buf: rd(src("assets", "bricolage-700.woff2")), type: "font/woff2" },
 };
 const js = rd(src("home.js"));
 const v = {
   JS_VERSION: hash(js),
-  IMG_VERSION: hash(Buffer.concat([rd(assets["app-home.webp"].file), rd(assets["app-expense.webp"].file)])),
-  FONT_VERSION: hash(rd(assets["bricolage-700.woff2"].file)),
+  IMG_VERSION: hash(Buffer.concat([assets["app-home.webp"].buf, assets["app-expense.webp"].buf])),
+  FONT_VERSION: hash(assets["bricolage-700.woff2"].buf),
 };
 let css = rd(src("home.css")).toString("utf8").replace(/\{\{(\w+)\}\}/g, (_, k) => v[k] ?? `{{${k}}}`);
 css = css.replace(/\/\*[\s\S]*?\*\//g, "").replace(/\n{2,}/g, "\n").trim();
@@ -38,7 +38,7 @@ const lines = [
   `export const homeTemplate = ${JSON.stringify(html)};`,
   `export const homeScript = ${JSON.stringify(js.toString("utf8"))};`,
   "export const homeAssets: Readonly<Record<string, { type: string; base64: string }>> = {",
-  ...Object.entries(assets).map(([n, a]) => `  ${JSON.stringify(n)}: { type: ${JSON.stringify(a.type)}, base64: ${JSON.stringify(rd(a.file).toString("base64"))} },`),
+  ...Object.entries(assets).map(([n, a]) => `  ${JSON.stringify(n)}: { type: ${JSON.stringify(a.type)}, base64: ${JSON.stringify(a.buf.toString("base64"))} },`),
   "};",
   "",
 ].join("\n");

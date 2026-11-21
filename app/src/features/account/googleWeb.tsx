@@ -23,7 +23,10 @@ function loadGsi(): Promise<Gsi> {
     const s = document.createElement('script');
     s.src = 'https://accounts.google.com/gsi/client';
     s.async = true;
-    s.onload = () => (w.google ? resolve(w.google) : reject(new Error('GSI_UNAVAILABLE')));
+    s.onload = () => {
+      if (w.google?.accounts?.id) resolve(w.google);
+      else { loading = null; reject(new Error('GSI_UNAVAILABLE')); }
+    };
     s.onerror = () => { loading = null; reject(new Error('GSI_UNAVAILABLE')); };
     document.head.appendChild(s);
   });

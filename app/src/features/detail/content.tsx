@@ -1,7 +1,7 @@
 // The whole story of one record: what it is, how it was split, and every change with its time.
 // Used inside the phone detail sheet ('sheet') and as Home's right pane on a desk ('panel').
 // Nothing here erases anything: Edit appends a revision, Void and Restore append events.
-import type { ReactNode } from 'react';
+import { useState, type ReactNode } from 'react';
 import { View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { categoryLabel, explain, shares } from '@/core';
@@ -24,6 +24,7 @@ export function RecordDetail({ recordId, variant, onClose }: { recordId: ID; var
   const { c } = useTheme();
   const insets = useSafeAreaInsets();
   const sheet = useSheet();
+  const [restoring, setRestoring] = useState(false);
   const close = onClose ?? (() => sheet.close());
   const r = ledger?.byId[recordId];
   if (!h || !ledger || !r) {
@@ -39,11 +40,15 @@ export function RecordDetail({ recordId, variant, onClose }: { recordId: ID; var
   // Edit and Void replace the detail sheet on a phone; on a desk the pane stays and a sheet opens.
   const go = (spec: SheetSpec) => (panel ? openSheet(spec) : replaceSheet(spec));
   const restore = async () => {
+    if (restoring) return;
+    setRestoring(true);
     try {
       await restoreRecord(h, r.id, `Restored “${recordTitle(r)}”`);
       showToast(`Restored “${recordTitle(r)}”`);
     } catch (e) {
       showToast(e instanceof SaveError ? e.message : 'Couldn’t restore it. Try again.');
+    } finally {
+      setRestoring(false);
     }
   };
   const actions: Actions = {
@@ -109,21 +114,25 @@ type Actions = { edit: () => void; void: () => void; flag: () => void; restore: 
 
 /** Two people changed the same version at once. The newest counts until someone keeps one. */
 function Contest({ h, r, hide }: { h: Household; r: LedgerRecord; hide: boolean }) {
-  const { c } = useTheme();
+  const [keeping, setKeeping] = useState(false);
   const versions = (r.contested ?? []).map((id) => r.revisions.find((v) => v.eventId === id)!).filter(Boolean);
   const amountOf = (content: (typeof versions)[number]['content']) => ('amount' in content ? money(h, content.amount, hide) : null);
   const keep = async (eventId: ID, who: string) => {
+    if (keeping) return;
+    setKeeping(true);
     try {
       await keepVersion(h, r.id, eventId, `Kept ${who} version`);
       showToast(`Kept ${who} version`);
     } catch (e) {
       showToast(e instanceof SaveError ? e.message : 'Couldn’t save that. Try again.');
+    } finally {
+      setKeeping(false);
     }
   };
   return (
     <View style={{ marginTop: 14, gap: 10 }} accessibilityLiveRegion="polite">
       <Banner kind="warn">
-        <BannerText kind="warn" strong="Two edits at the same time." rest=" The newer one counts for now. Keep the right one so everyone agrees." />
+        <BannerText kind="warn" strong="Two edits at the same time." rest="The newer one counts for now. Keep the right one so everyone agrees." />
       </Banner>
       {versions.map((v) => {
         const who = v.by === h.youId ? 'your' : `${personName(h, v.by)}’s`;
@@ -133,8 +142,8 @@ function Contest({ h, r, hide }: { h: Household; r: LedgerRecord; hide: boolean 
             <T style={{ flex: 1, fontSize: 15 }}>
               {v.by === h.youId ? 'Your edit' : `${personName(h, v.by)}’s edit`}{amount ? `, ${amount}` : ''}, {clock(v.at)}
             </T>
-            <Press onPress={() => { void keep(v.eventId, who); }} accessibilityRole="button" accessibilityLabel={`Keep ${who} version${amount ? `, ${amount}` : ''}`}
-              style={{ minHeight: 44, minWidth: 44, paddingHorizontal: 10, alignItems: 'center', justifyContent: 'center' }}>
+            <Press onPress={keeping ? undefined : () => { void keep(v.eventId, who); }} accessibilityRole="button" accessibilityLabel={`Keep ${who} version${amount ? `, ${amount}` : ''}`}
+              style={{ minHeight: 44, minWidth: 44, paddingHorizontal: 10, alignItems: 'center', justifyContent: 'center', opacity: keeping ? 0.5 : 1 }}>
               <T style={{ fontFamily: fonts.semibold, fontSize: 15, textDecorationLine: 'underline' }}>Keep</T>
             </Press>
           </View>
@@ -395,9 +404,9 @@ function timelineRows(h: Household, r: LedgerRecord, hide: boolean, panel: boole
           else parts.push(`${ch.from} → ${ch.to}`);
         }
         if (t.reason) parts.push(`“${t.reason}”`);
-        const line = joinNodes(parts);
+        const line = joinNodes(parts, ink2);
         rows.push({ key: t.eventId, kind: 'edited', head: `Edited by ${authorName(h, t.by, t.via)}`,
-          meta: panel ? [line, time] : [joinNodes([line, time])], spoken: [...editSpoken(t.changes, t.reason, hide, shortIso), time] });
+          meta: panel ? [line, time] : [joinNodes([line, time], ink2)], spoken: [...editSpoken(t.changes, t.reason, hide, shortIso), time] });
         break;
       }
       case 'voided':
@@ -415,9 +424,9 @@ function timelineRows(h: Household, r: LedgerRecord, hide: boolean, panel: boole
 }
 
 
-function joinNodes(parts: ReactNode[]): ReactNode {
+function joinNodes(parts: ReactNode[], color: string): ReactNode {
   if (parts.every((p) => typeof p === 'string')) return parts.join(' · ');
-  return <>{parts.map((p, i) => <T key={i} style={{ fontSize: 13.5 }}>{i ? ' · ' : ''}{p}</T>)}</>;
+  return <>{parts.map((p, i) => <T key={i} style={{ fontSize: 13.5, color }}>{i ? ' · ' : ''}{p}</T>)}</>;
 }
 
 // ---------- footer ----------

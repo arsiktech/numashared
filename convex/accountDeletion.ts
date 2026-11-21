@@ -233,7 +233,7 @@ export const preview = internalQuery({
 
 export const begin = internalMutation({
   args: {
-    refreshTokenHash: v.string(),
+    refreshTokenHash: v.optional(v.string()),
     requestId: v.string(),
     now: v.number(),
   },
@@ -245,12 +245,13 @@ export const begin = internalMutation({
       .withIndex("by_request_id", (index) => index.eq("requestId", args.requestId))
       .unique();
     const resumedAccount = progress ? await ctx.db.get(progress.accountId) : null;
-    const authenticated = await accountForRefreshHash(
-      ctx,
-      args.refreshTokenHash,
-      args.now,
-    );
+    const authenticated = args.refreshTokenHash
+      ? await accountForRefreshHash(ctx, args.refreshTokenHash, args.now)
+      : null;
     if (!authenticated && !resumedAccount) return { authorized: false as const };
+    if (progress && authenticated && progress.accountId !== authenticated.account._id) {
+      fail("ACCOUNT_DELETION_REQUEST_MISMATCH");
+    }
     const account = authenticated?.account ?? resumedAccount!;
     const existingProgress = await ctx.db
       .query("accountDeletionProgress")

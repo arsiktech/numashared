@@ -4,6 +4,7 @@ import { closeSheet, useUI, type OpenSheet } from '@/store/ui';
 import { FROZEN_HISTORY_MESSAGE, useStore } from '@/store/store';
 import { Sheet, useSheet } from '@/ui/sheet';
 import { T, TextButton } from '@/ui/primitives';
+import { fonts } from '@/ui/tokens';
 import { AddSheet } from './add';
 import { RepaySheet } from './repay';
 import { DetailSheet } from './detail';
@@ -44,7 +45,7 @@ export function SheetHost() {
 function ReadOnlyBody() {
   const { close } = useSheet();
   return <View style={{ padding: 24, gap: 16 }}>
-    <T accessibilityRole="header" style={{ fontSize: 20 }}>Read-only history</T>
+    <T accessibilityRole="header" style={{ fontFamily: fonts.bold, fontSize: 20 }}>Read-only history</T>
     <T style={{ fontSize: 16, lineHeight: 22 }}>{FROZEN_HISTORY_MESSAGE}</T>
     <TextButton label="Close" bold onPress={close} />
   </View>;

@@ -227,7 +227,7 @@ export const inviteLanding = httpAction(async (_ctx, request) => {
     // The code in the link only pre-fills the web app's Join screen; it reveals nothing by itself.
     const code = new URL(request.url).searchParams.get("code");
     return htmlResponse(genericInviteHTML(readInvitePageConfiguration(process.env),
-      code && /^[A-Za-z0-9]{6}$/.test(code) ? code.toUpperCase() : undefined));
+      code ? normalizeInviteCode(code) ?? undefined : undefined));
   } catch {
     return unavailableResponse();
   }

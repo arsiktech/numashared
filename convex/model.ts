@@ -238,22 +238,6 @@ export const potConfigurationInputValidator = v.object({
   minimumReaderSchemaVersion: v.int64(),
 });
 
-export const textPresentStateValidator = v.object({
-  field: textFieldValidator,
-  state: v.literal("present"),
-  value: v.string(),
-});
-
-export const textRedactedStateValidator = v.object({
-  field: textFieldValidator,
-  state: v.literal("redacted"),
-});
-
-export const textStateValidator = v.union(
-  textPresentStateValidator,
-  textRedactedStateValidator,
-);
-
 /** What a connected agent may change, besides reading (always allowed). */
 export const agentPermissionsValidator = v.object({
   /** Add expenses and repayments. */

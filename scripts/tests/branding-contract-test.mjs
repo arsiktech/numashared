@@ -27,7 +27,7 @@ test('native display name and localized product copy use Numa Shared', () => {
 });
 
 test('marketing, support, privacy, invite and store copy keep the exact brand', () => {
-  for (const path of ['web-marketing/index.html', 'web-marketing/privacy.html', 'web-marketing/support.html', 'convex/lib/webContent.ts']) {
+  for (const path of ['web-home/page.html', 'web-home/home.js', 'convex/lib/webContent.ts']) {
     check(read(path), path);
     assert.match(read(path), /Numa Shared/, path);
   }

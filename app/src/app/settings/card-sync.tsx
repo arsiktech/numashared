@@ -1,8 +1,8 @@
 // Card sync: spends on chosen payment cards are added to this household by themselves, as
 // "<owner> paid, for <group>". The owner picks the cards (last four digits) and whose they are,
 // then gets a key once, to give to the sync script that reads the card provider's history.
-import { useCallback, useEffect, useState } from 'react';
-import { Share, View } from 'react-native';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { View } from 'react-native';
 import { Redirect } from 'expo-router';
 import type { ID } from '@/core/types';
 import { Warn } from '@/ui/icons';
@@ -10,6 +10,7 @@ import { Banner, BannerText, CTA, haptic, Press, T } from '@/ui/primitives';
 import { useTheme } from '@/ui/theme';
 import { fonts } from '@/ui/tokens';
 import { Caption, Field, Label, Select } from '@/features/onboarding/chrome';
+import { shareText } from '@/features/onboarding/share';
 import { SettingsShell } from '@/features/settings/parts';
 import { nameOf, relativeDay, useHousehold } from '@/features/hooks';
 import { explainFailure } from '@/features/account/session';
@@ -29,16 +30,22 @@ export default function CardSyncScreen() {
 
   const others = h ? h.groups.filter((g) => !g.memberIds.includes(h.youId)) : [];
   const owner = h?.sync?.role === 'owner';
+  const shared = !!h?.sync && !h.sync.setup;
+  const hRef = useRef(h);
+  hRef.current = h;
 
   const refresh = useCallback(async () => {
-    if (!h?.sync || h.sync.setup) return;
-    try { setStatus(await cardSync.status(h)); } catch (e) { setError(explainFailure(failureOf(e).code)); }
-  }, [h]);
+    const cur = hRef.current;
+    if (!cur || !shared) return;
+    try { setStatus(await cardSync.status(cur)); } catch (e) { setError(explainFailure(failureOf(e).code)); }
+  }, [h?.id, shared]);
   useEffect(() => { void refresh(); }, [refresh]);
   useEffect(() => {
-    if (!h || rows.length || !others.length) return;
-    setRows([{ key: 1, last4: '', forUnitId: others[0].id, label: nameOf(h, others[0]) }]);
-  }, [h, others, rows.length]);
+    const cur = hRef.current;
+    if (!cur) return;
+    const otherGroups = cur.groups.filter((g) => !g.memberIds.includes(cur.youId));
+    setRows(otherGroups.length ? [{ key: 1, last4: '', forUnitId: otherGroups[0].id, label: nameOf(cur, otherGroups[0]) }] : []);
+  }, [h?.id]);
 
   if (!h) return <Redirect href="/welcome" />;
   if (!h.sync || h.sync.setup) {
@@ -49,7 +56,7 @@ export default function CardSyncScreen() {
     );
   }
 
-  const valid = rows.length > 0 && rows.every((r) => /^\d{4}$/.test(r.last4) && r.label.trim())
+  const valid = others.length > 0 && rows.length > 0 && rows.every((r) => /^\d{4}$/.test(r.last4) && r.label.trim() && r.forUnitId)
     && new Set(rows.map((r) => r.last4)).size === rows.length;
 
   const link = async (cards: CardSyncCard[]) => {
@@ -67,20 +74,26 @@ export default function CardSyncScreen() {
     finally { setBusy(false); }
   };
 
+  const actorGroup = h.groups.find((g) => g.memberIds.includes(status?.actorMemberId ?? h.youId)) ?? h.groups[0];
+  const lastSyncDay = (ts: number) => {
+    const d = relativeDay(ts);
+    return d === 'Today' || d === 'Yesterday' ? d.toLowerCase() : d;
+  };
+
   const footer = !owner ? null : key ? (
-    <CTA label="Share the key" onPress={() => { void Share.share({ message: `NUMA_SHARED_URL=${CARD_SYNC_URL}\nNUMA_SHARED_KEY=${key}` }); }} />
+    <CTA label="Share the key" onPress={() => { void shareText(`NUMA_SHARED_URL=${CARD_SYNC_URL}\nNUMA_SHARED_KEY=${key}`, 'Sync key copied'); }} />
   ) : status ? (
     <CTA variant="second" label={busy ? 'Working…' : 'Make a new key'} disabled={busy}
       onPress={() => { void link(status.cards); }} />
-  ) : (
+  ) : others.length > 0 ? (
     <CTA label={busy ? 'Linking…' : 'Link these cards'} disabled={!valid || busy}
       onPress={() => { void link(rows.map(({ last4, forUnitId, label }) => ({ last4, forUnitId, label: label.trim() }))); }} />
-  );
+  ) : null;
 
   return (
     <SettingsShell title="Card sync" back="Settings" active="household" footer={footer}>
       <T style={{ fontSize: 16, lineHeight: 22, color: c.ink2, marginTop: 8, paddingHorizontal: 4 }}>
-        Spends on the cards below are added as “{nameOf(h, h.groups.find((g) => g.memberIds.includes(status?.actorMemberId ?? h.youId))!)} paid”, entirely for whoever uses the card. Spends on any other card are ignored and never stored.
+        Spends on the cards below are added as “{actorGroup ? nameOf(h, actorGroup) : 'You'} paid”, entirely for whoever uses the card. Spends on any other card are ignored and never stored.
       </T>
 
       {error ? (
@@ -111,7 +124,7 @@ export default function CardSyncScreen() {
             ))}
           </View>
           <Caption>
-            {status.lastUsedAt ? `Last sync ${relativeDay(status.lastUsedAt).toLowerCase()}. ` : 'The sync script hasn’t sent anything yet. '}
+            {status.lastUsedAt ? `Last sync ${lastSyncDay(status.lastUsedAt)}. ` : 'The sync script hasn’t sent anything yet. '}
             {`${Number(status.added)} ${Number(status.added) === 1 ? 'spend' : 'spends'} added so far.`}
           </Caption>
           {owner ? (
@@ -121,11 +134,21 @@ export default function CardSyncScreen() {
             </Press>
           ) : null}
         </View>
+      ) : status === null && owner && others.length === 0 ? (
+        <T style={{ fontSize: 15, color: c.ink2, marginTop: 16 }}>Add another group in People and groups first, so spends have someone to go to.</T>
       ) : status === null && owner ? (
         <View style={{ marginTop: 18, gap: 4 }}>
           {rows.map((r, i) => (
             <View key={r.key} style={{ gap: 4 }}>
-              <Label style={{ marginTop: i ? 16 : 0 }}>{`Card ${i + 1}: last four digits`}</Label>
+              <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: i ? 16 : 0 }}>
+                <Label>{`Card ${i + 1}: last four digits`}</Label>
+                {rows.length > 1 ? (
+                  <Press onPress={() => setRows((all) => all.filter((x) => x.key !== r.key))} accessibilityLabel={`Remove card ${i + 1}`}
+                    style={{ minHeight: 44, justifyContent: 'center', paddingHorizontal: 4 }}>
+                    <T style={{ fontFamily: fonts.semibold, fontSize: 14, color: c.bad }}>Remove</T>
+                  </Press>
+                ) : null}
+              </View>
               <Field value={r.last4} onChangeText={(v) => setRows((all) => all.map((x) => (x.key === r.key ? { ...x, last4: v.replace(/\D/g, '').slice(0, 4) } : x)))}
                 keyboardType="number-pad" maxLength={4} placeholder="1234" accessibilityLabel={`Card ${i + 1}, last four digits`} />
               <Label>Whose card</Label>

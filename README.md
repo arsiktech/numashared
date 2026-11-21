@@ -27,7 +27,6 @@ whom. It records repayments made elsewhere and **never moves money**.
 | `ios/NumaShared/` | Legacy SwiftUI app, unit tests and UI journeys |
 | `convex/` | Convex backend: validates and sequences events, identity, invites, push, web pages ([docs/IDENTITY.md](docs/IDENTITY.md), [docs/WEB.md](docs/WEB.md)) |
 | `web-home/` | Source of the website home page, built into `convex/lib/homePage.generated.ts` |
-| `web-marketing/` | Earlier static marketing pages (not the production origin) |
 | `contracts/` | Cross-language contracts checked by tests |
 | `scripts/` | Local gates, release tooling and their contract tests ([scripts/README.md](scripts/README.md)) |
 | `design/`, `DESIGN.md` | Approved interface direction and design system |
@@ -67,7 +66,10 @@ npm run native:check --prefix app
 npm run backend:typecheck
 npm run backend:test
 npm run branding:test
+npm run build:home:check
 npm run hygiene:test
+npm run web-host:test
+npm run card-sync:test
 swift test --package-path NumaSharedCore
 swift test --package-path NumaSharedSync
 ```

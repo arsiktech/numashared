@@ -150,7 +150,7 @@ const event = {
 const promoted = await client.mutation(promoteLocalPot, {
   configuration,
   events: [event],
-  ownerDisplayName: "Arseny",
+  ownerDisplayName: "Alex",
 });
 if (
   promoted?.potId !== potId

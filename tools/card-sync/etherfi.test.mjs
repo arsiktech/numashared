@@ -59,3 +59,14 @@ test('sends settled refunds and cancellations so Numa Shared can take the money 
   ]);
   assert.deepEqual(skipped.map((s) => [s.id, s.why]), [['r2', 'refund not final yet'], ['d1', 'not final yet']]);
 });
+
+test('formats zero- and three-decimal currencies using ISO minor-unit digits', () => {
+  const jpy = spendsFrom([tx({ id: 'j1', transactionAmount: 1235, transactionCurrency: 'JPY' })], {
+    cards: ['4242'], since: Date.parse('2026-10-01T00:00:00Z'), currency: 'JPY',
+  });
+  assert.equal(jpy.spends[0].amount, '1235');
+  const bhd = spendsFrom([tx({ id: 'b1', transactionAmount: 1.2345, transactionCurrency: 'BHD' })], {
+    cards: ['4242'], since: Date.parse('2026-10-01T00:00:00Z'), currency: 'BHD',
+  });
+  assert.equal(bhd.spends[0].amount, '1.235');
+});

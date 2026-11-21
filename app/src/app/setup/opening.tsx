@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import { View } from 'react-native';
 import { Redirect, useLocalSearchParams, useRouter } from 'expo-router';
-import { applyKey, formatMoney, isPlural, parseInput, type Key } from '@/core';
+import { applyKey, currencyDigits, formatMoney, isPlural, parseInput, type Key } from '@/core';
 import type { ID } from '@/core/types';
 import { setOpeningBalance, yourGroup } from '@/store/store';
 import { showToast } from '@/store/ui';
@@ -24,6 +24,7 @@ export default function Opening() {
   const [to, setTo] = useState<ID | null>(null);
   const [picking, setPicking] = useState<'from' | 'to' | null>(null);
   const [input, setInput] = useState('');
+  const [saving, setSaving] = useState(false);
   const currency = h?.currency ?? 'EUR';
 
   // Desk and tablet web: type the amount on the keyboard as well.
@@ -43,10 +44,11 @@ export default function Opening() {
 
   if (!h || !ledger) return <Redirect href="/welcome" />;
   const mine = yourGroup(h);
-  const fromId = from ?? mine.id;
-  const toId = to ?? h.groups.find((g) => g.id !== fromId)?.id ?? null;
-  const fromG = h.groups.find((g) => g.id === fromId)!;
-  const toG = toId ? h.groups.find((g) => g.id === toId)! : null;
+  const fromG = (from ? h.groups.find((g) => g.id === from) : undefined) ?? mine;
+  const fromId = fromG.id;
+  const toG = (to && to !== fromId ? h.groups.find((g) => g.id === to) : undefined)
+    ?? h.groups.find((g) => g.id !== fromId) ?? null;
+  const toId = toG?.id ?? null;
   const cents = parseInput(input, currency) ?? 0;
   const hasOpening = ledger.records.some((r) => r.kind === 'opening' && !r.voided);
   const finish = () => {
@@ -66,12 +68,14 @@ export default function Opening() {
   };
 
   const save = async () => {
-    if (!toG || cents <= 0) return;
+    if (!toG || cents <= 0 || saving) return;
+    setSaving(true);
     try {
       await setOpeningBalance(h, [{ fromGroupId: fromId, toGroupId: toG.id, amount: cents }]);
       haptic.success();
       finish();
     } catch (e) {
+      setSaving(false);
       showToast((e as Error).message || 'Couldn’t save the opening balance.');
     }
   };
@@ -121,7 +125,7 @@ export default function Opening() {
 
   const footer = yes ? (
     <View style={{ gap: 4, alignItems: 'stretch' }}>
-      <CTA label={cents > 0 ? `Start at ${formatMoney(cents, currency)}` : 'Type an amount'} disabled={cents <= 0} onPress={save} />
+      <CTA label={saving ? 'Saving…' : cents > 0 ? `Start at ${formatMoney(cents, currency)}` : 'Type an amount'} disabled={cents <= 0 || saving} onPress={save} />
       <TextButton label="Skip, start at zero" bold onPress={finish} style={{ alignSelf: 'center' }} />
     </View>
   ) : <CTA label="Start at zero" onPress={finish} />;
@@ -148,7 +152,7 @@ export default function Opening() {
             </View>
           </View>
           <View style={{ marginTop: 8 }}>
-            <Keypad color={c.ink} height={52} onKey={(k) => setInput((v) => applyKey(v, k as Key, currency))} />
+            <Keypad color={c.ink} height={52} allowDot={currencyDigits(currency) > 0} onKey={(k) => setInput((v) => applyKey(v, k as Key, currency))} />
           </View>
           <View style={{ marginTop: 8, backgroundColor: c.chip, borderRadius: 16, padding: 14 }}>
             <T style={{ fontSize: 14.5, lineHeight: 20 }}>This becomes the first line in history, so everyone starts from the same number.</T>

@@ -1,12 +1,12 @@
 // Settings: household, you, data and account. A shared household lives on the server and on every
 // member's phone; one made without signing in stays on this device until it is shared.
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Linking, TextInput, View } from 'react-native';
 import { Redirect, useLocalSearchParams, useRouter } from 'expo-router';
 import Constants from 'expo-constants';
 import { currencyLocked, getState, hasFinancialHistory, leaveHousehold, renameHousehold, setCurrency, setPrefs, useStore, type Appearance } from '@/store/store';
-import { openSheet } from '@/store/ui';
-import { Bell, Check, Download, Eye, House, Lock, Moon, Pencil, People, Share as ShareIcon, VoidX } from '@/ui/icons';
+import { openSheet, showToast } from '@/store/ui';
+import { Apple, Bell, Check, CloudOff, Download, Eye, House, Lock, Moon, Pencil, People, Share as ShareIcon, VoidX } from '@/ui/icons';
 import { Press, T, Toggle } from '@/ui/primitives';
 import { useTheme } from '@/ui/theme';
 import { fonts, isAndroid, isWeb, thisDevice } from '@/ui/tokens';
@@ -15,12 +15,10 @@ import { CURRENCIES, currencyLabel } from '@/features/onboarding/model';
 import { SGroup, SNote, SRow, SettingsShell, useDesk, type DeskSection } from '@/features/settings/parts';
 import { applySettingsSection, settingsSectionFromParam } from '@/features/settings/section';
 import { explainFailure, SignInButtons, useSession, useSignInOptions } from '@/features/account/session';
-import { showToast } from '@/store/ui';
 import { failureOf } from '@/sync/engine';
-import { online, registerPush, signOutEverywhere, turnOnSync } from '@/sync/runtime';
+import { online, registerPush, turnOnSync, unregisterPush } from '@/sync/runtime';
 import { groupLimitWords } from '@/sync/contract';
 import { PUBLIC_SITE_URL } from '@/sync/config';
-import { Apple, CloudOff } from '@/ui/icons';
 import { Kbd } from '@/features/web/kbd';
 
 const version = Constants.expoConfig?.version ?? '1.0.0';
@@ -90,14 +88,21 @@ function NameRow() {
   const { c } = useTheme();
   const desk = useDesk();
   const [editing, setEditing] = useState(false);
-  const [draft, setDraft] = useState('');
+  const [draft, setDraft] = useState(h?.name ?? '');
+  const submitted = useRef(false);
+  useEffect(() => {
+    setDraft(h?.name ?? '');
+    setEditing(false);
+  }, [h?.id, h?.name]);
   if (!h) return null;
-  const commit = () => {
+  const commit = (fromSubmit = false) => {
+    if (!fromSubmit && submitted.current) { submitted.current = false; return; }
+    if (fromSubmit) submitted.current = true;
     const v = draft.trim();
     setEditing(false);
-    if (!v || v === h.name) return;
+    if (!v || v === h.name) { setDraft(h.name); return; }
     if (h.sync && !h.sync.setup) {
-      online.rename(h, v).catch((e) => showToast(explainFailure(failureOf(e).code)));
+      online.rename(h, v).catch((e) => { setDraft(h.name); showToast(explainFailure(failureOf(e).code)); });
     } else renameHousehold(h.id, v);
   };
   if (desk || editing) {
@@ -105,7 +110,7 @@ function NameRow() {
       <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12, minHeight: 56, paddingVertical: 8, paddingHorizontal: 16, borderBottomWidth: 1, borderBottomColor: c.hair, flexWrap: 'wrap' }}>
         {desk ? <View style={{ width: 22, alignItems: 'center' }}><House size={20} color={c.ink2} /></View> : null}
         <T style={{ fontSize: desk ? 14 : 16, fontFamily: desk ? fonts.semibold : fonts.regular, color: desk ? c.ink2 : c.ink, width: desk ? 98 : undefined }}>Name</T>
-        <TextInput defaultValue={h.name} autoFocus={editing} onChangeText={setDraft} onFocus={() => setDraft(h.name)} onBlur={commit} onSubmitEditing={commit}
+        <TextInput value={draft} autoFocus={editing} onChangeText={setDraft} onFocus={() => { submitted.current = false; setDraft(h.name); }} onBlur={() => commit(false)} onSubmitEditing={() => commit(true)}
           accessibilityLabel="Household name" returnKeyType="done" maxLength={40} selectionColor={c.ink}
           style={[{ flex: 1, minWidth: 160, maxWidth: 320, height: 44, borderRadius: 12, backgroundColor: c.bg, borderWidth: 1, borderColor: c.hair, paddingHorizontal: 14,
             fontFamily: fonts.regular, fontSize: 16, color: c.ink }, isWeb ? ({ outlineColor: c.ink } as object) : null]} />
@@ -166,7 +171,9 @@ function NotificationsRow() {
             try {
               const ok = await registerPush();
               if (!ok) { setPrefs({ notifications: false }); showToast('Allow notifications for Numa Shared in iPhone Settings'); }
-            } catch (e) { showToast(explainFailure(failureOf(e).code)); }
+            } catch (e) { setPrefs({ notifications: false }); showToast(explainFailure(failureOf(e).code)); }
+          } else {
+            try { await unregisterPush(); } catch { /* best effort */ }
           }
         }} />} />
   );
@@ -287,7 +294,7 @@ function LeaveRow({ last }: { last?: boolean }) {
           <View style={{ flexDirection: 'row', gap: 10, flexWrap: 'wrap' }}>
             <Press onPress={busy ? undefined : go} accessibilityLabel={`Yes, ${label.toLowerCase()}`}
               style={{ minHeight: 44, paddingHorizontal: 18, borderRadius: 22, backgroundColor: c.bad, justifyContent: 'center', opacity: busy ? 0.6 : 1 }}>
-              <T style={{ fontFamily: fonts.semibold, fontSize: 16, color: '#FFFFFF' }}>{busy ? 'One moment…' : mode === 'leave' ? 'Leave' : 'Delete'}</T>
+              <T style={{ fontFamily: fonts.semibold, fontSize: 16, color: c.dark ? c.bg : '#FFFFFF' }}>{busy ? 'One moment…' : mode === 'leave' ? 'Leave' : 'Delete'}</T>
             </Press>
             <Press onPress={() => setConfirm(false)} accessibilityLabel="Cancel"
               style={{ minHeight: 44, paddingHorizontal: 18, borderRadius: 22, backgroundColor: c.chip, justifyContent: 'center' }}>

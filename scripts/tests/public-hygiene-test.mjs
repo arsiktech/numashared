@@ -9,7 +9,7 @@ const root = fileURLToPath(new URL('../../', import.meta.url));
 const self = 'scripts/tests/public-hygiene-test.mjs';
 
 const patterns = {
-  'home directory path': /\/Users\/(?!private\b)[A-Za-z0-9._-]+\/|\/home\/[a-z][a-z0-9_-]+\//,
+  'home directory path': /\/Users\/(?!private\b)[A-Za-z0-9._-]+\/|\/home\/[a-z][a-z0-9_-]+\/|\/root\/[A-Za-z0-9._-]+/,
   'Tailscale address': /\b100\.(?:6[4-9]|[7-9]\d|1[01]\d|12[0-7])\.\d{1,3}\.\d{1,3}\b/,
   'Tailscale network name': /[a-z0-9-]+\.ts\.net\b/,
   'private tracker link': /app\.notion\.com\/|notion\.so\/|linear\.app\//,

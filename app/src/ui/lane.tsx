@@ -3,11 +3,11 @@ import { useEffect, useState } from 'react';
 import { View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Svg, { Circle } from 'react-native-svg';
-import { getState, undo, useStore } from '@/store/store';
+import { undo, useStore } from '@/store/store';
 import { quietOpens, showToast } from '@/store/ui';
 import { haptic, Press, T } from './primitives';
 import { useTheme } from './theme';
-import { alpha, fonts } from './tokens';
+import { alpha, fonts, isWeb } from './tokens';
 import { TEXT_CAP } from './textScale';
 
 const WINDOW = 8000;
@@ -19,14 +19,22 @@ export function UndoLane() {
   const [now, setNow] = useState(Date.now());
   useEffect(() => {
     if (!last) return;
-    const t = setInterval(() => setNow(Date.now()), 100);
+    const current = Date.now();
+    setNow(current);
+    if (current - last.at >= WINDOW) return;
+    const t = setInterval(() => {
+      const tick = Date.now();
+      setNow(tick);
+      if (tick - last.at >= WINDOW) clearInterval(t);
+    }, 100);
     return () => clearInterval(t);
   }, [last]);
   if (!last) return null;
   const left = WINDOW - (now - last.at);
   if (left <= 0) return null;
-  const frac = Math.max(0, left / WINDOW);
+  const frac = Math.min(1, Math.max(0, left / WINDOW));
   const C = 2 * Math.PI * 9;
+  const decorative = isWeb ? ({ 'aria-hidden': true } as object) : { accessibilityElementsHidden: true, importantForAccessibility: 'no-hide-descendants' as const };
   return (
     <View pointerEvents="box-none" style={{ position: 'absolute', left: 0, right: 0, bottom: insets.bottom + (layout === 'phone' ? 12 : 24), alignItems: 'center' }}>
       <View accessibilityLiveRegion="polite" style={{ width: layout === 'phone' ? '92%' : 420, minHeight: 56, paddingVertical: 6, borderRadius: 28, backgroundColor: c.lane, flexDirection: 'row', alignItems: 'center', paddingLeft: 18, paddingRight: 6, gap: 10,
@@ -37,9 +45,8 @@ export function UndoLane() {
           const ok = undo(last.eventId);
           haptic.medium();
           showToast(ok ? 'Undone. Nothing was shared.' : 'Already shared. Void it from history.');
-          void getState;
         }} style={{ minHeight: 44, paddingLeft: 10, paddingRight: 16, borderRadius: 22, backgroundColor: alpha(c.laneInk, 0.14), flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-          <Svg width={22} height={22} viewBox="0 0 24 24">
+          <Svg width={22} height={22} viewBox="0 0 24 24" {...decorative}>
             <Circle cx="12" cy="12" r="9" fill="none" stroke={c.laneInk} strokeOpacity={0.25} strokeWidth={2.6} />
             <Circle cx="12" cy="12" r="9" fill="none" stroke={c.laneInk} strokeWidth={2.6} strokeLinecap="round"
               strokeDasharray={`${C}`} strokeDashoffset={C * (1 - frac)} transform="rotate(-90 12 12)" />

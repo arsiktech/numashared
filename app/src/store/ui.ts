@@ -1,6 +1,7 @@
 // Transient UI state: which sheet is open, where it grows from, and the undo lane.
 import { useSyncExternalStore } from 'react';
 import type { ID } from '@/core/types';
+import { clearSaveGuard } from '@/ui/saveGuard';
 
 export type Origin = { x: number; y: number; r: number };
 
@@ -55,6 +56,7 @@ if (web) {
     held = null;
     if (at < 0) return;
     e.stopImmediatePropagation();
+    for (const s of ui.sheets.slice(at)) clearSaveGuard(s.key);
     ui = { ...ui, sheets: ui.sheets.slice(0, at) };
     emit();
   });
@@ -75,6 +77,7 @@ export function openSheet(spec: SheetSpec, origin?: Origin) {
 /** Replace the top sheet (for example Detail -> Edit) without a close animation. */
 export function replaceSheet(spec: SheetSpec) {
   const top = ui.sheets[ui.sheets.length - 1];
+  if (top) clearSaveGuard(top.key);
   const key = seq++;
   ui = { ...ui, sheets: [...ui.sheets.slice(0, -1), { ...spec, key, origin: top?.origin }] };
   if (top && held === top.key) {
@@ -87,11 +90,12 @@ export function replaceSheet(spec: SheetSpec) {
 export function closeSheet(key?: number) {
   const gone = key === undefined ? ui.sheets[ui.sheets.length - 1]?.key : key;
   ui = { ...ui, sheets: key === undefined ? ui.sheets.slice(0, -1) : ui.sheets.filter((s) => s.key !== key) };
-  if (gone !== undefined && gone === held) release();
+  if (gone !== undefined) {
+    clearSaveGuard(gone);
+    if (gone === held) release();
+  }
   emit();
 }
-
-export function closeAllSheets() { ui = { ...ui, sheets: [] }; release(); emit(); }
 
 export function showToast(text: string) { ui = { ...ui, toast: { key: seq++, text } }; emit(); }
 export function clearToast() { ui = { ...ui, toast: null }; emit(); }

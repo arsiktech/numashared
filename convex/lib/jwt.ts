@@ -13,10 +13,6 @@ export class IdentityError extends Error {
     this.name = "IdentityError";
   }
 }
-export interface SessionTokenClaims {
-  publicAccountId: string;
-  sessionId: string;
-}
 
 export type JsonObject = Record<string, unknown>;
 

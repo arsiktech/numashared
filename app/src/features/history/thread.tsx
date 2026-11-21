@@ -23,7 +23,6 @@ import { closeHistorySearch, onHistorySearchX, setHistoryQuery, useHistoryQuery,
 
 export function HistoryThread({ selectedId, onSelect, desk }: { selectedId?: ID | null; onSelect: (id: ID) => void; desk?: boolean }) {
   const { h, ledger, hide } = useHousehold();
-  const { c } = useTheme();
   const insets = useSafeAreaInsets();
   const [filter, setFilter] = useState<Filter>('all');
   const query = useHistoryQuery();
@@ -110,6 +109,7 @@ function PhoneHeader({ h, filter, setFilter, query }: { h: Household; filter: Fi
   const router = useRouter();
   const searchOpen = useHistorySearchOpen();
   const [searching, setSearching] = useState(!!query || searchOpen);
+  useEffect(() => { if (searchOpen) setSearching(true); }, [searchOpen]);
   const back = () => (router.canGoBack() ? router.back() : router.replace('/home'));
   const closeSearch = () => { closeHistorySearch(); setSearching(false); };
 
@@ -207,7 +207,7 @@ function Ring({ on, radius, gap = 0, children }: { on: boolean; radius: number; 
 }
 
 function Bubble({ h, r, hide, desk, selected, onSelect }: { h: Household; r: LedgerRecord; hide: boolean; desk: boolean; selected: boolean; onSelect: (id: ID) => void }) {
-  const { c, tone } = useTheme();
+  const { tone } = useTheme();
   const e = r.expense!;
   const mine = isMine(h, r);
   const t = tone(groupOfPerson(h, e.payerId));
@@ -308,7 +308,7 @@ function EmptyThread({ empty, query, filter, shared }: { empty: boolean; query: 
 function Compose({ desk, bottom }: { desk: boolean; bottom: number }) {
   const { c } = useTheme();
   return (
-    <View style={{ borderTopWidth: 1, borderTopColor: c.hair, backgroundColor: c.dark ? c.bg : alpha('#FBFAF6', 0.95), paddingTop: 10, paddingHorizontal: 12, paddingBottom: bottom }}>
+    <View style={{ borderTopWidth: 1, borderTopColor: c.hair, backgroundColor: c.dark ? c.bg : alpha(c.bg, 0.95), paddingTop: 10, paddingHorizontal: 12, paddingBottom: bottom }}>
       <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, width: '100%', maxWidth: desk ? 720 : undefined, alignSelf: 'center' }}>
         <Press noScale accessibilityLabel="Add an expense" onPress={() => openSheet({ type: 'add' })}
           style={{ flex: 1, height: 48, borderRadius: 24, backgroundColor: c.card, borderWidth: 1, borderColor: c.hair, flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, gap: 10 }}>

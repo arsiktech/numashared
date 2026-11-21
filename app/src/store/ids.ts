@@ -2,9 +2,9 @@
 // household made offline can move to the server without renaming anything.
 import { uuidv7 } from '../sync/uuid';
 
-const ALPHABET = 'abcdefghijkmnpqrstuvwxyz23456789';
+const INVITE_ALPHABET = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789';
 
-function randomString(n: number, alphabet = ALPHABET) {
+function randomString(n: number, alphabet: string) {
   const bytes = new Uint8Array(n);
   if (typeof globalThis.crypto?.getRandomValues === 'function') globalThis.crypto.getRandomValues(bytes);
   else for (let i = 0; i < n; i++) bytes[i] = Math.floor(Math.random() * 256);
@@ -17,9 +17,7 @@ function randomString(n: number, alphabet = ALPHABET) {
 export const newId = (_prefix?: string) => uuidv7();
 
 /** Six characters, no look-alikes (no 0/O, 1/I/L). Shown as "K7Q 4MZ". */
-export const inviteCode = () => randomString(6, 'ABCDEFGHJKMNPQRSTUVWXYZ23456789');
-
-export const formatInviteCode = (c: string) => `${c.slice(0, 3)} ${c.slice(3)}`;
+export const inviteCode = () => randomString(6, INVITE_ALPHABET);
 
 export const todayISO = (d = new Date()) => {
   const y = d.getFullYear();

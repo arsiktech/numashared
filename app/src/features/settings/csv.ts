@@ -63,7 +63,7 @@ export function buildCsv(h: Household, records: LedgerRecord[]) {
       paidBy = group(s.fromGroupId);
       split = `to ${group(s.toGroupId)}${s.method ? ` by ${s.method}` : ''}`;
       if (s.note) notes.push(s.note);
-      if (r.flagged) notes.push('Flagged as not received');
+      if (r.flagged && !r.timeline.some((t) => t.type === 'flagged')) notes.push('Flagged as not received');
     } else {
       const o = r.opening!;
       what = 'Opening balance';
@@ -78,11 +78,13 @@ export function buildCsv(h: Household, records: LedgerRecord[]) {
         const change = t.changes.map((ch) => `${ch.field} ${ch.from} -> ${ch.to}`).join(', ');
         notes.push(`Edited by ${person(t.by)}${t.via ? ` via ${t.via}` : ''}${change ? `: ${change}` : ''}${t.reason ? ` (${t.reason})` : ''}`);
       }
+      if (t.type === 'flagged') notes.push(`Flagged by ${person(t.by)}${t.via ? ` via ${t.via}` : ''}${t.reason ? `: ${t.reason}` : ''}`);
       if (t.type === 'voided') notes.push(`Voided by ${person(t.by)}${t.via ? ` via ${t.via}` : ''}: ${t.reason}`);
       if (t.type === 'restored') notes.push(`Restored by ${person(t.by)}${t.via ? ` via ${t.via}` : ''}`);
     }
     const status = r.voided ? 'voided' : r.revisions.length > 1 ? 'edited' : 'shared';
-    return [recordDate(r), what, category, amt(amount), paidBy, split, status, notes.join('; '), person(r.createdBy)];
+    const recordedBy = `${person(r.createdBy)}${r.createdVia ? ` via ${r.createdVia}` : ''}`;
+    return [recordDate(r), what, category, amt(amount), paidBy, split, status, notes.join('; '), recordedBy];
   });
   return [HEADER, ...rows].map((row) => row.map((value, column) => cell(column === 3 ? value : spreadsheetText(value))).join(',')).join('\n');
 }

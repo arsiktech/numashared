@@ -522,19 +522,18 @@ async function deleteAccountNow(
   ctx: ActionCtx,
   body: Record<string, unknown>,
 ): Promise<Response> {
-  const { environment: sessionEnvironment, value: refreshToken } = readIdentityBody(
-    "session", body, "refreshToken", 512,
-  );
+  requireApprovedWriteTarget();
+  const sessionEnvironment = readSessionSigningEnvironment(process.env);
+  const rawRefreshToken = body.refreshToken;
+  if (typeof rawRefreshToken !== "string" || rawRefreshToken.length > 512) {
+    throw new IdentityError("IDENTITY_INPUT_INVALID", 400);
+  }
   const requestId = stringField(body, "requestId", 64).toLowerCase();
   const originatingTimeZone = stringField(body, "originatingTimeZone", 128);
   if (!uuidV7Pattern.test(requestId) || !ios18TimeZoneIdentifiers.has(originatingTimeZone)) {
     throw new IdentityError("IDENTITY_INPUT_INVALID", 400);
   }
   const now = Date.now();
-  const refreshTokenHash = await hashRefreshToken(
-    refreshToken,
-    sessionEnvironment.tokenHashSecret,
-  );
   await ctx.runMutation(anyApi.accountDeletion.deleteExpiredReceipts, { now });
   const prior = await ctx.runQuery(anyApi.accountDeletion.receipt, {
     requestId,
@@ -542,8 +541,12 @@ async function deleteAccountNow(
   }) as DeletionBatchResult;
   if (prior.complete) return jsonResponse({ deleted: true });
 
+  const refreshTokenHash = rawRefreshToken.length > 0
+    ? await hashRefreshToken(rawRefreshToken, sessionEnvironment.tokenHashSecret)
+    : undefined;
+
   const started = await ctx.runMutation(anyApi.accountDeletion.begin, {
-    refreshTokenHash,
+    ...(refreshTokenHash === undefined ? {} : { refreshTokenHash }),
     requestId,
     now,
   }) as AccountDeletionBeginResult;

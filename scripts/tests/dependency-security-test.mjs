@@ -13,18 +13,33 @@ import { resolveConfig } from "vite";
 const root = fileURLToPath(new URL("../../", import.meta.url));
 const lock = JSON.parse(await readFile(new URL("../../package-lock.json", import.meta.url), "utf8"));
 
-test("the lock and installed packages match the same-major security patch set", async () => {
-  const versions = {
+function parseSemver(v) {
+  const m = /^(\d+)\.(\d+)\.(\d+)/.exec(v);
+  assert.ok(m, `expected semver, got ${v}`);
+  return [Number(m[1]), Number(m[2]), Number(m[3])];
+}
+
+function assertSameMajorAtLeast(actual, floor, label) {
+  const a = parseSemver(actual);
+  const f = parseSemver(floor);
+  assert.equal(a[0], f[0], `${label}: major version ${actual} !== ${floor}`);
+  const ok = a[1] > f[1] || (a[1] === f[1] && a[2] >= f[2]);
+  assert.ok(ok, `${label}: ${actual} < security floor ${floor}`);
+}
+
+test("the lock and installed packages meet the same-major security patch floor", async () => {
+  const floors = {
     nanoid: "3.3.18", postcss: "8.5.23", vitest: "4.1.11",
     "@vitest/mocker": "4.1.11", "@vitest/expect": "4.1.11",
     "@vitest/runner": "4.1.11", "@vitest/snapshot": "4.1.11",
     "@vitest/spy": "4.1.11", "@vitest/utils": "4.1.11",
     "@vitest/pretty-format": "4.1.11",
   };
-  for (const [name, version] of Object.entries(versions)) {
-    assert.equal(lock.packages[`node_modules/${name}`].version, version, `lock: ${name}`);
-    const installed = JSON.parse(await readFile(join(root, "node_modules", name, "package.json"), "utf8"));
-    assert.equal(installed.version, version, `installed: ${name}`);
+  for (const [name, floor] of Object.entries(floors)) {
+    const locked = lock.packages[`node_modules/${name}`].version;
+    const installed = JSON.parse(await readFile(join(root, "node_modules", name, "package.json"), "utf8")).version;
+    assertSameMajorAtLeast(locked, floor, `lock: ${name}`);
+    assertSameMajorAtLeast(installed, floor, `installed: ${name}`);
   }
 });
 

@@ -37,8 +37,9 @@ function initialGroups(h: Household, spec: Spec): { from: ID; to: ID } {
   const plan = planSettlement(ledgerOf(h).balances);
   const mineT = plan.status === 'exact' ? plan.transfers.find((t) => t.fromGroupId === mine.id || t.toGroupId === mine.id) : undefined;
   if (mineT) return { from: mineT.fromGroupId, to: mineT.toGroupId };
-  const other = h.groups.find((g) => g.id !== mine.id) ?? mine;
-  return { from: has(spec.fromGroupId) ? spec.fromGroupId! : mine.id, to: other.id };
+  const from = has(spec.fromGroupId) ? spec.fromGroupId! : mine.id;
+  const to = h.groups.find((g) => g.id !== from)?.id ?? mine.id;
+  return { from, to };
 }
 
 export function RepaySheet({ spec, onClosed }: SheetProps<'repay'>) {
@@ -78,8 +79,8 @@ function RepayBody({ h, spec, groups, setGroups, t }: {
   const contract = useContract();
   const details = !h.sync || contract.extendedText;
   const money = (v: number) => formatMoney(v, cur);
-  const from = h.groups.find((g) => g.id === groups.from)!;
-  const to = h.groups.find((g) => g.id === groups.to)!;
+  const from = h.groups.find((g) => g.id === groups.from) ?? h.groups[0];
+  const to = h.groups.find((g) => g.id === groups.to && g.id !== from.id) ?? h.groups.find((g) => g.id !== from.id) ?? h.groups[0];
   const owed = useMemo(() => owedBetween(h, from.id, to.id), [h, from.id, to.id]);
   const half = Math.floor(owed / 2);
 
@@ -234,7 +235,7 @@ function RepayBody({ h, spec, groups, setGroups, t }: {
             {nameOf(h, to)}
           </Word>
         </View>
-        <View accessible accessibilityLabel={`Amount ${money(amount)}`} style={{ marginTop: 2 }}>
+        <View style={{ marginTop: 2 }}>
           <BigAmount cents={amount} currency={cur} size={amtSize} color={t.ink} caret={!noteEditing} typed={input} />
         </View>
         {slot ? <View style={{ marginTop: 10 }}>{slot}</View> : null}

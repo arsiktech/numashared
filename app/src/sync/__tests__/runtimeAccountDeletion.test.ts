@@ -18,7 +18,7 @@ vi.mock('../auth', () => ({
 }));
 vi.mock('../../store/store', () => ({
   forgetAccount: fixture.forgetAccount, getState: () => ({ households: [] }),
-  claimParked: vi.fn(), putHousehold: vi.fn(), removeHousehold: vi.fn(), showAccount: vi.fn(), switchHousehold: vi.fn(),
+  claimParked: vi.fn(), flushPersistence: vi.fn(async () => {}), putHousehold: vi.fn(), removeHousehold: vi.fn(), showAccount: vi.fn(), switchHousehold: vi.fn(),
 }));
 const { deleteAccount } = await import('../runtime');
 

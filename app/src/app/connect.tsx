@@ -43,23 +43,29 @@ export default function Connect() {
 
   useEffect(() => {
     if (!request) { setInfo({ status: 'expired' }); return; }
-    agents.consent.describe(request).then(setInfo, (e) => setError(consentFailure(failureOf(e).code)));
+    let live = true;
+    agents.consent.describe(request).then(
+      (res) => { if (live) setInfo(res); },
+      (e) => { if (live) setError(consentFailure(failureOf(e).code)); },
+    );
+    return () => { live = false; };
   }, [request]);
 
   const accountId = session?.accountId ?? null;
   useEffect(() => {
     if (!accountId) { setHouseholds(null); return; }
     let live = true;
+    let timer: ReturnType<typeof setTimeout> | null = null;
     const load = (tries: number) => agents.consent.households().then(
       (list) => { if (live) setHouseholds(list); },
       (e) => {
         // Right after sign-in the connection may still be starting.
-        if (live && tries > 0) setTimeout(() => load(tries - 1), 600);
+        if (live && tries > 0) timer = setTimeout(() => { if (live) void load(tries - 1); }, 600);
         else if (live) setError(consentFailure(failureOf(e).code));
       },
     );
     void load(5);
-    return () => { live = false; };
+    return () => { live = false; if (timer) clearTimeout(timer); };
   }, [accountId]);
 
   const pending = info?.status === 'pending' ? info : null;
@@ -132,7 +138,7 @@ export default function Connect() {
           {pending.returnsToThisComputer ? (
             <View style={{ marginTop: 14 }}>
               <Banner kind="warn" icon={<Warn size={18} color={c.warnInk} />}>
-                <BannerText kind="warn" strong="An app on this computer asked." rest=" Connect only if you just started this from an agent you trust." />
+                <BannerText kind="warn" strong="An app on this computer asked." rest="Connect only if you just started this from an agent you trust." />
               </Banner>
             </View>
           ) : null}

@@ -387,9 +387,6 @@ export async function appendEventsToPot(
         createdAt,
       });
     }
-    if (event.payload.kind === "potArchived") {
-      archivedAtSequence = sequence;
-    }
     result.push({ eventId: event.eventId, sequence });
   }
 

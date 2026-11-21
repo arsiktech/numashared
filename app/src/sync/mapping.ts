@@ -232,14 +232,12 @@ export function splitFromAllocations(amount: Cents, allocations: { unitId: ID; c
 
 type Texts = Partial<Record<TextField, string>>;
 
-function texts(listed: ListedEvent): { values: Texts; redacted: Set<TextField> } {
+function texts(listed: ListedEvent): Texts {
   const values: Texts = {};
-  const redacted = new Set<TextField>();
   for (const t of listed.textStates) {
     if (t.state === 'present') values[t.field] = t.value;
-    else redacted.add(t.field);
   }
-  return { values, redacted };
+  return values;
 }
 
 function expenseFromWire(h: Household, w: WireExpense, t: Texts, date: string): ExpenseContent {
@@ -285,7 +283,7 @@ export function fromWire(h: Household, listed: ListedEvent): LedgerEvent | null 
     tz: ev.originatingTimeZone,
   };
   const date = localISO(occurredAt);
-  const { values: t, redacted } = texts(listed);
+  const t = texts(listed);
   const p = ev.payload;
   switch (p.kind) {
     case 'expenseAdded':
@@ -324,7 +322,7 @@ export function fromWire(h: Household, listed: ListedEvent): LedgerEvent | null 
         content: { entries: openingFromWire(p.content.entries), date, ...(t.note !== undefined ? { note: t.note } : {}) },
       };
     case 'recordVoided':
-      return { ...base, kind: 'recordVoided', recordId: p.recordId, reason: t.reason ?? (redacted.has('reason') ? ERASED_TEXT : ERASED_TEXT) };
+      return { ...base, kind: 'recordVoided', recordId: p.recordId, reason: t.reason ?? ERASED_TEXT };
     case 'recordRestored':
       return { ...base, kind: 'recordRestored', recordId: p.recordId };
     default:
@@ -476,7 +474,13 @@ export function isPersonReferenced(h: Household, personId: ID): boolean {
 
 /** Removed people that no record mentions disappear from the household (and their own group). */
 export function dropUnusedArchived(h: Household): Household {
-  const gone = h.people.filter((p) => p.archived && p.id !== h.youId && !isPersonReferenced(h, p.id)).map((p) => p.id);
+  const hasMoney = h.events.length > 0;
+  const gone = h.people.filter((p) => {
+    if (!p.archived || p.id === h.youId || isPersonReferenced(h, p.id)) return false;
+    const g = h.groups.find((x) => x.id === p.groupId);
+    if (hasMoney && g && g.memberIds.length > 1) return false;
+    return true;
+  }).map((p) => p.id);
   if (!gone.length) return h;
   const groups = h.groups
     .map((g) => ({ ...g, memberIds: g.memberIds.filter((m) => !gone.includes(m)) }))

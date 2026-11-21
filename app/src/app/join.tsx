@@ -132,7 +132,7 @@ export default function Join() {
       ) : null}
       {waiting ? (
         <View style={{ marginTop: 16 }} accessibilityLiveRegion="polite">
-          <Banner><BannerText strong="Asked to join." rest={` The owner of ${potName} needs to let you in. It opens here as soon as they do.`} /></Banner>
+          <Banner><BannerText strong="Asked to join." rest={`The owner of ${potName} needs to let you in. It opens here as soon as they do.`} /></Banner>
         </View>
       ) : null}
       {active && !signInOptions.any && !session ? (

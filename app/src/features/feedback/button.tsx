@@ -5,7 +5,7 @@ import { Image, TextInput, View } from 'react-native';
 import Svg, { Circle, Path } from 'react-native-svg';
 import { usePathname } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { showToast } from '@/store/ui';
+import { showToast, useUI } from '@/store/ui';
 import { useStore } from '@/store/store';
 import { Press, T } from '@/ui/primitives';
 import { useTheme } from '@/ui/theme';
@@ -30,7 +30,8 @@ export function FeedbackButton() {
   const insets = useSafeAreaInsets();
   const pathname = usePathname();
   const last = useStore((s) => s.recent[s.recent.length - 1] ?? null);
-  const [now, setNow] = useState(() => Date.now());
+  const sheetOpen = useUI((u) => u.sheets.length > 0);
+  const [undoUp, setUndoUp] = useState(false);
   const [config, setConfig] = useState<FeedbackCaptureConfig | null>(null);
   const [open, setOpen] = useState(false);
   const [note, setNote] = useState('');
@@ -53,10 +54,13 @@ export function FeedbackButton() {
   }, []);
 
   useEffect(() => {
-    if (!last) return;
-    const timer = setInterval(() => setNow(Date.now()), 250);
-    return () => clearInterval(timer);
-  }, [last]);
+    if (!isWeb || !endpoint || !config?.enabled || !last) { setUndoUp(false); return; }
+    const remaining = 8000 - (Date.now() - last.at);
+    if (remaining <= 0) { setUndoUp(false); return; }
+    setUndoUp(true);
+    const timer = setTimeout(() => setUndoUp(false), remaining);
+    return () => clearTimeout(timer);
+  }, [config?.enabled, last]);
 
   const close = () => {
     setOpen(false);
@@ -120,10 +124,9 @@ export function FeedbackButton() {
     };
   }, [open]);
 
-  if (!isWeb || !endpoint || !config?.enabled) return null;
+  if (!isWeb || !endpoint || !config?.enabled || sheetOpen) return null;
 
   const path = pathname.startsWith('/') ? pathname : `/${pathname}`;
-  const undoUp = !!last && now - last.at < 8000;
   const bottom = insets.bottom + (undoUp && layout === 'phone' ? 84 : 16);
   const panelWidth = Math.min(320, Math.max(240, width - 32));
 
@@ -134,7 +137,7 @@ export function FeedbackButton() {
     const seq = ++captureSeq.current;
     captureFeedbackView().then((next) => {
       if (captureSeq.current === seq) setShot(next);
-    });
+    }).catch(() => {});
   };
 
   const removeShot = () => {

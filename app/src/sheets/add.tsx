@@ -319,7 +319,7 @@ function AddBody({ h, spec, draft, set, t, pop }: {
   const split = (
     <>
       <ReceiptHead left={rhead.left} right={rhead.right} onRight={rhead.onRight} />
-      <SplitBar segments={segments} amount={amount} currency={cur} focusId={exact?.id ?? null} height={barH}
+      <SplitBar segments={segments} currency={cur} focusId={exact?.id ?? null} height={barH}
         showKnobs={amount > 0 && !exact} onToggle={toggleGroup} onExact={startExact}
         onShares={(s) => { setExact(null); set((d) => ({ ...d, split: { ...d.split, custom: s, customFor: amount } })); }} />
       <AfterRow left={afterLeft} lead={line.lead} strong={line.strong} />
@@ -407,7 +407,8 @@ function AddBody({ h, spec, draft, set, t, pop }: {
       inputRef={noteRef} hint={pop ? 'Tab' : undefined} onSubmit={isWeb ? save : undefined} />
   );
 
-  const people = [...h.people.filter((p) => p.id === h.youId), ...h.people.filter((p) => p.id !== h.youId)];
+  const activePeople = h.people.filter((p) => !p.archived || p.id === draft.payerId);
+  const people = [...activePeople.filter((p) => p.id === h.youId), ...activePeople.filter((p) => p.id !== h.youId)];
   const peopleRow = (
     <ChipRow label="Who paid">
       {people.map((p) => {
@@ -551,9 +552,7 @@ function AddBody({ h, spec, draft, set, t, pop }: {
         setMidH(room);
         if (!panel && room > 0 && room < 4 * SHORT_KEY_HEIGHT + 8) setCramped(screenH);
       }}>
-        {panel === 'category' ? <View style={{ paddingHorizontal: 10, paddingTop: 6 }}>{grid}</View>
-          : panel === 'newcat' ? <View style={{ paddingHorizontal: 10, paddingTop: 6 }}>{newField}</View>
-          : <Keypad onKey={(k) => onKey(k as Key)} color={t.ink} height={keyHeight(screenH, midH)} allowDot={currencyDigits(cur) > 0} />}
+        {keypadArea ?? <Keypad onKey={(k) => onKey(k as Key)} color={t.ink} height={keyHeight(screenH, midH)} allowDot={currencyDigits(cur) > 0} />}
       </View>
       {receipt}
     </View>

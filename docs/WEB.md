@@ -86,7 +86,7 @@ The privacy text implements the data-flow facts frozen in the product contract, 
 
 ```bash
 npm run backend:typecheck
-npm run backend:test -- --run
+npm run backend:test
 ./scripts/convex-local.sh dev --start '/usr/bin/true'
 ```
 

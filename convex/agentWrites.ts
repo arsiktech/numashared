@@ -195,7 +195,7 @@ function cleanText(value: string | undefined, field: string, max: number): strin
   const text = value.replace(/\s+/g, " ").trim();
   if (text === "") return undefined;
   if (text.length > max) refuse("AGENT_TEXT_TOO_LONG", `${field} is longer than ${max} characters`);
-  if (text === "[redacted]") refuse("AGENT_TEXT_TOO_LONG", `${field} can't be "[redacted]"`);
+  if (text === "[redacted]") refuse("RESERVED_REDACTED_TEXT", `${field} can't be "[redacted]"`);
   return text;
 }
 
@@ -499,7 +499,6 @@ async function editRecord(c: Context, op: Op<"edit_record">) {
     && occurred === headEvent.occurredAtMillis
     && title === headText.get("title") && category === headText.get("category") && note === headText.get("note");
   if (unchanged) refuse("AGENT_NOTHING_TO_CHANGE");
-  if (schema < 2n) delete content.payerMemberId;
 
   const event = newEvent(c, {
     kind: "expenseRevised",
@@ -618,6 +617,7 @@ async function inviteSecrets(connectionId: string, requestId: string, inviteId: 
 const inviteLink = (origin: string, token: string, code: string) => `${origin}/join/${token}?code=${code}`;
 
 async function createInvite(c: Context, op: Op<"create_invite">, connectionId: string, requestId: string, origin: string) {
+  if (c.membership.role !== "owner") refuse("NOT_OWNER");
   const profile = await c.ctx.db.query("potMemberProfiles")
     .withIndex("by_pot_member", (q) => q.eq("potId", c.pot.potId).eq("memberId", op.memberId)).unique();
   if (!profile) refuse("AGENT_UNKNOWN_PERSON", "member_id must be a person from list_members");

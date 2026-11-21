@@ -12,6 +12,7 @@ import {
   consumeAccountWriteQuota,
   inviteIssueLimitPerDay,
   eventWriteLimitPerHour,
+  maximumActivePotsPerAccount,
 } from "./lib/accountWriteQuota";
 import { requireApprovedWriteTarget } from "./lib/deployment";
 import type { EventInput, TextField } from "./lib/eventValidation";
@@ -104,10 +105,18 @@ async function loadRoster(ctx: MutationCtx, potId: string): Promise<Roster> {
     .withIndex("by_pot_account", (index) => index.eq("potId", potId))
     .collect();
   for (const member of members) memberIds.add(member.memberId);
-  const events = await ctx.db
-    .query("events")
-    .withIndex("by_pot_sequence", (index) => index.eq("potId", potId))
-    .collect();
+  const loadKind = (kind: "memberAdded" | "memberClaimed" | "memberClaimReassigned") =>
+    ctx.db
+      .query("events")
+      .withIndex("by_pot_kind", (index) =>
+        index.eq("potId", potId).eq("payload.kind", kind),
+      )
+      .collect();
+  const events = [
+    ...(await loadKind("memberAdded")),
+    ...(await loadKind("memberClaimed")),
+    ...(await loadKind("memberClaimReassigned")),
+  ].sort((left, right) => (left.sequence < right.sequence ? -1 : 1));
   for (const event of events) {
     if (event.payload.kind === "memberAdded") {
       memberIds.add(event.payload.memberId);
@@ -395,6 +404,15 @@ async function claimPerMember(
     )
     .unique();
   if (existingMembership) fail("ALREADY_MEMBER");
+  const activeMemberships = await ctx.db
+    .query("potMembers")
+    .withIndex("by_account_status", (index) =>
+      index.eq("accountId", accountId).eq("status", "active"),
+    )
+    .take(maximumActivePotsPerAccount);
+  if (activeMemberships.length >= maximumActivePotsPerAccount) {
+    fail("ACCOUNT_POT_LIMIT_REACHED");
+  }
   const profile = await getMemberProfile(ctx, invite.potId, memberId);
   // Archival withdraws admission even if an unused invite/ticket survives it.
   if (profile.state === "archived") fail("MEMBER_ALREADY_ARCHIVED");
@@ -897,16 +915,6 @@ export const claimPerMemberInviteWithTicket = mutation({
   },
 });
 
-async function perMemberClaimEventFromToken(
-  ctx: MutationCtx,
-  accountId: Id<"accounts">,
-  token: string,
-  event: MemberClaimEventMetadata,
-) {
-  const credential = await inviteByToken(ctx, token, "perMember");
-  return perMemberClaimEvent(credential.invite, event);
-}
-
 // A signed-in account claims a multi-use pot-link invite. This records a PENDING claim
 // only — it grants no membership and therefore no read access, so a leaked pot link
 // cannot expose history until the owner approves. "I'm Leo" sets chosenMemberId; "I'm
@@ -982,6 +990,15 @@ export const approvePotLinkClaim = mutation({
       )
       .unique();
     if (existingMembership) fail("ALREADY_MEMBER");
+    const activeMemberships = await ctx.db
+      .query("potMembers")
+      .withIndex("by_account_status", (index) =>
+        index.eq("accountId", claim.claimantAccountId).eq("status", "active"),
+      )
+      .take(maximumActivePotsPerAccount);
+    if (activeMemberships.length >= maximumActivePotsPerAccount) {
+      fail("ACCOUNT_POT_LIMIT_REACHED");
+    }
     const profile = await getMemberProfile(ctx, claim.potId, args.memberId);
     if (profile.state === "archived") fail("MEMBER_ALREADY_ARCHIVED");
     await ctx.db.insert("potMembers", {
@@ -1297,6 +1314,8 @@ export const archiveMember = mutation({
       if (target.role === "owner") fail("CANNOT_ARCHIVE_OWNER");
       if (target.status !== "active") fail("MEMBER_ALREADY_ARCHIVED");
     }
+    const profile = await getMemberProfile(ctx, args.potId, memberId);
+    if (profile.state === "archived") fail("MEMBER_ALREADY_ARCHIVED");
     const sequence = await appendMembershipEvent(
       ctx,
       pot,
@@ -1310,7 +1329,6 @@ export const archiveMember = mutation({
         archivedAtSequence: sequence,
       });
     }
-    const profile = await getMemberProfile(ctx, args.potId, memberId);
     await ctx.db.patch(profile._id, {
       state: "archived",
       updatedAt: Date.now(),

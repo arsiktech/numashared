@@ -7,11 +7,10 @@ import {
 } from 'react-native';
 import * as Haptics from 'expo-haptics';
 import Svg, { Defs, LinearGradient, RadialGradient, Rect, Stop, Circle as SvgCircle, Ellipse } from 'react-native-svg';
-import { fonts, orb, radius, type, alpha, isWeb } from './tokens';
+import { fonts, orb, radius, alpha, isWeb, type GroupTone } from './tokens';
 import { TEXT_CAP } from './textScale';
 import { useTheme } from './theme';
 import { Plus } from './icons';
-import type { GroupTone } from './tokens';
 
 export const haptic = {
   tap: () => { if (!isWeb) Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {}); },
@@ -68,11 +67,12 @@ export function CTA({ label, onPress, variant = 'primary', disabled, icon, acces
   disabled?: boolean; icon?: ReactNode; accessibilityLabel?: string; right?: ReactNode; style?: StyleProp<ViewStyle>;
 }) {
   const { c } = useTheme();
+  const addGradId = `addg${useId().replace(/[^a-zA-Z0-9]/g, '')}`;
   const bg = disabled ? c.chip : {
     primary: c.ink, add: orb.ctaBottom, second: c.chip, danger: c.bad, apple: '#000000', google: '#FFFFFF',
   }[variant];
   const fg = disabled ? c.ink3 : {
-    primary: c.bg, add: orb.ctaInk, second: c.ink, danger: '#FFFFFF', apple: '#FFFFFF', google: '#1F1F1F',
+    primary: c.bg, add: orb.ctaInk, second: c.ink, danger: c.dark ? c.bg : '#FFFFFF', apple: '#FFFFFF', google: '#1F1F1F',
   }[variant];
   return (
     <Press onPress={disabled ? undefined : onPress} disabled={disabled}
@@ -83,11 +83,11 @@ export function CTA({ label, onPress, variant = 'primary', disabled, icon, acces
         <View style={StyleSheet.absoluteFill} pointerEvents="none">
           <Svg width="100%" height="100%" preserveAspectRatio="none">
             <Defs>
-              <LinearGradient id="addg" x1="0" y1="0" x2="0" y2="1">
+              <LinearGradient id={addGradId} x1="0" y1="0" x2="0" y2="1">
                 <Stop offset="0" stopColor={orb.ctaTop} /><Stop offset="1" stopColor={orb.ctaBottom} />
               </LinearGradient>
             </Defs>
-            <Rect x="0" y="0" width="100%" height="100%" rx={radius.cta} fill="url(#addg)" />
+            <Rect x="0" y="0" width="100%" height="100%" rx={radius.cta} fill={`url(#${addGradId})`} />
           </Svg>
         </View>
       ) : null}
@@ -137,9 +137,11 @@ export function OrbView({ size = 92, plus = 32, pressed }: { size?: number; plus
         <SvgCircle cx="50" cy="50" r="50" fill={`url(#${gid})`} />
         <Ellipse cx="36" cy="22" rx="16" ry="9.5" fill="rgba(255,255,255,0.55)" transform="rotate(-24 36 22)" />
       </Svg>
-      <View style={[StyleSheet.absoluteFill, { alignItems: 'center', justifyContent: 'center' }]}>
-        <Plus size={plus} color={orb.ink} />
-      </View>
+      {plus > 0 ? (
+        <View style={[StyleSheet.absoluteFill, { alignItems: 'center', justifyContent: 'center' }]}>
+          <Plus size={plus} color={orb.ink} />
+        </View>
+      ) : null}
     </View>
   );
 }
@@ -147,16 +149,16 @@ export function OrbView({ size = 92, plus = 32, pressed }: { size?: number; plus
 // ---------- chips, words, avatars ----------
 
 /** Tonal chip used on a color band: the band's ink at 9%. */
-export function TChip({ label, amount, on, onPress, tone, small, leading, accessibilityLabel, }: {
-  label: string; amount?: string; on?: boolean; onPress?: () => void; tone: GroupTone; small?: boolean;
+export function TChip({ label, amount, on, onPress, tone, leading, accessibilityLabel }: {
+  label: string; amount?: string; on?: boolean; onPress?: () => void; tone: GroupTone;
   leading?: ReactNode; accessibilityLabel?: string;
 }) {
   return (
     <Press onPress={onPress} accessibilityRole="button" accessibilityState={{ selected: !!on }}
       accessibilityLabel={accessibilityLabel ?? (amount ? `${label}, ${amount}` : label)} style={s.target}>
-      <View style={[s.tchip, { minHeight: small ? 32 : 36, paddingHorizontal: small ? 12 : 14, backgroundColor: on ? tone.ink : alpha(tone.ink, 0.09) }]}>
+      <View style={[s.tchip, { minHeight: 36, paddingHorizontal: 14, backgroundColor: on ? tone.ink : alpha(tone.ink, 0.09) }]}>
         {leading}
-        <T style={{ fontFamily: fonts.semibold, fontSize: small ? 14 : 14.5, color: on ? tone.band : tone.ink }}>{label}</T>
+        <T style={{ fontFamily: fonts.semibold, fontSize: 14.5, color: on ? tone.band : tone.ink }}>{label}</T>
         {amount ? <T style={{ fontFamily: fonts.medium, fontSize: 14.5, color: on ? tone.band : tone.ink, opacity: 0.72 }}>{amount}</T> : null}
       </View>
     </Press>
@@ -164,11 +166,11 @@ export function TChip({ label, amount, on, onPress, tone, small, leading, access
 }
 
 /** Neutral chip on paper. */
-export function Chip({ label, on, onPress, leading, square }: { label: string; on?: boolean; onPress?: () => void; leading?: ReactNode; square?: boolean }) {
+export function Chip({ label, on, onPress, leading }: { label: string; on?: boolean; onPress?: () => void; leading?: ReactNode }) {
   const { c } = useTheme();
   return (
     <Press onPress={onPress} accessibilityState={{ selected: !!on }} accessibilityLabel={label} style={s.target}>
-      <View style={[s.chip, { borderRadius: square ? 8 : 18, backgroundColor: on ? c.ink : c.chip }]}>
+      <View style={[s.chip, { borderRadius: 18, backgroundColor: on ? c.ink : c.chip }]}>
         {leading}
         <T style={{ fontFamily: fonts.semibold, fontSize: 14.5, color: on ? c.bg : c.ink }}>{label}</T>
       </View>
@@ -250,34 +252,9 @@ export function Toggle({ value, onChange, label, android }: { value: boolean; on
 
 // ---------- lists ----------
 
-export function SectionTitle({ children }: { children: string }) {
-  const { c } = useTheme();
-  return <T accessibilityRole="header" style={{ fontFamily: fonts.semibold, fontSize: 13, color: c.ink2, paddingTop: 22, paddingBottom: 8, paddingHorizontal: 4 }}>{children}</T>;
-}
-
 export function ListCard({ children, style }: { children: ReactNode; style?: StyleProp<ViewStyle> }) {
   const { c } = useTheme();
   return <View style={[{ backgroundColor: c.card, borderRadius: radius.card, overflow: 'hidden' }, style]}>{children}</View>;
-}
-
-export function ListItem({ label, sub, value, onPress, right, danger, last, leading, accessibilityLabel }: {
-  label: string; sub?: string; value?: string; onPress?: () => void; right?: ReactNode; danger?: boolean; last?: boolean;
-  leading?: ReactNode; accessibilityLabel?: string;
-}) {
-  const { c } = useTheme();
-  const body = (
-    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12, minHeight: 52, paddingVertical: 10, paddingHorizontal: 16,
-      borderBottomWidth: last ? 0 : StyleSheet.hairlineWidth * 2, borderBottomColor: c.hair }}>
-      {leading}
-      <View style={{ flex: 1 }}>
-        <T style={{ fontSize: 16, color: danger ? c.bad : c.ink }}>{label}</T>
-        {sub ? <T style={{ fontSize: 13, color: c.ink2, marginTop: 2 }}>{sub}</T> : null}
-      </View>
-      {value ? <T style={{ fontSize: 15, color: c.ink2 }}>{value}</T> : null}
-      {right}
-    </View>
-  );
-  return onPress ? <Press noScale onPress={onPress} accessibilityLabel={accessibilityLabel ?? [label, sub, value].filter(Boolean).join(', ')}>{body}</Press> : body;
 }
 
 export const s = StyleSheet.create({
@@ -291,5 +268,3 @@ export const s = StyleSheet.create({
   tchip: { flexDirection: 'row', alignItems: 'center', gap: 6, borderRadius: 18, paddingVertical: 4 },
   chip: { minHeight: 36, paddingVertical: 4, paddingHorizontal: 14, flexDirection: 'row', alignItems: 'center', gap: 6 },
 });
-
-export { type };

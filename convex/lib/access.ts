@@ -85,5 +85,10 @@ export async function requireReadableMembership(
   if (membership.status === "archived" && membership.archivedAtSequence === undefined) {
     fail("MEMBERSHIP_ARCHIVED");
   }
+  const pot = await ctx.db
+    .query("pots")
+    .withIndex("by_pot_id", (query) => query.eq("potId", potId))
+    .unique();
+  if (pot?.deletingAt !== undefined) fail("POT_DELETING");
   return membership;
 }

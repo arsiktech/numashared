@@ -9,7 +9,7 @@ import type { Household } from '@/core/types';
 import { ledgerOf, loadSample, switchHousehold, useStore, yourGroup } from '@/store/store';
 import { Check, Close } from '@/ui/icons';
 import { IconButton, Press, T, TextButton } from '@/ui/primitives';
-import { Sheet, SheetHead, useSheet } from '@/ui/sheet';
+import { Sheet, SheetHead, SheetScrollView, useSheet } from '@/ui/sheet';
 import { useTheme } from '@/ui/theme';
 import { fonts, isAndroid } from '@/ui/tokens';
 import { money, nameOf, yourStanding } from '@/features/hooks';
@@ -24,7 +24,7 @@ export function HouseholdsSheet({ spec, onClosed }: SheetProps<'households'>) {
 }
 
 function Body() {
-  const { c } = useTheme();
+  const { c, height: screenH } = useTheme();
   const { close } = useSheet();
   const router = useRouter();
   const insets = useSafeAreaInsets();
@@ -32,18 +32,18 @@ function Body() {
   const activeId = useStore((s) => s.activeId);
   const hide = useStore((s) => s.prefs.hideAmounts);
   const sampleLoaded = households.some((h) => h.id === SAMPLE_IDS.household);
-  const go = (path: '/setup/new' | '/join' | '/home') => { close(); router.push(path); };
+  const go = (path: '/setup/new' | '/join') => { close(); router.push(path); };
   return (
-    <View>
+    <View style={{ maxHeight: Math.round(screenH * 0.85) }}>
       <SheetHead title="Your households"
         left={isAndroid ? <IconButton label="Close" onPress={() => close()}><Close size={22} color={c.ink} /></IconButton> : undefined}
         right={isAndroid ? undefined : <TextButton label="Done" bold onPress={() => close()} />} />
-      <View style={{ paddingHorizontal: 22, paddingTop: 14, gap: 14 }}>
+      <SheetScrollView contentContainerStyle={{ paddingHorizontal: 22, paddingTop: 14, gap: 14 }}>
         {households.map((h) => (
           <HouseholdCard key={h.id} h={h} current={h.id === activeId} hide={hide}
             onPress={() => { switchHousehold(h.id); close(); router.replace('/home'); }} />
         ))}
-      </View>
+      </SheetScrollView>
       <View style={{ paddingHorizontal: 22, paddingTop: 20, paddingBottom: Math.max(insets.bottom + 4, 20), gap: 10 }}>
         <Wide label="New household" onPress={() => go('/setup/new')} />
         <Wide label="Join with a code" onPress={() => go('/join')} />

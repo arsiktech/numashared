@@ -36,9 +36,11 @@ import {
 } from "./_generated/server";
 import { accountIsUsable, closeConnection, defaultAgentPermissions, maximumAgents } from "./agentAccess";
 import { fail, requireActiveMembership, requireSession } from "./lib/access";
+import { maximumActivePotsPerAccount } from "./lib/accountWriteQuota";
 import { requireApprovedWriteTarget } from "./lib/deployment";
 import { sha256Hex } from "./lib/hash";
 import { consumePrivacySafeRateLimits, trustedRequestSource } from "./lib/httpRateLimit";
+import { secureStringEqual } from "./lib/identity";
 import * as oauth from "./lib/oauth";
 
 declare const process: { env: Record<string, string | undefined> };
@@ -121,8 +123,13 @@ function clientCredentials(request: Request, form: URLSearchParams): { clientId:
   const basic = request.headers.get("authorization")?.match(/^Basic\s+(\S+)$/i)?.[1];
   if (basic) {
     try {
-      const [id, secret] = atob(basic).split(":").map((part) => decodeURIComponent(part));
-      if (id && secret) return { clientId: id, secret };
+      const decoded = atob(basic);
+      const colon = decoded.indexOf(":");
+      if (colon > 0) {
+        const id = decodeURIComponent(decoded.slice(0, colon));
+        const secret = decodeURIComponent(decoded.slice(colon + 1));
+        if (id && secret) return { clientId: id, secret };
+      }
     } catch { /* fall through */ }
     return null;
   }
@@ -398,7 +405,7 @@ export const myHouseholds = query({
     const { account } = await requireSession(ctx);
     const memberships = await ctx.db.query("potMembers")
       .withIndex("by_account_status", (q) => q.eq("accountId", account._id).eq("status", "active"))
-      .take(50);
+      .take(maximumActivePotsPerAccount);
     const result: Array<{ id: string; name: string | null }> = [];
     for (const membership of memberships) {
       const pot = await ctx.db.query("pots").withIndex("by_pot_id", (q) => q.eq("potId", membership.potId)).unique();
@@ -634,7 +641,7 @@ export const token = httpAction(async (ctx, request) => {
   const client = await ctx.runQuery(internal.agentOAuth.clientById, { clientId: credentials.clientId });
   if (!client) return oauthError("invalid_client", "Unknown client.", 401);
   if (client.secretHash !== undefined
-    && (!credentials.secret || await sha256Hex(credentials.secret) !== client.secretHash)) {
+    && (!credentials.secret || !secureStringEqual(await sha256Hex(credentials.secret), client.secretHash))) {
     return oauthError("invalid_client", "Client authentication failed.", 401);
   }
   const requested = form.get("resource");
@@ -711,10 +718,13 @@ export const revoke = httpAction(async (ctx, request) => {
   const credentials = form && clientCredentials(request, form);
   const presented = form?.get("token");
   if (!form || !credentials || !presented || presented.length > 200) return oauthError("invalid_request", "token and client_id are required.");
+  if (await overLimit(ctx, request, "oauth-revoke", 300n, 60_000)) {
+    return oauthError("temporarily_unavailable", "Too many revocation requests. Wait a minute.", 429);
+  }
   const client = await ctx.runQuery(internal.agentOAuth.clientById, { clientId: credentials.clientId });
   if (!client) return oauthError("invalid_client", "Unknown client.", 401);
   if (client.secretHash !== undefined
-    && (!credentials.secret || await sha256Hex(credentials.secret) !== client.secretHash)) {
+    && (!credentials.secret || !secureStringEqual(await sha256Hex(credentials.secret), client.secretHash))) {
     return oauthError("invalid_client", "Client authentication failed.", 401);
   }
   await ctx.runMutation(internal.agentOAuth.revokeToken, { tokenHash: await sha256Hex(presented), clientId: client.clientId });
@@ -736,15 +746,19 @@ export async function eraseAgentOAuthBatch(ctx: MutationCtx, accountId: Id<"acco
       return true;
     }
   }
-  const connections = (await ctx.db.query("agentConnections")
+  const connections = await ctx.db.query("agentConnections")
     .withIndex("by_account", (q) => q.eq("accountId", accountId))
-    .take(100)).filter((row) => row.clientId !== undefined);
+    .filter((q) => q.neq(q.field("clientId"), undefined))
+    .take(100);
   for (const connection of connections) {
     const clientId = connection.clientId!;
-    const users = await ctx.db.query("agentConnections").withIndex("by_client", (q) => q.eq("clientId", clientId)).take(50);
-    if (users.every((row) => row.accountId === accountId)) {
+    const otherUser = await ctx.db.query("agentConnections")
+      .withIndex("by_client", (q) => q.eq("clientId", clientId))
+      .filter((q) => q.neq(q.field("accountId"), accountId))
+      .first();
+    if (!otherUser) {
       const client = await ctx.db.query("oauthClients").withIndex("by_client_id", (q) => q.eq("clientId", clientId)).unique();
-      if (client) await ctx.db.delete(client._id);
+      if (client && client.kind === "registered") await ctx.db.delete(client._id);
     }
     await ctx.db.delete(connection._id);
   }

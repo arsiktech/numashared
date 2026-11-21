@@ -6,13 +6,14 @@ import {
   decodeBase64Url,
   encodeBase64Url,
   IdentityError,
+  numericDate,
   ownedBuffer,
-  sha256Hex,
   signJwt,
+  signingAlgorithm,
   verifyEs256Jwt,
 } from "./jwt";
-import { numericDate } from "./jwt";
 import { accessTokenLifetimeSeconds, appleIssuer } from "./appleIdentity";
+import { googleSubjectNamespace } from "./googleIdentity";
 import type { IdentityEnvironment, SessionSigningEnvironment } from "./environment";
 
 export const refreshSessionLifetimeMillis = 30 * 24 * 60 * 60 * 1_000;
@@ -21,8 +22,6 @@ export interface SessionTokenClaims {
   publicAccountId: string;
   sessionId: string;
 }
-
-const signingAlgorithm = "ES256";
 
 export async function importHmacKey(secret: string, cryptoProvider: Crypto): Promise<CryptoKey> {
   if (secret.length < 32) throw new IdentityError("IDENTITY_CONFIGURATION_INVALID", 503);
@@ -90,7 +89,7 @@ export async function hashGoogleSubject(
   secret: string,
   cryptoProvider: Crypto = crypto,
 ): Promise<string> {
-  return await hmac(`https://accounts.google.com\u0000${subject}`, secret, cryptoProvider);
+  return await hmac(`${googleSubjectNamespace}\u0000${subject}`, secret, cryptoProvider);
 }
 
 export async function hashLocalE2ESubject(

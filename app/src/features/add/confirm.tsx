@@ -7,6 +7,7 @@ import type { Household, LedgerRecord } from '@/core/types';
 import { Warn } from '@/ui/icons';
 import { Banner, BannerText, Chip, CTA, haptic, T, TextButton } from '@/ui/primitives';
 import { useSheet } from '@/ui/sheet';
+import { forwardSheetInputKey } from '@/ui/sheet-focus';
 import { useTheme } from '@/ui/theme';
 import { fonts, isWeb } from '@/ui/tokens';
 import { clock, money, personName, recordTitle, relativeDay, settlementTitle } from '../hooks';
@@ -29,7 +30,7 @@ export function ConfirmBody({ title, sub, reasons, explain, action, onConfirm, n
 }) {
   const { c } = useTheme();
   const insets = useSafeAreaInsets();
-  const { close } = useSheet();
+  const { close, escape } = useSheet();
   const [reason, setReason] = useState<string | null>(null);
   const [other, setOther] = useState('');
   const [error, setError] = useState<string | null>(null);
@@ -63,6 +64,7 @@ export function ConfirmBody({ title, sub, reasons, explain, action, onConfirm, n
           <View style={{ marginTop: 12, minHeight: 48, borderRadius: 14, paddingHorizontal: 14, justifyContent: 'center', backgroundColor: c.card, borderWidth: 1, borderColor: c.hair }}>
             <TextInput value={other} onChangeText={setOther} autoFocus placeholder={otherPlaceholder} placeholderTextColor={c.ink3} maxLength={120}
               accessibilityLabel="Reason" returnKeyType="done" onSubmitEditing={confirm}
+              onKeyPress={isWeb ? (e) => forwardSheetInputKey(e, escape) : undefined}
               style={[{ minHeight: 46, fontFamily: fonts.regular, fontSize: 16, color: c.ink, paddingVertical: 0 }, isWeb ? ({ outlineStyle: 'none' } as object) : null]} />
           </View>
         ) : null}
@@ -73,7 +75,7 @@ export function ConfirmBody({ title, sub, reasons, explain, action, onConfirm, n
         </View>
       </View>
       <View style={{ paddingTop: 18, paddingHorizontal: 22, paddingBottom: Math.max(insets.bottom, 12) + 4, alignItems: 'stretch', gap: 4 }}>
-        <CTA variant="danger" label={action} disabled={!ready} onPress={confirm}
+        <CTA variant="danger" label={action} disabled={!ready || busy} onPress={confirm}
           accessibilityLabel={ready ? action : `${action}. Pick a reason first`} />
         <TextButton label="Keep it" onPress={() => close()} style={{ alignSelf: 'center', justifyContent: 'center' }} />
       </View>

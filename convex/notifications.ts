@@ -8,6 +8,7 @@ import {
   query,
   type QueryCtx,
 } from "./_generated/server";
+import { accountIsUsable } from "./agentAccess";
 import { fail, requireActiveMembership, requireSession } from "./lib/access";
 import { requireApprovedWriteTarget } from "./lib/deployment";
 import { validateTimeZone } from "./lib/eventValidation";
@@ -148,6 +149,7 @@ type PotPushContext = {
   potName: string;
   activeByMember: Map<string, Doc<"potMembers">>;
   mutedMemberIds: Set<string>;
+  membershipEvents?: Doc<"events">[];
 };
 
 // One event's resolved push: who receives it (as accounts) and the §6 body. `kind`
@@ -168,7 +170,7 @@ async function loadPotPushContext(
     .query("pots")
     .withIndex("by_pot_id", (index) => index.eq("potId", potId))
     .unique();
-  if (!pot?.name) return null;
+  if (!pot?.name || pot.deletingAt !== undefined) return null;
   const members = await ctx.db
     .query("potMembers")
     .withIndex("by_pot_account", (index) => index.eq("potId", potId))
@@ -244,20 +246,22 @@ async function planEventPush(
   const units = financialTransitionAffectedUnitIds(recordEvents, event.eventId);
   if (!units || units.length === 0) return { eventId, kind: "unit", body, accountIds: [] };
 
-  const membershipEventsOfKind = (kind: "memberAdded" | "groupChanged") =>
-    ctx.db
-      .query("events")
-      .withIndex("by_pot_kind", (index) =>
-        index
-          .eq("potId", pot.potId)
-          .eq("payload.kind", kind)
-          .lte("sequence", event.sequence),
-      )
-      .collect();
-  const membershipEvents = [
-    ...(await membershipEventsOfKind("memberAdded")),
-    ...(await membershipEventsOfKind("groupChanged")),
-  ].sort((left, right) => (left.sequence < right.sequence ? -1 : 1));
+  if (!pot.membershipEvents) {
+    const loadKind = (kind: "memberAdded" | "groupChanged") =>
+      ctx.db
+        .query("events")
+        .withIndex("by_pot_kind", (index) =>
+          index.eq("potId", pot.potId).eq("payload.kind", kind),
+        )
+        .collect();
+    pot.membershipEvents = [
+      ...(await loadKind("memberAdded")),
+      ...(await loadKind("groupChanged")),
+    ].sort((left, right) => (left.sequence < right.sequence ? -1 : 1));
+  }
+  const membershipEvents = pot.membershipEvents.filter(
+    (potEvent) => potEvent.sequence <= event.sequence,
+  );
 
   // Personal units come from memberAdded. Each groupChanged payload is the complete
   // current group topology, so rebuild group-unit membership through this event's
@@ -292,6 +296,7 @@ async function tokensForAccountIds(
 ): Promise<Array<PushTargetToken & { accountId: Id<"accounts"> }>> {
   const tokens: Array<PushTargetToken & { accountId: Id<"accounts"> }> = [];
   for (const accountId of accountIds) {
+    if (!(await accountIsUsable(ctx, accountId))) continue;
     const accountTokens = await ctx.db
       .query("pushTokens")
       .withIndex("by_account", (index) => index.eq("accountId", accountId))

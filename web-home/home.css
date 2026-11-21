@@ -40,7 +40,7 @@ p{margin:0;text-wrap:pretty}
 .copy>*+*{margin-top:var(--s4)}
 .copy h2+p{margin-top:var(--s4)}
 .lede{font-size:1.25rem;line-height:1.5;max-width:30rem}
-.act--hello .lede,.act--close p,.act--hello .fine{color:var(--on-butter)}
+.act--close p,.act--hello .fine{color:var(--on-butter)}
 .act--hello .lede{color:var(--ink)}
 .actions{margin-top:var(--s5)!important}
 .fine{font-size:.9rem;line-height:1.55;color:var(--ink2)}
@@ -74,7 +74,7 @@ html.live .act--history{min-height:125svh}
 html.live .act--close{min-height:115svh}
 html.live .act--hello .copy{top:22svh}
 html.live .act--close .copy{top:24svh}
-html.live .act--hello .lede,html.live .act--hello .fine{color:var(--on-butter)}
+html.live .act--hello .fine{color:var(--on-butter)}
 html.live .act--hello .lede{color:var(--ink)}
 html.live .act--close p{color:var(--on-butter)}
 html.live .copy{max-width:min(32rem,40vw)}
@@ -136,7 +136,7 @@ html.settled .orb__glyph--check{opacity:1;transform:none}
 .slips{top:calc(46svh + 6rem);margin:0;padding:0;list-style:none;display:flex;flex-direction:column;gap:var(--s3);z-index:2}
 .slip{display:flex;align-items:center;gap:var(--s3);padding:var(--s3) var(--s4);background:var(--paper);border-radius:var(--r2);box-shadow:var(--shadow);will-change:transform,opacity;
 opacity:clamp(0,calc(var(--f,0) * 5),1);
-transform:translate(calc((1 - var(--f,0)) * var(--fx,0px)),calc((1 - var(--f,0)) * var(--fy,0px))) scale(calc(.5 + var(--f,0) * .5)) rotate(calc((1 - var(--f,0)) * -9deg))}
+transform:scale(calc(.5 + var(--f,0) * .5)) rotate(calc((1 - var(--f,0)) * -9deg))}
 .disc{flex:0 0 auto;display:grid;place-items:center;width:2.5rem;height:2.5rem;border-radius:50%;color:var(--ink)}
 .disc--lilac{background:var(--lilac)}.disc--citrus{background:var(--citrus)}
 .slip__t{flex:1;min-width:0;display:flex;flex-direction:column;line-height:1.25}
@@ -144,10 +144,8 @@ transform:translate(calc((1 - var(--f,0)) * var(--fx,0px)),calc((1 - var(--f,0))
 .slip__t small{font-size:.8125rem;color:var(--ink2)}
 .share{font-style:normal;font-size:.8125rem;font-weight:650;color:var(--ink);overflow:hidden;max-height:calc(var(--share,0) * 1.4em);opacity:var(--share,0)}
 .slip__a{font-weight:700;font-variant-numeric:tabular-nums;font-size:1.0625rem}
-.slip--internet{margin-top:0}
 
 /* History act: the slips settle into a tight, tidy record */
-.slips{--tidy:var(--ledger,0)}
 .slip{margin-bottom:calc(var(--ledger,0) * -.5rem)}
 
 /* Real captures */

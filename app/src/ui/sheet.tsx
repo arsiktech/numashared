@@ -2,8 +2,8 @@
 // back into it on close; dragging it down anywhere (or pulling down a list inside it that is already
 // at its top) slides it away. On a desk the Add sheet becomes a
 // popover that grows from the same orb. Reduce Motion replaces both with a short fade.
-import { createContext, Fragment, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
-import { BackHandler, Platform, ScrollView, StyleSheet, View, type ScrollViewProps, type StyleProp, type ViewStyle } from 'react-native';
+import { createContext, Fragment, useCallback, useContext, useEffect, useId, useMemo, useRef, useState, type ReactNode } from 'react';
+import { BackHandler, Platform, Pressable, ScrollView, StyleSheet, View, type ScrollViewProps, type StyleProp, type ViewStyle } from 'react-native';
 import { Gesture, GestureDetector, type NativeGesture } from 'react-native-gesture-handler';
 import Animated, { Easing, makeMutable, runOnJS, useAnimatedReaction, useAnimatedStyle, useSharedValue, withSpring, withTiming, interpolate, type SharedValue } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -11,7 +11,7 @@ import Svg, { Defs, RadialGradient, Rect, Stop } from 'react-native-svg';
 import type { Origin } from '@/store/ui';
 import { useTheme } from './theme';
 import { haptic } from './primitives';
-import { alpha, isWeb } from './tokens';
+import { alpha, fonts, isWeb } from './tokens';
 import { escapeSheet, ownsSheetFocus, takeSheetFocus } from './sheet-focus';
 
 /**
@@ -59,6 +59,9 @@ export function Sheet({ origin, onClosed, children, background, height = 'full',
   const closing = useRef(false);
   const focusRoot = useRef<View>(null);
   const [focusReturn] = useState(() => isWeb && typeof document !== 'undefined' ? document.activeElement as HTMLElement | null : null);
+  const washId = `wash${useId().replace(/[^a-zA-Z0-9]/g, '')}`;
+  const onClosedRef = useRef(onClosed);
+  onClosedRef.current = onClosed;
   const bloom = !!origin && !reduceMotion;
 
   const R = origin ? Math.hypot(Math.max(origin.x, W - origin.x), Math.max(origin.y, H - origin.y)) + 8 : 0;
@@ -71,12 +74,16 @@ export function Sheet({ origin, onClosed, children, background, height = 'full',
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const finish = useCallback(() => { onClosed(); }, [onClosed]);
+  const finish = useCallback(() => { onClosedRef.current(); }, []);
 
   const close = useCallback((how?: 'down' | 'done') => {
     if (closing.current) return;
     closing.current = true;
     setPhase('closing');
+    if (reduceMotion) {
+      p.value = withTiming(0, { duration: 160 }, (d) => { if (d) runOnJS(finish)(); });
+      return;
+    }
     if (how === 'down' || !bloom) {
       drag.value = withTiming(H, { duration: 240, easing: Easing.in(Easing.quad) }, (d) => { if (d) runOnJS(finish)(); });
       p.value = withTiming(0, { duration: 240 });
@@ -85,7 +92,7 @@ export function Sheet({ origin, onClosed, children, background, height = 'full',
     p.value = withTiming(0, { duration: 360, easing: Easing.bezier(0.55, 0, 0.75, 0.1) }, (d) => {
       if (d) { runOnJS(haptic.tap)(); runOnJS(finish)(); }
     });
-  }, [bloom, finish, H, drag, p]);
+  }, [bloom, finish, H, drag, p, reduceMotion]);
 
   useEffect(() => {
     if (Platform.OS !== 'android') return;
@@ -145,7 +152,7 @@ export function Sheet({ origin, onClosed, children, background, height = 'full',
   useEffect(() => () => { if (stacked) sheetBackdrop.value = withTiming(0, { duration: 180 }); }, [stacked]);
   const scrimStyle = useAnimatedStyle(() => ({ opacity: p.value * (1 - Math.min(1, drag.value / Math.max(H, 1))) }));
   const panelDrag = useAnimatedStyle(() => ({ transform: [{ translateY: drag.value }] }));
-  const fadeIn = useAnimatedStyle(() => (bloom ? {} : { opacity: p.value, transform: [{ translateY: (1 - p.value) * 24 }] }));
+  const fadeIn = useAnimatedStyle(() => (bloom ? {} : reduceMotion ? { opacity: p.value } : { opacity: p.value, transform: [{ translateY: (1 - p.value) * 24 }] }));
 
   const r0 = origin?.r ?? 0;
   const circle = useAnimatedStyle(() => {
@@ -195,7 +202,7 @@ export function Sheet({ origin, onClosed, children, background, height = 'full',
       role={isWeb ? 'dialog' : undefined} aria-modal={isWeb ? true : undefined}
       accessibilityLabel={isWeb ? label : undefined} tabIndex={isWeb ? -1 : undefined}>
       <Animated.View style={[StyleSheet.absoluteFill, { backgroundColor: popover ? 'rgba(18,20,16,0.18)' : stacked ? 'rgba(0,0,0,0.22)' : c.scrim }, scrimStyle]}>
-        <View style={StyleSheet.absoluteFill} onTouchEnd={() => close()} accessibilityLabel="Close" accessibilityRole="button" />
+        <Pressable style={StyleSheet.absoluteFill} onPress={() => close()} accessibilityLabel="Close" accessibilityRole="button" />
       </Animated.View>
       {bloom && phase !== 'open' ? (
         // Keyed so React never reuses the circle's node for the flat panel: Reanimated sets the
@@ -206,14 +213,14 @@ export function Sheet({ origin, onClosed, children, background, height = 'full',
             <Animated.View pointerEvents="none" style={[StyleSheet.absoluteFill, wash]}>
               <Svg width={W} height={H}>
                 <Defs>
-                  <RadialGradient id="wash" cx={origin!.x} cy={origin!.y} r={Math.max(R, 1)} gradientUnits="userSpaceOnUse">
+                  <RadialGradient id={washId} cx={origin!.x} cy={origin!.y} r={Math.max(R, 1)} gradientUnits="userSpaceOnUse">
                     <Stop offset="0" stopColor="#FFB59C" stopOpacity={0.95} />
                     <Stop offset="0.12" stopColor="#F66B42" stopOpacity={0.92} />
                     <Stop offset="0.45" stopColor="#E9522D" stopOpacity={0.7} />
                     <Stop offset="1" stopColor={washTo ?? '#E9522D'} stopOpacity={0.2} />
                   </RadialGradient>
                 </Defs>
-                <Rect x="0" y="0" width={W} height={H} fill="url(#wash)" />
+                <Rect x="0" y="0" width={W} height={H} fill={`url(#${washId})`} />
               </Svg>
             </Animated.View>
           </Animated.View>
@@ -230,7 +237,7 @@ export function SheetHead({ left, title, right, color }: { left?: ReactNode; tit
     <View style={{ minHeight: 46, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 10 }}>
       <View style={{ minWidth: 76, alignItems: 'flex-start' }}>{left}</View>
       {title ? (
-        <Animated.Text accessibilityRole="header" style={{ fontFamily: 'Instrument-600', fontSize: 17, color: color ?? c.ink }}>{title}</Animated.Text>
+        <Animated.Text accessibilityRole="header" style={{ fontFamily: fonts.semibold, fontSize: 17, color: color ?? c.ink }}>{title}</Animated.Text>
       ) : <View />}
       <View style={{ minWidth: 76, alignItems: 'flex-end' }}>{right}</View>
     </View>

@@ -296,17 +296,20 @@ export const establishLocalE2ESession = internalMutation({
     publicAccountId: string;
     sessionId: string;
     refreshExpiresAt: number;
-  }> => establish(ctx, {
-    subjectHash: args.localSubjectHash,
-    relayEmail: undefined,
-    encryptedAppleRefresh: undefined,
-    sessionId: args.sessionId,
-    publicAccountIdCandidate: args.publicAccountIdCandidate,
-    refreshTokenHash: args.refreshTokenHash,
-    now: args.now,
-    expiresAt: args.expiresAt,
-    requireAppleAuthorization: false,
-  }),
+  }> => {
+    requireLocalE2EAuthTarget();
+    return establish(ctx, {
+      subjectHash: args.localSubjectHash,
+      relayEmail: undefined,
+      encryptedAppleRefresh: undefined,
+      sessionId: args.sessionId,
+      publicAccountIdCandidate: args.publicAccountIdCandidate,
+      refreshTokenHash: args.refreshTokenHash,
+      now: args.now,
+      expiresAt: args.expiresAt,
+      requireAppleAuthorization: false,
+    });
+  },
 });
 
 export const rotateSession = internalMutation({
@@ -463,24 +466,6 @@ export const revokeAccountSessions = internalMutation({
   },
 });
 
-export const markAppleAuthorizationRevoked = internalMutation({
-  args: {
-    accountId: v.id("accounts"),
-    now: v.number(),
-  },
-  handler: async (ctx, args) => {
-    requireApprovedWriteTarget();
-    const authorization = await ctx.db
-      .query("appleAuthorizations")
-      .withIndex("by_account", (index) => index.eq("accountId", args.accountId))
-      .unique();
-    if (authorization && authorization.revokedAt === undefined) {
-      await ctx.db.patch(authorization._id, { revokedAt: args.now });
-    }
-    return { revoked: authorization !== null };
-  },
-});
-
 export const processAppleIdentityNotification = internalMutation({
   args: {
     notificationEventId: v.string(),
@@ -560,6 +545,13 @@ export const processAppleIdentityNotification = internalMutation({
         for (const session of sessions) {
           await ctx.db.patch(session._id, { revokedAt: args.now });
           revokedSessionCount += 1;
+        }
+        const pushTokens = await ctx.db
+          .query("pushTokens")
+          .withIndex("by_account", (index) => index.eq("accountId", account._id))
+          .collect();
+        for (const token of pushTokens) {
+          await ctx.db.delete(token._id);
         }
       }
     }

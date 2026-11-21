@@ -120,7 +120,12 @@ function checkAmount(ctx: Ctx, amount: unknown): void {
 
 function checkDate(ctx: Ctx, date: unknown): void {
   const m = typeof date === 'string' ? /^(\d{4})-(\d{2})-(\d{2})$/.exec(date) : null;
-  const ok = m !== null && +m[2] >= 1 && +m[2] <= 12 && +m[3] >= 1 && +m[3] <= 31;
+  let ok = false;
+  if (m !== null) {
+    const y = +m[1], mo = +m[2], d = +m[3];
+    const dt = new Date(Date.UTC(y, mo - 1, d));
+    ok = dt.getUTCFullYear() === y && dt.getUTCMonth() === mo - 1 && dt.getUTCDate() === d;
+  }
   if (!ok) fail(ctx, 'invalid-date', `Date must be YYYY-MM-DD, got ${String(date)}.`);
 }
 
@@ -295,7 +300,7 @@ function apply(base: Omit<Ctx, 'eventId'>, state: State, event: LedgerEvent): vo
       for (const [pair, by] of w.resolved) if (by === b.parentEventId) w.resolved.set(pair, event.id);
     } else {
       const { firstEventId: one, secondEventId: two } = b;
-      if (!w.versions.has(one) || !w.versions.has(two)) fail(ctx, 'invalid-resolution', 'This choice names a version that doesn’t exist.');
+      if (one === two || !w.versions.has(one) || !w.versions.has(two)) fail(ctx, 'invalid-resolution', 'This choice names a version that doesn’t exist.');
       const pair = [one, two].sort().join('|');
       if (w.heads.includes(one) && w.heads.includes(two)) {
         w.heads = w.heads.filter((x) => x !== one && x !== two);
@@ -315,6 +320,10 @@ function apply(base: Omit<Ctx, 'eventId'>, state: State, event: LedgerEvent): vo
     return applied.content;
   };
   const touch = (r: LedgerRecord) => { r.updatedAt = Math.max(r.updatedAt, event.at); };
+  // Server-sequenced events may reflect concurrent offline transitions (e.g. a revision landing
+  // after a void, or duplicate void/restore/flag); match the server reducer's idempotency so
+  // pulling them never drops valid server history.
+  const fromServer = event.seq !== undefined;
 
   switch (event.kind) {
     case 'expenseAdded':
@@ -330,7 +339,7 @@ function apply(base: Omit<Ctx, 'eventId'>, state: State, event: LedgerEvent): vo
       const w = existing();
       const r = w.record;
       if (r.kind !== 'expense' || !r.expense) fail(ctx, 'wrong-record-kind', 'Only expenses can be edited.');
-      if (r.voided) fail(ctx, 'record-voided', 'Restore this expense before editing it.');
+      if (r.voided && !fromServer) fail(ctx, 'record-voided', 'Restore this expense before editing it.');
       const effect = expenseEffect(ctx, event.content);
       const parent = event.basis?.kind === 'parent' ? w.versions.get(event.basis.parentEventId)?.content as ExpenseContent | undefined : undefined;
       r.timeline.push({ type: 'edited', at: event.at, by: event.by, ...via, eventId: event.id, reason: event.reason, changes: diff(ctx, parent ?? r.expense, event.content) });
@@ -343,7 +352,7 @@ function apply(base: Omit<Ctx, 'eventId'>, state: State, event: LedgerEvent): vo
       const w = existing();
       const r = w.record;
       if (r.kind !== 'opening' || !r.opening) fail(ctx, 'wrong-record-kind', 'Only an opening balance can take this change.');
-      if (r.voided) fail(ctx, 'record-voided', 'Restore this opening balance before changing it.');
+      if (r.voided && !fromServer) fail(ctx, 'record-voided', 'Restore this opening balance before changing it.');
       const effect = openingEffect(ctx, event.content);
       r.timeline.push({ type: 'edited', at: event.at, by: event.by, ...via, eventId: event.id, changes: [] });
       r.revisions.push({ eventId: event.id, at: event.at, by: event.by, content: event.content });
@@ -354,8 +363,8 @@ function apply(base: Omit<Ctx, 'eventId'>, state: State, event: LedgerEvent): vo
     case 'settlementFlagged': {
       const r = existing().record;
       if (r.kind !== 'settlement') fail(ctx, 'wrong-record-kind', 'Only repayments can be flagged.');
-      if (r.voided) fail(ctx, 'record-voided', 'This repayment is voided.');
-      if (r.flagged) fail(ctx, 'already-flagged', 'This repayment is already flagged.');
+      if (r.voided && !fromServer) fail(ctx, 'record-voided', 'This repayment is voided.');
+      if (r.flagged && !fromServer) fail(ctx, 'already-flagged', 'This repayment is already flagged.');
       r.flagged = true;
       r.timeline.push({ type: 'flagged', at: event.at, by: event.by, ...via, eventId: event.id, reason: event.reason });
       touch(r);
@@ -363,7 +372,7 @@ function apply(base: Omit<Ctx, 'eventId'>, state: State, event: LedgerEvent): vo
     }
     case 'recordVoided': {
       const r = existing().record;
-      if (r.voided) fail(ctx, 'already-voided', 'This record is already voided.');
+      if (r.voided && !fromServer) fail(ctx, 'already-voided', 'This record is already voided.');
       if (typeof event.reason !== 'string' || event.reason.trim() === '') fail(ctx, 'missing-reason', 'Say why this is voided.');
       for (const { record } of state.records.values()) {
         if (!record.voided && record.settlement?.reversalOf === r.id) {
@@ -378,8 +387,8 @@ function apply(base: Omit<Ctx, 'eventId'>, state: State, event: LedgerEvent): vo
     }
     case 'recordRestored': {
       const r = existing().record;
-      if (!r.voided) fail(ctx, 'not-voided', 'Only a voided record can be restored.');
-      if (r.settlement?.reversalOf !== undefined) checkReversal(ctx, state, r.settlement, r.id);
+      if (!r.voided && !fromServer) fail(ctx, 'not-voided', 'Only a voided record can be restored.');
+      if (r.voided && r.settlement?.reversalOf !== undefined) checkReversal(ctx, state, r.settlement, r.id);
       r.voided = false;
       delete r.voidReason;
       r.timeline.push({ type: 'restored', at: event.at, by: event.by, ...via, eventId: event.id });
@@ -411,15 +420,10 @@ export function reduce(household: Household): Ledger {
   const records = [...state.records.values()]
     .map(({ record, fullEffect }) => {
       record.effect = record.voided ? {} : { ...fullEffect };
-      record.timeline = record.timeline
-        .map((entry, index) => ({ entry, index }))
-        .sort((a, b) => a.entry.at - b.entry.at || a.index - b.index)
-        .map(({ entry }) => entry);
+      record.timeline.sort((a, b) => a.at - b.at);
       return record;
     })
-    .map((record, index) => ({ record, index }))
-    .sort((a, b) => a.record.createdAt - b.record.createdAt || a.index - b.index)
-    .map(({ record }) => record);
+    .sort((a, b) => a.createdAt - b.createdAt);
 
   const balances: Record<ID, Cents> = {};
   for (const g of household.groups) balances[g.id] = 0;

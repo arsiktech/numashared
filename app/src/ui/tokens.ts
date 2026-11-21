@@ -1,6 +1,6 @@
 // Design tokens: the same values as the approved canvas (direction B "Color is who").
 // Color always means a group of people, never debt direction. Orange means one thing: add an expense.
-import { Platform, type TextStyle } from 'react-native';
+import { Platform } from 'react-native';
 import { FontDisplay, type FontSource } from 'expo-font';
 import type { GroupColor } from '@/core/types';
 
@@ -59,7 +59,6 @@ const groupLight: Record<GroupColor, GroupTone> = {
 };
 
 const groupDark: Record<GroupColor, GroupTone> = {
-  ...groupLight,
   citrus: { band: '#A8BF3F', ink: '#2E3A12', deep: '#C6E04E' },
   lilac: { band: '#9B84D9', ink: '#2E2242', deep: '#C3AEF0' },
   sky: { band: '#7FB6DA', ink: '#12324A', deep: '#A9D8F5' },
@@ -84,25 +83,6 @@ export const alpha = (hex: string, a: number) => {
 };
 
 export const radius = { badge: 6, key: 14, field: 16, card: 18, pill: 22, cta: 28, sheet: 30, ticket: 39 } as const;
-export const space = { xs: 4, s: 8, m: 12, l: 16, xl: 20, side: 22, xxl: 24, xxxl: 32 } as const;
-
-const tab: TextStyle = { fontVariant: ['tabular-nums'] };
-
-export const type = {
-  name: { fontFamily: fonts.cond, fontSize: 74, lineHeight: 70, letterSpacing: -1.2 } as TextStyle,
-  title: { fontFamily: fonts.cond, fontSize: 40, lineHeight: 42, letterSpacing: -0.4 } as TextStyle,
-  h1: { fontFamily: fonts.cond, fontSize: 34, lineHeight: 36 } as TextStyle,
-  sentence: { fontFamily: fonts.display, fontSize: 30, lineHeight: 36, letterSpacing: -0.6 } as TextStyle,
-  amount: { fontFamily: fonts.display, fontSize: 84, lineHeight: 90, letterSpacing: -3, ...tab } as TextStyle,
-  ticket: { fontFamily: fonts.display, fontSize: 40, lineHeight: 44, letterSpacing: -1.2, ...tab } as TextStyle,
-  h2: { fontFamily: fonts.bold, fontSize: 20, lineHeight: 24, letterSpacing: -0.2 } as TextStyle,
-  body: { fontFamily: fonts.regular, fontSize: 16, lineHeight: 22 } as TextStyle,
-  bodyStrong: { fontFamily: fonts.semibold, fontSize: 16, lineHeight: 22 } as TextStyle,
-  sub: { fontFamily: fonts.regular, fontSize: 14, lineHeight: 19 } as TextStyle,
-  cap: { fontFamily: fonts.semibold, fontSize: 12.5, lineHeight: 17 } as TextStyle,
-  num: { fontFamily: fonts.semibold, fontSize: 16, lineHeight: 22, ...tab } as TextStyle,
-  button: { fontFamily: fonts.semibold, fontSize: 17, lineHeight: 22 } as TextStyle,
-};
 
 export const isWeb = Platform.OS === 'web';
 /** Where a household that isn't shared lives: "this browser" on the web, "this phone" in the app. */

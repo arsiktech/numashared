@@ -63,7 +63,7 @@ export function validateDisplayName(value: string): void {
 }
 
 function validateStructuralName(value: string, code: string): void {
-  assert(value.trim().length > 0, code);
+  assert(!foundationWhitespaceAndNewlinesOnlyPattern.test(value), code);
   assert(value.length <= 128, `${code}_TOO_LONG`);
 }
 

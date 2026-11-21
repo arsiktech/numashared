@@ -6,7 +6,9 @@ import { View } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { signOut, useStore } from '@/store/store';
-import { useSession } from '@/features/account/session';
+import { showToast } from '@/store/ui';
+import { explainFailure, useSession } from '@/features/account/session';
+import { failureOf } from '@/sync/engine';
 import { signOutEverywhere, unsentCount } from '@/sync/runtime';
 import { Close, Lock, VoidX, Warn } from '@/ui/icons';
 import { Banner, BannerText, CTA, haptic, IconButton, Press, T, TextButton } from '@/ui/primitives';
@@ -39,15 +41,24 @@ function Body() {
   const onlyShared = !!session && names.length === 0;
   const [mode, setMode] = useState<'lock' | 'erase'>('lock');
   const [step, setStep] = useState(0); // erase needs two confirmations
+  const [busy, setBusy] = useState(false);
 
   const go = async () => {
+    if (busy) return;
     // Erasing asks twice; nothing happens until the second tap.
     if (!onlyShared && mode === 'erase' && step === 0) { setStep(1); haptic.warn(); return; }
-    if (session) await signOutEverywhere();
-    if (!onlyShared) signOut(mode);
-    haptic.success();
-    close();
-    router.replace('/welcome');
+    setBusy(true);
+    try {
+      if (session) await signOutEverywhere();
+      if (!onlyShared) signOut(mode);
+      haptic.success();
+      close();
+      router.replace('/welcome');
+    } catch (e) {
+      haptic.warn();
+      showToast(explainFailure(failureOf(e).code));
+      setBusy(false);
+    }
   };
 
   const option = (key: 'lock' | 'erase', title: string, sub: string, icon: (on: boolean) => React.ReactNode) => {
@@ -75,7 +86,7 @@ function Body() {
         <T accessibilityRole="header" style={{ fontFamily: fonts.bold, fontSize: 22, lineHeight: 26, letterSpacing: -0.2 }}>Sign out of this device?</T>
         <T style={{ fontSize: 14, lineHeight: 19, color: c.ink2, marginTop: 6 }}>
           {onlyShared
-            ? 'Your shared households stay on your account. Sign in with Apple again to get them back.'
+            ? 'Your shared households stay on your account. Sign in again to get them back.'
             : session
               ? `Shared households stay on your account. ${listNames(names)} ${names.length === 1 ? 'was' : 'were'} never shared and ${names.length === 1 ? 'lives' : 'live'} only here. Choose what happens to ${names.length === 1 ? 'it' : 'them'}.`
               : 'Your households live only on this device. Choose what happens to them.'}
@@ -90,7 +101,7 @@ function Body() {
           <View style={{ marginTop: 16 }}>
             <Banner kind="warn" icon={<Warn size={18} color={c.warnInk} />}>
               <BannerText kind="warn" strong={`${unsentCount()} change${unsentCount() > 1 ? 's haven’t' : ' hasn’t'} reached the others yet.`}
-                rest={` Connect to the internet first: signing out now removes them from ${thisDevice}.`} />
+                rest={`Connect to the internet first: signing out now removes them from ${thisDevice}.`} />
             </Banner>
           </View>
         ) : null}
@@ -103,8 +114,8 @@ function Body() {
         ) : null}
       </View>
       <View style={{ paddingHorizontal: 22, paddingTop: 24, paddingBottom: Math.max(insets.bottom + 4, 16) }}>
-        <CTA variant={mode === 'erase' && !onlyShared ? 'danger' : 'primary'} onPress={go}
-          label={onlyShared ? 'Sign out' : mode === 'lock' ? 'Lock this device' : step === 0 ? 'Erase from this device' : 'Yes, erase everything'} />
+        <CTA variant={mode === 'erase' && !onlyShared ? 'danger' : 'primary'} disabled={busy} onPress={go}
+          label={busy ? 'Signing out…' : onlyShared ? 'Sign out' : mode === 'lock' ? 'Lock this device' : step === 0 ? 'Erase from this device' : 'Yes, erase everything'} />
         {mode === 'erase' && step === 1 ? (
           <TextButton label="Export CSV first" bold onPress={() => { close(); router.push('/settings/export'); }} style={{ alignSelf: 'center', marginTop: 6 }} />
         ) : null}
