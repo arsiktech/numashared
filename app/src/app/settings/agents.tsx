@@ -108,7 +108,7 @@ export default function AgentsScreen() {
       async (text) => {
         haptic.success();
         if (!(await copied)) setUncopied(text);
-        else if (isWeb) showToast('Numa Pro key copied. Paste it in Numa Pro, Settings.');
+        else if (isWeb) showToast('Pro app key copied. Paste it in the Pro app, Settings.');
       },
       (e) => { haptic.warn(); const code = failureOf(e).code; setError(explainFailure(code)); },
     ).finally(() => setBusy(false));
@@ -165,8 +165,8 @@ export default function AgentsScreen() {
         </View>
       ) : null}
 
-      <SGroup title="Numa Pro">
-        <SRow label="Copy Numa Pro key" sub="Reads this household’s balances. It cannot change anything." last onPress={copyPro} />
+      <SGroup title="Pro app">
+        <SRow label="Copy Pro app key" sub="Reads this household’s balances. It cannot change anything." last onPress={copyPro} />
       </SGroup>
 
       <SGroup title="Chat apps">

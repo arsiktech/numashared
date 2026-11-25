@@ -73,7 +73,7 @@ The privacy policy (`privacyHTML` in `convex/lib/webContent.ts`, served at
 
 # Numa Pro
 
-The privacy policy has a section, "Numa Pro". A key copied in Settings, AI agents
+The privacy policy has a section, "Pro app". A key copied in Settings, AI agents
 lets Numa Pro read household balances (`POST /pro/balances`, `convex/proBalances.ts`).
 The server stores only a hash of the key. The key cannot add, edit or manage a
 household. Disconnecting it or deleting the account erases it. See `AGENT-ACCESS.md`.
