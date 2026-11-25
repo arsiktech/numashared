@@ -1,6 +1,6 @@
 // Record a repayment: "You + Sam paid Alex + Jo €40.00" on the paying group's color, with quick
 // amounts, how it was paid, a note, and a receipt that says what is left. Numa Shared never moves money.
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState, type ComponentRef } from 'react';
 import { TextInput, View, type TextStyle } from 'react-native';
 import { applyKey, currencyDigits, isPlural, formatMoney, inputFromCents, parseInput, planSettlement, type Key } from '@/core';
 import type { Household, ID, PaymentMethod, SettlementContent } from '@/core/types';
@@ -96,7 +96,7 @@ function RepayBody({ h, spec, groups, setGroups, t }: {
   const [noteEditing, setNoteEditing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [midH, setMidH] = useState(0);
-  const noteRef = useRef<TextInput>(null);
+  const noteRef = useRef<ComponentRef<typeof TextInput>>(null);
   const saving = saveGuard(spec.key);
 
   const amount = parseInput(input, cur) ?? 0;

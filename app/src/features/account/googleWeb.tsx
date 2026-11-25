@@ -1,7 +1,7 @@
 // Google's own "Continue with Google" button, for the web build. Google Identity Services renders
 // it and hands back an ID token, which the backend exchanges for a Numa Shared session like the
 // phone's. The page's origin must be listed for the web client in Google Cloud.
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, type ComponentRef } from 'react';
 import { ActivityIndicator, View } from 'react-native';
 import { T } from '@/ui/primitives';
 import { useTheme } from '@/ui/theme';
@@ -34,7 +34,7 @@ function loadGsi(): Promise<Gsi> {
 }
 
 export function GoogleWebButton({ onCredential, disabled }: { onCredential: (idToken: string) => void; disabled?: boolean }) {
-  const host = useRef<View>(null);
+  const host = useRef<ComponentRef<typeof View>>(null);
   const { c } = useTheme();
   const [state, setState] = useState<'loading' | 'ready' | 'failed'>('loading');
   // The host's laid-out width. Google draws the button at exactly this width, so it lines up with

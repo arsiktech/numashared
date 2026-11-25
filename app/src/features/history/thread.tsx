@@ -2,7 +2,7 @@
 // centered system lines for openings, edits and voids. Newest at the bottom, with a compose bar.
 // Phone renders its own header (back, search, title, filters); the desk variant renders a title
 // row with the filters, a centered 720 pt column and a ring around the selected record.
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState, type ComponentRef } from 'react';
 import { ScrollView, TextInput, View, type NativeScrollEvent, type NativeSyntheticEvent } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -29,7 +29,7 @@ export function HistoryThread({ selectedId, onSelect, desk }: { selectedId?: ID 
   const items = useMemo(() => (h && ledger ? threadItems(h, ledger.records, filter, query, hide) : []), [h, ledger, filter, query, hide]);
 
   // Keep the newest item in view unless the reader has scrolled up.
-  const scroller = useRef<ScrollView>(null);
+  const scroller = useRef<ComponentRef<typeof ScrollView>>(null);
   const stick = useRef(true);
   useEffect(() => { stick.current = true; }, [filter, query]);
   const onScroll = (e: NativeSyntheticEvent<NativeScrollEvent>) => {

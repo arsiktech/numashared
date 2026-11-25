@@ -4,7 +4,7 @@
 // At the accessibility text sizes the amount and keypad stay pinned above the Add button and the
 // rest of the sentence and the split scroll above them, so nothing is cut off and the amount
 // stays in view while typing. A short screen (a phone in landscape) scrolls the whole sheet instead.
-import { useEffect, useMemo, useRef, useState, type Dispatch, type ReactNode, type SetStateAction } from 'react';
+import { useEffect, useMemo, useRef, useState, type Dispatch, type ReactNode, type SetStateAction, type ComponentRef } from 'react';
 import { TextInput, View, type TextStyle } from 'react-native';
 import { applyKey, categoryLabel, currencyDigits, formatMoney, inputFromCents, parseInput, typeAmount, type Key } from '@/core';
 import type { Category, ExpenseContent, Household, ID, LedgerEvent } from '@/core/types';
@@ -120,7 +120,7 @@ function AddBody({ h, spec, draft, set, t, pop }: {
   // Measured too little room for four rows of 44 pt keys (a short phone with a long sentence):
   // scroll the whole sheet instead of hiding the top row. Checked again when the screen changes.
   const [cramped, setCramped] = useState<number | null>(null);
-  const noteRef = useRef<TextInput>(null);
+  const noteRef = useRef<ComponentRef<typeof TextInput>>(null);
   const typed = useRef<{ keys: Key[]; input: string }>({ keys: [], input: '' });
   const live = useRef({ input: draft.input, sug: !!draft.sugKey });
   useEffect(() => { live.current = { input: draft.input, sug: !!draft.sugKey }; }, [draft.input, draft.sugKey]);

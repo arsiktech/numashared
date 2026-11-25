@@ -60,7 +60,7 @@ export default function ExportScreen() {
       if (!(await Sharing.isAvailableAsync())) throw new Error('sharing unavailable');
       const file = new File(Paths.cache, name);
       file.create({ overwrite: true });
-      file.write(csv);
+      await file.write(csv); // expo-file-system 58: write() is async
       await Sharing.shareAsync(file.uri, { mimeType: 'text/csv', UTI: 'public.comma-separated-values-text', dialogTitle: name });
       haptic.success();
     } catch {

@@ -1,6 +1,6 @@
 // Base components. Every interactive element is a Pressable with an accessible label,
 // a 44 pt minimum target and a 0.96 press scale.
-import { forwardRef, useId, type ReactNode } from 'react';
+import { forwardRef, useId, type ReactNode, type ComponentRef } from 'react';
 import {
   Pressable, StyleSheet, Text, View, type PressableProps, type StyleProp, type TextProps,
   type TextStyle, type ViewStyle,
@@ -31,7 +31,7 @@ export function T({ style, ...p }: TextProps & { style?: StyleProp<TextStyle>; d
 
 type PressProps = Omit<PressableProps, 'style'> & { style?: StyleProp<ViewStyle>; children?: ReactNode; noScale?: boolean };
 
-export const Press = forwardRef<View, PressProps>(function Press({ style, noScale, children, ...p }, ref) {
+export const Press = forwardRef<ComponentRef<typeof View>, PressProps>(function Press({ style, noScale, children, ...p }, ref) {
   return (
     <Pressable
       ref={ref}

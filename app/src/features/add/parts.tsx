@@ -1,6 +1,6 @@
 // Building blocks shared by the Add and Repay sheets: the header with its date chip, the inline
 // date picker, tonal chip rows, the note line, the paper receipt and the physical keyboard bridge.
-import { createElement, useEffect, useRef, type ReactNode, type RefObject } from 'react';
+import { createElement, useEffect, useRef, type ReactNode, type RefObject, type ComponentRef } from 'react';
 import { ScrollView, TextInput, View, type StyleProp, type ViewStyle } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import type { Key } from '@/core';
@@ -133,7 +133,7 @@ export function GroupAvatar({ h, group, tone, size = 38, ink }: { h: Household; 
 /** The tonal note field. Tapping it opens the OS keyboard. */
 export function NoteLine({ tone, value, onChange, editing, setEditing, inputRef, onSubmit, hint, placeholder = 'Add a note', style }: {
   tone: GroupTone; value: string; onChange: (v: string) => void; editing: boolean; setEditing: (v: boolean) => void;
-  inputRef?: RefObject<TextInput | null>; onSubmit?: () => void; hint?: string; placeholder?: string; style?: StyleProp<ViewStyle>;
+  inputRef?: RefObject<ComponentRef<typeof TextInput> | null>; onSubmit?: () => void; hint?: string; placeholder?: string; style?: StyleProp<ViewStyle>;
 }) {
   const { escape } = useSheet();
   const { largeText } = useTheme();
