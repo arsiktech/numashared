@@ -24,8 +24,9 @@ import { showToast } from '@/store/ui';
 import { failureOf } from '@/sync/engine';
 import { AGENT_APPS, agentFailure } from '@/features/agents/links';
 import { AGENT_SWITCHES, READ_ONLY, permissionSummary, withPermission, type AgentPermission } from '@/features/agents/permissions';
+import { proLinkText } from '@/features/agents/proLink';
 import { copySetupPrompt, writeClipboardLater } from '@/features/agents/setupPrompt';
-import { AGENT_MCP_URL, agents, type AgentActivity, type AgentConnection } from '@/sync/runtime';
+import { AGENT_MCP_URL, agents, proLink, type AgentActivity, type AgentConnection } from '@/sync/runtime';
 
 const COPIED = 'Setup prompt copied. Paste it into your agent.';
 
@@ -98,6 +99,20 @@ export default function AgentsScreen() {
       setError(explainFailure(failureOf(e).code));
     }
   };
+  const copyPro = () => {
+    if (busy) return;
+    setBusy(true); setError(null); setUncopied(null);
+    const made = proLink.issue().then(({ key }) => proLinkText(h.id, key));
+    const copied = writeClipboardLater(made).catch(() => false);
+    made.then(
+      async (text) => {
+        haptic.success();
+        if (!(await copied)) setUncopied(text);
+        else if (isWeb) showToast('Numa Pro key copied. Paste it in Numa Pro, Settings.');
+      },
+      (e) => { haptic.warn(); const code = failureOf(e).code; setError(explainFailure(code)); },
+    ).finally(() => setBusy(false));
+  };
   const disconnect = async (id: string) => {
     setBusy(true); setError(null);
     try { await agents.disconnect(id); await refresh(); } catch (e) { setError(explainFailure(failureOf(e).code)); }
@@ -149,6 +164,10 @@ export default function AgentsScreen() {
           </View>
         </View>
       ) : null}
+
+      <SGroup title="Numa Pro">
+        <SRow label="Copy Numa Pro key" sub="Reads this household’s balances. It cannot change anything." last onPress={copyPro} />
+      </SGroup>
 
       <SGroup title="Chat apps">
         <SRow label={AGENT_APPS.claude.label} onPress={() => { void addTo('claude'); }} />

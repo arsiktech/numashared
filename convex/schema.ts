@@ -147,6 +147,22 @@ export default defineSchema({
     cancelledAt: v.optional(v.number()),
   }).index("by_pot_spend", ["potId", "spendId"]),
 
+  // A read-only key for Numa Pro (convex/proBalances.ts). The secret is made on the device;
+  // only its SHA-256 is kept. The key works on POST /pro/balances and nowhere else: it cannot
+  // add, edit or manage a household. One live key per account; issuing another revokes the last.
+  proLinks: defineTable({
+    accountId: v.id("accounts"),
+    keyHash: v.string(),
+    keyHint: v.string(),
+    createdAt: v.number(),
+    lastUsedAt: v.optional(v.number()),
+    revokedAt: v.optional(v.number()),
+    windowStartedAt: v.number(),
+    windowCount: v.number(),
+  })
+    .index("by_account", ["accountId"])
+    .index("by_key_hash", ["keyHash"]),
+
   appConfiguration: defineTable({
     key: v.literal("global"),
     minimumSupportedBuild: v.number(),

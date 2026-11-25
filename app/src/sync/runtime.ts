@@ -425,6 +425,20 @@ export const agents = {
   },
 };
 
+/** A read-only key Numa Pro uses to copy household balances. It cannot change a household. */
+export const proLink = {
+  status: () => within(backend.query<{ hint: string; createdAt: number; lastUsedAt: number | null } | null>('proBalances:status', {})),
+  revoke: () => within(backend.mutation('proBalances:revoke', {})),
+  /** The secret is made here and handed over once; only its SHA-256 reaches the server. */
+  issue: async (): Promise<{ key: string }> => {
+    const Crypto = await import('expo-crypto');
+    const secret = `nspro_${base64url(Crypto.getRandomBytes(32))}`;
+    const keyHash = (await Crypto.digestStringAsync(Crypto.CryptoDigestAlgorithm.SHA256, secret, { encoding: Crypto.CryptoEncoding.HEX })).toLowerCase();
+    await within(backend.mutation('proBalances:issue', { keyHash, keyHint: secret.slice(0, 12) }));
+    return { key: secret };
+  },
+};
+
 /** Online-only household changes. Each throws when offline so the screen can say so. */
 export const online = {
   addPerson: (h: Household, name: string) => within(addPersonOnline(backend, access, h.id, name)).then((id) => { issueInvites(backend, access, h.id).catch(() => {}); return id; }),
