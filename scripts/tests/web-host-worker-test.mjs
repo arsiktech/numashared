@@ -88,6 +88,19 @@ test("other POSTs still redirect so rate limits see the caller", async () => {
   assert.equal(calls.length, 0);
 });
 
+test("POST /pro/balances is proxied so the bearer key is preserved", async () => {
+  const calls = capture(new Response("{}", { status: 200, headers: { "content-type": "application/json" } }));
+  const response = await worker.fetch(new Request("https://shared.numaworth.com/pro/balances", {
+    method: "POST",
+    headers: { authorization: "Bearer nspro_example", "content-type": "application/json" },
+    body: JSON.stringify({ household: "household-id" }),
+  }), env);
+  assert.equal(response.status, 200);
+  assert.equal(calls.length, 1);
+  assert.equal(calls[0].url, "https://adept-camel-457.convex.site/pro/balances");
+  assert.equal(calls[0].init.headers.get("authorization"), "Bearer nspro_example");
+});
+
 test("POST /card-sync/spends is proxied so the bearer key is preserved", async () => {
   const calls = capture(new Response(JSON.stringify({ outcomes: [] }), { status: 200, headers: { "content-type": "application/json" } }));
   const response = await worker.fetch(new Request("https://shared.numaworth.com/card-sync/spends", {

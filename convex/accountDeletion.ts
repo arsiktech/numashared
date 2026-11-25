@@ -50,6 +50,7 @@ const accountSweep: Array<TableNames> = [
   "oauthTokens",
   "oauthCodes",
   "agentConnections",
+  "proLinks",
   "appleIdentityNotifications",
 ];
 

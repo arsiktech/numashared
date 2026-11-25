@@ -272,4 +272,11 @@ It also erases each registered client that only the departing account had connec
   ChatGPT, Claude Code, Codex, Cursor and Hermes clients against production.
 - The setup prompt's link uses `shared.numaworth.com/mcp/<secret>`, so it needs the web host
   Worker deployed first.
-- Shared balances into Numa Pro is separate work.
+## Numa Pro
+
+Numa Pro reads balances through `POST /pro/balances`, not through `/mcp`. The person
+copies a key in Settings, AI agents. The key is `nspro_` plus random bytes; the server
+stores only its SHA-256 (`proLinks`). The route returns that person's position against
+each other unit in one household. A negative amount means they owe that unit. The key
+cannot add, edit or manage a household, and issuing a new one revokes the last.
+Disconnecting it, or deleting the account, makes the next read fail.

@@ -55,6 +55,7 @@ import type * as members from "../members.js";
 import type * as model from "../model.js";
 import type * as notifications from "../notifications.js";
 import type * as pots from "../pots.js";
+import type * as proBalances from "../proBalances.js";
 import type * as pushQueue from "../pushQueue.js";
 import type * as redaction from "../redaction.js";
 import type * as web from "../web.js";
@@ -113,6 +114,7 @@ declare const fullApi: ApiFromModules<{
   model: typeof model;
   notifications: typeof notifications;
   pots: typeof pots;
+  proBalances: typeof proBalances;
   pushQueue: typeof pushQueue;
   redaction: typeof redaction;
   web: typeof web;

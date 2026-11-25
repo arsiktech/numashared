@@ -3,6 +3,7 @@ import { httpRouter } from "convex/server";
 import { mcp } from "./agentMcp";
 import * as agentOAuth from "./agentOAuth";
 import { spendsHttp } from "./cardSync";
+import { balancesHttp } from "./proBalances";
 import { preflight, withCors } from "./lib/cors";
 
 import {
@@ -59,6 +60,8 @@ http.route({ path: "/support", method: "GET", handler: support });
 http.route({ path: "/terms", method: "GET", handler: terms });
 http.route({ path: "/app-config", method: "GET", handler: withCors(appConfiguration) });
 http.route({ path: "/card-sync/spends", method: "POST", handler: spendsHttp });
+// Numa Pro reads household balances with a key that cannot write (convex/proBalances.ts).
+http.route({ path: "/pro/balances", method: "POST", handler: balancesHttp });
 // Agent access (MCP: read tools and per-connection write tools). An OAuth access token or a
 // secret link's secret in the Authorization header, or a secret in the link.
 for (const method of ["POST", "GET", "DELETE", "OPTIONS"] as const) {

@@ -6,8 +6,9 @@
 // - GET pages (home, privacy, support, invite pages, Apple's app-site-association): fetched from the
 //   backend and served here, so the address stays shared.numaworth.com.
 // - Any other GET a person could open: a small "page not found" with a way back.
-// - The MCP server for AI agents (/mcp), its protected resource metadata, and card sync
-//   (/card-sync/spends): passed through to the backend with the Authorization header intact (a
+// - The MCP server for AI agents (/mcp), its protected resource metadata, card sync
+//   (/card-sync/spends) and the Numa Pro balance read (/pro/balances): passed through to the
+//   backend with the Authorization header intact (a
 //   cross-origin redirect drops it), naming this origin so the backend answers with
 //   https://shared.numaworth.com/mcp as the resource. Their limits are per token/connection, not
 //   per IP.
@@ -22,7 +23,7 @@ main{max-width:34rem;margin:0 auto;padding:18vh 22px 48px}h1{font-size:2rem;line
 a{display:inline-block;padding:12px 0;margin-right:1.4rem;color:#1e2420;font-weight:650}
 @media (prefers-color-scheme:dark){body{background:#121512;color:#eef0e6}p{color:#adb1a6}a{color:#eef0e6}}</style></head>
 <body><main><h1>This page doesn’t exist</h1><p>The link may be old or mistyped.</p><a href="/">Numa Shared home</a><a href="/app/">Open the app</a></main></body></html>`;
-const PROXIED = [/^\/mcp(\/.*)?$/, /^\/\.well-known\/oauth-protected-resource(\/mcp)?$/, /^\/card-sync\/spends$/];
+const PROXIED = [/^\/mcp(\/.*)?$/, /^\/\.well-known\/oauth-protected-resource(\/mcp)?$/, /^\/card-sync\/spends$/, /^\/pro\/balances$/];
 const PROXY_HEADERS = ['accept', 'authorization', 'content-type', 'mcp-protocol-version', 'mcp-method', 'mcp-name', 'origin', 'access-control-request-method', 'access-control-request-headers'];
 const PAGES = [/^\/$/, /^\/assets\//, /^\/privacy$/, /^\/support$/, /^\/terms$/, /^\/join\/[^/]+$/, /^\/\.well-known\/apple-app-site-association$/];
 

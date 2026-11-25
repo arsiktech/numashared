@@ -71,6 +71,13 @@ The privacy policy (`privacyHTML` in `convex/lib/webContent.ts`, served at
   agent, not the person. Numa Shared cannot erase what a provider already
   received.
 
+# Numa Pro
+
+The privacy policy has a section, "Pro app". A key copied in Settings, AI agents
+lets Numa Pro read household balances (`POST /pro/balances`, `convex/proBalances.ts`).
+The server stores only a hash of the key. The key cannot add, edit or manage a
+household. Disconnecting it or deleting the account erases it. See `AGENT-ACCESS.md`.
+
 When an agent tool, a switch, a stored field or a lifetime changes, update the
 policy, its date and the assertions in `convex/web.test.ts` in the same change.
 Store label guidance is in `PRIVACY-LABELS.md`.

@@ -501,7 +501,7 @@ describe("free-host web entry", () => {
       "no separate diagnostic-consent switch",
       'href="https://expo.dev/privacy"',
     ]) expect(updates).toContain(phrase);
-    expect(privacyBody).toContain("Last updated 13 November 2026");
+    expect(privacyBody).toContain("Last updated 25 November 2026");
     expect(privacyBody).not.toContain("Crash diagnostics only under the build and consent settings disclosed in the app");
     // Agent access: who decides, what a connected agent reads and changes, who receives it, what
     // is kept, and how to stop it. Keep in step with docs/PRIVACY.md and docs/AGENT-ACCESS.md.
@@ -524,6 +524,7 @@ describe("free-host web entry", () => {
       "Settings, AI agents and choose Disconnect",
       "Deleting your account erases all your connections, tokens, activity and request ids",
     ]) expect(agents).toContain(phrase);
+    expect(privacyBody).toContain("It cannot add, edit or manage a household");
     expect(privacyBody).not.toContain("It can only read");
     expect(privacyBody).not.toContain("—");
 
