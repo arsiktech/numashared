@@ -1,6 +1,6 @@
 // New household: a name, the currency, and who lives there. Everyone starts in a group of their
 // own; the next screen pairs people up.
-import { useRef, useState } from 'react';
+import { useRef, useState, type ComponentRef } from 'react';
 import { TextInput, View } from 'react-native';
 import { useRouter } from 'expo-router';
 import { MAX_GROUPS } from '@/core/types';
@@ -23,7 +23,7 @@ export default function NewHousehold() {
   const [youName, setYouName] = useState('');
   const [others, setOthers] = useState<Row[]>([{ key: 1, name: '' }]);
   const seq = useRef(2);
-  const inputs = useRef(new Map<number, TextInput | null>());
+  const inputs = useRef(new Map<number, ComponentRef<typeof TextInput> | null>());
   const full = others.length + 1 >= MAX_GROUPS;
   const title = householdTitle(name);
 
@@ -35,7 +35,7 @@ export default function NewHousehold() {
   };
 
   const [problem, setProblem] = useState('');
-  const youInput = useRef<TextInput | null>(null);
+  const youInput = useRef<ComponentRef<typeof TextInput> | null>(null);
   const made = useRef(false);
   const create = () => {
     if (made.current) return;
@@ -90,7 +90,7 @@ export default function NewHousehold() {
 
 function PersonRow({ initial, value, onChange, placeholder, suffix, label, onRemove, onSubmit, inputRef }: {
   initial: string; value: string; onChange: (v: string) => void; placeholder: string; suffix?: string; label: string;
-  onRemove?: () => void; onSubmit?: () => void; inputRef?: (r: TextInput | null) => void;
+  onRemove?: () => void; onSubmit?: () => void; inputRef?: (r: ComponentRef<typeof TextInput> | null) => void;
 }) {
   const { c } = useTheme();
   return (

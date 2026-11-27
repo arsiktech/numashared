@@ -1,6 +1,6 @@
 // Web-only feedback. Hidden unless the three public env values are set and the service says this
 // app may send notes. A screenshot is taken on every screen the service's capture list allows.
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, type ComponentRef } from 'react';
 import { Image, TextInput, View } from 'react-native';
 import Svg, { Circle, Path } from 'react-native-svg';
 import { usePathname } from 'expo-router';
@@ -38,9 +38,9 @@ export function FeedbackButton() {
   const [mood, setMood] = useState<FeedbackMood | null>(null);
   const [shot, setShot] = useState<FeedbackCapture | null>(null);
   const [sending, setSending] = useState(false);
-  const rootRef = useRef<View>(null);
-  const buttonRef = useRef<View>(null);
-  const noteRef = useRef<TextInput>(null);
+  const rootRef = useRef<ComponentRef<typeof View>>(null);
+  const buttonRef = useRef<ComponentRef<typeof View>>(null);
+  const noteRef = useRef<ComponentRef<typeof TextInput>>(null);
   const openRef = useRef(false);
   const sendRef = useRef<() => void>(() => {});
   const captureSeq = useRef(0);

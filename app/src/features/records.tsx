@@ -1,5 +1,5 @@
 // Shared record row (Home "Latest", web lists) and the orb button that measures its origin.
-import { useRef } from 'react';
+import { useRef, type ComponentRef } from 'react';
 import { View, type StyleProp, type ViewStyle } from 'react-native';
 import type { Household, LedgerRecord } from '@/core/types';
 import { groupOfPerson } from '@/store/store';
@@ -77,7 +77,7 @@ function lastBy(r: LedgerRecord, type: 'voided') {
 export function OrbButton({ size = 92, plus = 32, spec = { type: 'add' } as SheetSpec, style, label = 'Add expense' }: {
   size?: number; plus?: number; spec?: SheetSpec; style?: StyleProp<ViewStyle>; label?: string;
 }) {
-  const ref = useRef<View>(null);
+  const ref = useRef<ComponentRef<typeof View>>(null);
   return (
     <Press ref={ref} accessibilityLabel={label} style={style}
       onPress={() => {

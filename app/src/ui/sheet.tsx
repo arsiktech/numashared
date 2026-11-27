@@ -2,9 +2,9 @@
 // back into it on close; dragging it down anywhere (or pulling down a list inside it that is already
 // at its top) slides it away. On a desk the Add sheet becomes a
 // popover that grows from the same orb. Reduce Motion replaces both with a short fade.
-import { createContext, Fragment, useCallback, useContext, useEffect, useId, useMemo, useRef, useState, type ReactNode } from 'react';
+import { createContext, Fragment, useCallback, useContext, useEffect, useId, useMemo, useRef, useState, type ReactNode, type ComponentRef } from 'react';
 import { BackHandler, Platform, Pressable, ScrollView, StyleSheet, View, type ScrollViewProps, type StyleProp, type ViewStyle } from 'react-native';
-import { Gesture, GestureDetector, type NativeGesture } from 'react-native-gesture-handler';
+import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import Animated, { Easing, makeMutable, runOnJS, useAnimatedReaction, useAnimatedStyle, useSharedValue, withSpring, withTiming, interpolate, type SharedValue } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Svg, { Defs, RadialGradient, Rect, Stop } from 'react-native-svg';
@@ -20,7 +20,7 @@ import { escapeSheet, ownsSheetFocus, takeSheetFocus } from './sheet-focus';
  */
 export const sheetBackdrop = makeMutable(0);
 
-type SheetCtx = { close: (how?: 'down' | 'done') => void; escape: () => void; scroll?: { native: NativeGesture; y: SharedValue<number> } };
+type SheetCtx = { close: (how?: 'down' | 'done') => void; escape: () => void; scroll?: { native: ReturnType<typeof Gesture.Native>; y: SharedValue<number> } };
 const Ctx = createContext<SheetCtx>({ close: () => {}, escape: () => {} });
 export const useSheet = () => useContext(Ctx);
 
@@ -57,7 +57,7 @@ export function Sheet({ origin, onClosed, children, background, height = 'full',
   const drag = useSharedValue(0);
   const [phase, setPhase] = useState<'opening' | 'open' | 'closing'>('opening');
   const closing = useRef(false);
-  const focusRoot = useRef<View>(null);
+  const focusRoot = useRef<ComponentRef<typeof View>>(null);
   const [focusReturn] = useState(() => isWeb && typeof document !== 'undefined' ? document.activeElement as HTMLElement | null : null);
   const washId = `wash${useId().replace(/[^a-zA-Z0-9]/g, '')}`;
   const onClosedRef = useRef(onClosed);

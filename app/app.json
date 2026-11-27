@@ -41,7 +41,7 @@
       "backgroundColor": "#FBFAF6"
     },
     "plugins": [
-      "expo-router",
+      ["expo-router", { "asyncRoutes": { "web": false } }],
       [
         "expo-splash-screen",
         {
@@ -57,8 +57,7 @@
         {
           "mode": "production"
         }
-      ],
-      "./plugins/with-ios-scene-lifecycle"
+      ]
     ],
     "experiments": {
       "typedRoutes": true,

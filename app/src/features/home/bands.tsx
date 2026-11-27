@@ -2,7 +2,7 @@
 // other group. Two groups get the big two-band layout; three or more get compact bands that say what
 // each group means for you. At the accessibility text sizes the ticket and orb leave the seam and sit
 // in a row under your name, so the bands grow with the text instead of clipping it.
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState, type ComponentRef } from 'react';
 import { useRouter } from 'expo-router';
 import { View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -208,7 +208,7 @@ function CompactBand({ h, g, hide, first, last, balances, transfers, mine }: {
  * than the band, scale that one name down; a name that fits keeps the full size.
  */
 function GroupTitle({ text, size, color, header }: { text: string; size: number; color: string; header?: boolean }) {
-  const ref = useRef<View>(null);
+  const ref = useRef<ComponentRef<typeof View>>(null);
   const [fontSize, setFontSize] = useState(size);
   const fit = () => {
     if (!isWeb) return;
